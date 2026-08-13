@@ -252,6 +252,7 @@ private class LynPlaybackServiceRuntime private constructor(
                 equalizerPreferencesStore = preferencesStore,
                 playbackDecoderPreferencesStore = preferencesStore,
                 navidromeAudioQualityPreferencesStore = preferencesStore,
+                navidromePlaybackCachePreferencesStore = preferencesStore,
                 networkConnectionTypeProvider = networkConnectionTypeProvider,
                 addressSelector = remoteSourceAddressSelector,
                 logger = logger,

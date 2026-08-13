@@ -21,8 +21,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.DEFAULT_PLAYBACK_VOLUME
 import top.iwesley.lyn.music.core.model.DiagnosticLogLevel
 import top.iwesley.lyn.music.core.model.DiagnosticLogger
@@ -44,6 +47,7 @@ import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.buildEmbySongLocator
 import top.iwesley.lyn.music.core.model.buildExternalOpenTrackId
 import top.iwesley.lyn.music.core.model.buildNavidromeSongLocator
+import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
 import top.iwesley.lyn.music.data.db.ImportSourceEntity
 import top.iwesley.lyn.music.data.db.LynMusicDatabase
@@ -1770,7 +1774,10 @@ class PlaybackRepositoriesTest {
             ),
         )
         val gateway = FakePlaybackGateway()
-        val playbackPreferencesStore = FakePlaybackPreferencesStore(autoPlayOnStartup = true)
+        val playbackPreferencesStore = FakePlaybackPreferencesStore(
+            autoPlayOnStartup = true,
+            autoPlayOnStartupDelaySeconds = 0,
+        )
         val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
         val repository = DefaultPlaybackRepository(
             database = database,
@@ -1791,6 +1798,58 @@ class PlaybackRepositoriesTest {
             assertEquals("track-4", gateway.loadCalls.single().track.id)
             assertEquals(true, gateway.loadCalls.single().playWhenReady)
             assertEquals(12_000L, gateway.loadCalls.single().startPositionMs)
+        } finally {
+            repository.close()
+            scope.cancel()
+            database.close()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `restore queue snapshot delays startup auto play when delay preference is set`() = runTest {
+        val database = createTestDatabase()
+        val tracks = sampleTracks(2)
+        database.trackDao().upsertAll(tracks.map { track -> sampleTrackEntity(track.id, track.title) })
+        database.playbackQueueSnapshotDao().upsert(
+            PlaybackQueueSnapshotEntity(
+                queueTrackIds = "track-1,track-2",
+                orderedQueueTrackIds = "track-1,track-2",
+                currentIndex = 0,
+                positionMs = 8_000L,
+                mode = PlaybackMode.ORDER.name,
+                updatedAt = 1L,
+            ),
+        )
+        val gateway = FakePlaybackGateway()
+        val playbackPreferencesStore = FakePlaybackPreferencesStore(
+            autoPlayOnStartup = true,
+            autoPlayOnStartupDelaySeconds = 5,
+        )
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val repository = DefaultPlaybackRepository(
+            database = database,
+            gateway = gateway,
+            playbackPreferencesStore = playbackPreferencesStore,
+            scope = scope,
+        )
+
+        try {
+            runCurrent()
+
+            assertEquals(false, repository.snapshot.value.isPlaying)
+            assertEquals(5, repository.snapshot.value.startupAutoPlayCountdownSeconds)
+            assertEquals(false, gateway.loadCalls.single().playWhenReady)
+
+            advanceTimeBy(4_999L)
+            runCurrent()
+            assertEquals(false, repository.snapshot.value.isPlaying)
+            assertEquals(1, repository.snapshot.value.startupAutoPlayCountdownSeconds)
+
+            advanceTimeBy(1L)
+            runCurrent()
+            assertEquals(true, repository.snapshot.value.isPlaying)
+            assertNull(repository.snapshot.value.startupAutoPlayCountdownSeconds)
         } finally {
             repository.close()
             scope.cancel()
@@ -3285,16 +3344,22 @@ private class FakePlaybackStatsReporter : PlaybackStatsReporter {
 private class FakePlaybackPreferencesStore(
     initialPlaybackVolume: Float? = null,
     autoPlayOnStartup: Boolean = false,
+    autoPlayOnStartupDelaySeconds: Int = DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS,
 ) : PlaybackPreferencesStore {
     private val mutableUseSambaCache = MutableStateFlow(false)
     private val mutablePlaybackVolume = MutableStateFlow(initialPlaybackVolume ?: DEFAULT_PLAYBACK_VOLUME)
     private val mutableAutoPlayOnStartup = MutableStateFlow(autoPlayOnStartup)
+    private val mutableAutoPlayOnStartupDelaySeconds = MutableStateFlow(
+        normalizeAutoPlayOnStartupDelaySeconds(autoPlayOnStartupDelaySeconds),
+    )
 
     val persistedVolumes = mutableListOf<Float>()
 
     override val useSambaCache: StateFlow<Boolean> = mutableUseSambaCache.asStateFlow()
     override val playbackVolume: StateFlow<Float> = mutablePlaybackVolume.asStateFlow()
     override val autoPlayOnStartup: StateFlow<Boolean> = mutableAutoPlayOnStartup.asStateFlow()
+    override val autoPlayOnStartupDelaySeconds: StateFlow<Int> =
+        mutableAutoPlayOnStartupDelaySeconds.asStateFlow()
 
     override suspend fun setUseSambaCache(enabled: Boolean) {
         mutableUseSambaCache.value = enabled
@@ -3308,6 +3373,10 @@ private class FakePlaybackPreferencesStore(
 
     override suspend fun setAutoPlayOnStartup(enabled: Boolean) {
         mutableAutoPlayOnStartup.value = enabled
+    }
+
+    override suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int) {
+        mutableAutoPlayOnStartupDelaySeconds.value = normalizeAutoPlayOnStartupDelaySeconds(seconds)
     }
 }
 

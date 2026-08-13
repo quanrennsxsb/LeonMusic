@@ -17,7 +17,22 @@ internal class JvmAppInstanceLock private constructor(
 
     companion object {
         fun tryAcquire(userHomeDirectory: File = File(System.getProperty("user.home"))): JvmAppInstanceLock? {
-            val lockFile = File(userHomeDirectory, ".lynmusic-app.lock")
+            val primaryLockFile = File(userHomeDirectory, ".lynmusic-app.lock")
+            return runCatching {
+                tryAcquireLockFile(primaryLockFile)
+            }.getOrElse { error ->
+                System.err.println("[Desktop][Startup][WARN] app-instance-lock primary failed path=${primaryLockFile.absolutePath}")
+                error.printStackTrace()
+                val fallbackLockFile = File(
+                    System.getProperty("java.io.tmpdir"),
+                    "lynmusic-${System.getProperty("user.name").orEmpty().ifBlank { "desktop" }}.lock",
+                )
+                tryAcquireLockFile(fallbackLockFile)
+            }
+        }
+
+        private fun tryAcquireLockFile(lockFile: File): JvmAppInstanceLock? {
+            System.err.println("[Desktop][Startup][DEBUG] app-instance-lock path=${lockFile.absolutePath}")
             lockFile.parentFile?.mkdirs()
             val channel = FileChannel.open(
                 lockFile.toPath(),
@@ -29,6 +44,8 @@ internal class JvmAppInstanceLock private constructor(
             } catch (_: OverlappingFileLockException) {
                 null
             } catch (error: Throwable) {
+                System.err.println("[Desktop][Startup][ERROR] app-instance-lock failed path=${lockFile.absolutePath}")
+                error.printStackTrace()
                 channel.close()
                 throw error
             }

@@ -53,6 +53,8 @@ import top.iwesley.lyn.music.core.model.LyricsSourceConfig
 import top.iwesley.lyn.music.core.model.MenuBarLyricsControlsPreferencesStore
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
 import top.iwesley.lyn.music.core.model.NavidromeAudioQualityPreferencesStore
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCachePreferencesStore
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheSizePreset
 import top.iwesley.lyn.music.core.model.NavidromeLibraryProbe
 import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.NavidromeSourceDraft
@@ -60,7 +62,10 @@ import top.iwesley.lyn.music.core.model.NoopDiagnosticLogger
 import top.iwesley.lyn.music.core.model.OfflineDownloadGateway
 import top.iwesley.lyn.music.core.model.PlaybackDecoderPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.PlaylistDetail
 import top.iwesley.lyn.music.core.model.PlaylistSummary
 import top.iwesley.lyn.music.core.model.RequestMethod
@@ -86,9 +91,12 @@ import top.iwesley.lyn.music.core.model.UnsupportedCompactPlayerLyricsPreference
 import top.iwesley.lyn.music.core.model.UnsupportedDesktopLyricsPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedMenuBarLyricsControlsPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedNavidromeAudioQualityPreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedNavidromePlaybackCachePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedSameNameLyricsFileGateway
 import top.iwesley.lyn.music.core.model.UnsupportedPlaybackDecoderPreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedPlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedPlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedPlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedWindowClosePreferencesStore
 import top.iwesley.lyn.music.core.model.WebDavSourceDraft
 import top.iwesley.lyn.music.core.model.WindowClosePreferencesStore
@@ -473,13 +481,17 @@ interface SettingsRepository {
     val showDesktopLyrics: StateFlow<Boolean>
     val showMenuBarLyricsControls: StateFlow<Boolean>
     val autoPlayOnStartup: StateFlow<Boolean>
+    val autoPlayOnStartupDelaySeconds: StateFlow<Int>
     val autoOpenPlayerOnStartup: StateFlow<Boolean>
     val minimizeWindowOnClose: StateFlow<Boolean>
     val appDisplayScalePreset: StateFlow<AppDisplayScalePreset>
     val navidromeWifiAudioQuality: StateFlow<NavidromeAudioQuality>
     val navidromeMobileAudioQuality: StateFlow<NavidromeAudioQuality>
+    val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset>
     val useAndroidExtensionDecoder: StateFlow<Boolean>
     val playerArtworkStyle: StateFlow<PlayerArtworkStyle>
+    val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset>
+    val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset>
     val selectedTheme: StateFlow<AppThemeId>
     val customThemeTokens: StateFlow<AppThemeTokens>
     val textPalettePreferences: StateFlow<AppThemeTextPalettePreferences>
@@ -493,13 +505,17 @@ interface SettingsRepository {
     suspend fun setShowDesktopLyrics(enabled: Boolean)
     suspend fun setShowMenuBarLyricsControls(enabled: Boolean)
     suspend fun setAutoPlayOnStartup(enabled: Boolean)
+    suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int)
     suspend fun setAutoOpenPlayerOnStartup(enabled: Boolean)
     suspend fun setMinimizeWindowOnClose(enabled: Boolean)
     suspend fun setAppDisplayScalePreset(preset: AppDisplayScalePreset)
     suspend fun setNavidromeWifiAudioQuality(quality: NavidromeAudioQuality)
     suspend fun setNavidromeMobileAudioQuality(quality: NavidromeAudioQuality)
+    suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset)
     suspend fun setUseAndroidExtensionDecoder(enabled: Boolean)
     suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle)
+    suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset)
+    suspend fun setPlayerArtworkSizePreset(preset: PlayerVisualSizePreset)
     suspend fun setSelectedTheme(themeId: AppThemeId)
     suspend fun setCustomThemeTokens(tokens: AppThemeTokens)
     suspend fun setTextPalette(themeId: AppThemeId, palette: AppThemeTextPalette)
@@ -2339,10 +2355,16 @@ class DefaultSettingsRepository(
         UnsupportedWindowClosePreferencesStore,
     private val navidromeAudioQualityPreferencesStore: NavidromeAudioQualityPreferencesStore =
         UnsupportedNavidromeAudioQualityPreferencesStore,
+    private val navidromePlaybackCachePreferencesStore: NavidromePlaybackCachePreferencesStore =
+        UnsupportedNavidromePlaybackCachePreferencesStore,
     private val playbackDecoderPreferencesStore: PlaybackDecoderPreferencesStore =
         UnsupportedPlaybackDecoderPreferencesStore,
     private val playerArtworkStylePreferencesStore: PlayerArtworkStylePreferencesStore =
         UnsupportedPlayerArtworkStylePreferencesStore,
+    private val playerLyricsFontSizePreferencesStore: PlayerLyricsFontSizePreferencesStore =
+        UnsupportedPlayerLyricsFontSizePreferencesStore,
+    private val playerArtworkSizePreferencesStore: PlayerArtworkSizePreferencesStore =
+        UnsupportedPlayerArtworkSizePreferencesStore,
 ) : SettingsRepository {
     override val lyricsSources: Flow<List<LyricsSourceDefinition>> = combine(
         database.lyricsSourceConfigDao().observeAll(),
@@ -2360,6 +2382,8 @@ class DefaultSettingsRepository(
         menuBarLyricsControlsPreferencesStore.showMenuBarLyricsControls
     override val autoPlayOnStartup: StateFlow<Boolean> =
         autoPlayOnStartupPreferencesStore.autoPlayOnStartup
+    override val autoPlayOnStartupDelaySeconds: StateFlow<Int> =
+        autoPlayOnStartupPreferencesStore.autoPlayOnStartupDelaySeconds
     override val autoOpenPlayerOnStartup: StateFlow<Boolean> =
         autoOpenPlayerOnStartupPreferencesStore.autoOpenPlayerOnStartup
     override val minimizeWindowOnClose: StateFlow<Boolean> =
@@ -2370,10 +2394,16 @@ class DefaultSettingsRepository(
         navidromeAudioQualityPreferencesStore.navidromeWifiAudioQuality
     override val navidromeMobileAudioQuality: StateFlow<NavidromeAudioQuality> =
         navidromeAudioQualityPreferencesStore.navidromeMobileAudioQuality
+    override val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset> =
+        navidromePlaybackCachePreferencesStore.navidromePlaybackCacheSizePreset
     override val useAndroidExtensionDecoder: StateFlow<Boolean> =
         playbackDecoderPreferencesStore.useAndroidExtensionDecoder
     override val playerArtworkStyle: StateFlow<PlayerArtworkStyle> =
         playerArtworkStylePreferencesStore.playerArtworkStyle
+    override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> =
+        playerLyricsFontSizePreferencesStore.playerLyricsFontSizePreset
+    override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> =
+        playerArtworkSizePreferencesStore.playerArtworkSizePreset
     override val selectedTheme: StateFlow<AppThemeId> = themePreferencesStore.selectedTheme
     override val customThemeTokens: StateFlow<AppThemeTokens> = themePreferencesStore.customThemeTokens
     override val textPalettePreferences: StateFlow<AppThemeTextPalettePreferences> = themePreferencesStore.textPalettePreferences
@@ -2426,6 +2456,10 @@ class DefaultSettingsRepository(
         autoPlayOnStartupPreferencesStore.setAutoPlayOnStartup(enabled)
     }
 
+    override suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int) {
+        autoPlayOnStartupPreferencesStore.setAutoPlayOnStartupDelaySeconds(seconds)
+    }
+
     override suspend fun setAutoOpenPlayerOnStartup(enabled: Boolean) {
         autoOpenPlayerOnStartupPreferencesStore.setAutoOpenPlayerOnStartup(enabled)
     }
@@ -2446,12 +2480,24 @@ class DefaultSettingsRepository(
         navidromeAudioQualityPreferencesStore.setNavidromeMobileAudioQuality(quality)
     }
 
+    override suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset) {
+        navidromePlaybackCachePreferencesStore.setNavidromePlaybackCacheSizePreset(preset)
+    }
+
     override suspend fun setUseAndroidExtensionDecoder(enabled: Boolean) {
         playbackDecoderPreferencesStore.setUseAndroidExtensionDecoder(enabled)
     }
 
     override suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle) {
         playerArtworkStylePreferencesStore.setPlayerArtworkStyle(style)
+    }
+
+    override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {
+        playerLyricsFontSizePreferencesStore.setPlayerLyricsFontSizePreset(preset)
+    }
+
+    override suspend fun setPlayerArtworkSizePreset(preset: PlayerVisualSizePreset) {
+        playerArtworkSizePreferencesStore.setPlayerArtworkSizePreset(preset)
     }
 
     override suspend fun setSelectedTheme(themeId: AppThemeId) {

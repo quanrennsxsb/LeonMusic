@@ -20,17 +20,41 @@ enum class NavidromeAudioQuality(
     Kbps128(128),
 }
 
+enum class NavidromePlaybackCacheSizePreset(
+    val sizeBytes: Long,
+) {
+    GB1(1L * 1024L * 1024L * 1024L),
+    GB2(2L * 1024L * 1024L * 1024L),
+    GB5(5L * 1024L * 1024L * 1024L),
+}
+
 enum class PlayerArtworkStyle {
     VINYL,
     HALF_RECORD,
     MINIMAL_COVER,
 }
 
+enum class PlayerVisualSizePreset(
+    val scale: Float,
+) {
+    Small(0.86f),
+    Standard(1.0f),
+    Large(1.14f),
+    VeryLarge(1.28f),
+    Maximum(1.42f),
+}
+
 val DEFAULT_NAVIDROME_WIFI_AUDIO_QUALITY: NavidromeAudioQuality = NavidromeAudioQuality.Original
 val DEFAULT_NAVIDROME_MOBILE_AUDIO_QUALITY: NavidromeAudioQuality = NavidromeAudioQuality.Kbps192
+val DEFAULT_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET: NavidromePlaybackCacheSizePreset =
+    NavidromePlaybackCacheSizePreset.GB2
 const val DEFAULT_ANDROID_EXTENSION_DECODER_ENABLED: Boolean = false
 const val DEFAULT_MINIMIZE_WINDOW_ON_CLOSE: Boolean = true
 val DEFAULT_PLAYER_ARTWORK_STYLE: PlayerArtworkStyle = PlayerArtworkStyle.VINYL
+val DEFAULT_PLAYER_LYRICS_FONT_SIZE_PRESET: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard
+val DEFAULT_PLAYER_ARTWORK_SIZE_PRESET: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard
+const val DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS: Int = 5
+const val MAX_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS: Int = 30
 
 fun appDisplayScalePresetOrDefault(name: String?): AppDisplayScalePreset {
     return AppDisplayScalePreset.entries.firstOrNull { it.name == name } ?: AppDisplayScalePreset.Default
@@ -43,8 +67,25 @@ fun navidromeAudioQualityOrDefault(
     return NavidromeAudioQuality.entries.firstOrNull { it.name == name } ?: default
 }
 
+fun navidromePlaybackCacheSizePresetOrDefault(name: String?): NavidromePlaybackCacheSizePreset {
+    return NavidromePlaybackCacheSizePreset.entries.firstOrNull { it.name == name }
+        ?: DEFAULT_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET
+}
+
 fun playerArtworkStyleOrDefault(name: String?): PlayerArtworkStyle {
     return PlayerArtworkStyle.entries.firstOrNull { it.name == name } ?: DEFAULT_PLAYER_ARTWORK_STYLE
+}
+
+fun playerVisualSizePresetOrDefault(
+    name: String?,
+    default: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard,
+): PlayerVisualSizePreset {
+    return PlayerVisualSizePreset.entries.firstOrNull { it.name == name } ?: default
+}
+
+fun normalizeAutoPlayOnStartupDelaySeconds(value: Int?): Int {
+    return (value ?: DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS)
+        .coerceIn(0, MAX_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS)
 }
 
 fun effectiveAppDisplayDensity(
@@ -91,8 +132,10 @@ interface MenuBarLyricsControlsPreferencesStore {
 
 interface AutoPlayOnStartupPreferencesStore {
     val autoPlayOnStartup: StateFlow<Boolean>
+    val autoPlayOnStartupDelaySeconds: StateFlow<Int>
 
     suspend fun setAutoPlayOnStartup(enabled: Boolean)
+    suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int)
 }
 
 interface AutoOpenPlayerOnStartupPreferencesStore {
@@ -121,6 +164,12 @@ interface NavidromeAudioQualityPreferencesStore {
     suspend fun setNavidromeMobileAudioQuality(quality: NavidromeAudioQuality)
 }
 
+interface NavidromePlaybackCachePreferencesStore {
+    val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset>
+
+    suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset)
+}
+
 interface PlaybackDecoderPreferencesStore {
     val useAndroidExtensionDecoder: StateFlow<Boolean>
 
@@ -131,6 +180,18 @@ interface PlayerArtworkStylePreferencesStore {
     val playerArtworkStyle: StateFlow<PlayerArtworkStyle>
 
     suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle)
+}
+
+interface PlayerLyricsFontSizePreferencesStore {
+    val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset>
+
+    suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset)
+}
+
+interface PlayerArtworkSizePreferencesStore {
+    val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset>
+
+    suspend fun setPlayerArtworkSizePreset(preset: PlayerVisualSizePreset)
 }
 
 interface LyricsShareFontPreferencesStore {
@@ -171,11 +232,17 @@ object UnsupportedMenuBarLyricsControlsPreferencesStore : MenuBarLyricsControlsP
 
 object UnsupportedAutoPlayOnStartupPreferencesStore : AutoPlayOnStartupPreferencesStore {
     private val mutableAutoPlayOnStartup = MutableStateFlow(false)
+    private val mutableAutoPlayOnStartupDelaySeconds = MutableStateFlow(DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS)
 
     override val autoPlayOnStartup: StateFlow<Boolean> = mutableAutoPlayOnStartup
+    override val autoPlayOnStartupDelaySeconds: StateFlow<Int> = mutableAutoPlayOnStartupDelaySeconds
 
     override suspend fun setAutoPlayOnStartup(enabled: Boolean) {
         mutableAutoPlayOnStartup.value = enabled
+    }
+
+    override suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int) {
+        mutableAutoPlayOnStartupDelaySeconds.value = normalizeAutoPlayOnStartupDelaySeconds(seconds)
     }
 }
 
@@ -225,6 +292,18 @@ object UnsupportedNavidromeAudioQualityPreferencesStore : NavidromeAudioQualityP
     }
 }
 
+object UnsupportedNavidromePlaybackCachePreferencesStore : NavidromePlaybackCachePreferencesStore {
+    private val mutableNavidromePlaybackCacheSizePreset =
+        MutableStateFlow(DEFAULT_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET)
+
+    override val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset> =
+        mutableNavidromePlaybackCacheSizePreset
+
+    override suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset) {
+        mutableNavidromePlaybackCacheSizePreset.value = preset
+    }
+}
+
 object UnsupportedPlaybackDecoderPreferencesStore : PlaybackDecoderPreferencesStore {
     private val mutableUseAndroidExtensionDecoder =
         MutableStateFlow(DEFAULT_ANDROID_EXTENSION_DECODER_ENABLED)
@@ -243,6 +322,26 @@ object UnsupportedPlayerArtworkStylePreferencesStore : PlayerArtworkStylePrefere
 
     override suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle) {
         mutablePlayerArtworkStyle.value = style
+    }
+}
+
+object UnsupportedPlayerLyricsFontSizePreferencesStore : PlayerLyricsFontSizePreferencesStore {
+    private val mutablePlayerLyricsFontSizePreset = MutableStateFlow(DEFAULT_PLAYER_LYRICS_FONT_SIZE_PRESET)
+
+    override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> = mutablePlayerLyricsFontSizePreset
+
+    override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {
+        mutablePlayerLyricsFontSizePreset.value = preset
+    }
+}
+
+object UnsupportedPlayerArtworkSizePreferencesStore : PlayerArtworkSizePreferencesStore {
+    private val mutablePlayerArtworkSizePreset = MutableStateFlow(DEFAULT_PLAYER_ARTWORK_SIZE_PRESET)
+
+    override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> = mutablePlayerArtworkSizePreset
+
+    override suspend fun setPlayerArtworkSizePreset(preset: PlayerVisualSizePreset) {
+        mutablePlayerArtworkSizePreset.value = preset
     }
 }
 

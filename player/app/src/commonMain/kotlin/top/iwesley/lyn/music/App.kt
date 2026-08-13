@@ -813,6 +813,8 @@ fun App(
                             appDisplayScalePreset = settingsState.appDisplayScalePreset,
                             showCompactPlayerLyrics = settingsState.showCompactPlayerLyrics,
                             playerArtworkStyle = settingsState.playerArtworkStyle,
+                            playerLyricsFontSizePreset = settingsState.playerLyricsFontSizePreset,
+                            playerArtworkSizePreset = settingsState.playerArtworkSizePreset,
                             showEqualizerEntry = component.platform.capabilities.supportsEqualizer &&
                                 component.equalizerPlatformService.isSupported,
                             onOpenEqualizer = component.equalizerPlatformService::openEqualizer,

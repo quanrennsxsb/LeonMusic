@@ -23,6 +23,7 @@ import top.iwesley.lyn.music.core.model.AppThemeTextPalette
 import top.iwesley.lyn.music.core.model.AppThemeTextPalettePreferences
 import top.iwesley.lyn.music.core.model.AppThemeTokens
 import top.iwesley.lyn.music.core.model.BuildMetadata
+import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.DeviceInfoGateway
 import top.iwesley.lyn.music.core.model.DeviceInfoSnapshot
 import top.iwesley.lyn.music.core.model.DesktopLyricsPlatformService
@@ -34,7 +35,9 @@ import top.iwesley.lyn.music.core.model.LyricsResponseFormat
 import top.iwesley.lyn.music.core.model.LyricsSourceDefinition
 import top.iwesley.lyn.music.core.model.LyricsSourceConfig
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheSizePreset
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.RequestMethod
 import top.iwesley.lyn.music.core.model.UnsupportedAppStorageGateway
 import top.iwesley.lyn.music.core.model.UnsupportedAppDataLocationPlatformService
@@ -80,13 +83,18 @@ data class SettingsState(
     val showDesktopLyrics: Boolean = false,
     val showMenuBarLyricsControls: Boolean = false,
     val autoPlayOnStartup: Boolean = false,
+    val autoPlayOnStartupDelaySeconds: Int = DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS,
     val autoOpenPlayerOnStartup: Boolean = false,
     val minimizeWindowOnClose: Boolean = DEFAULT_MINIMIZE_WINDOW_ON_CLOSE,
     val appDisplayScalePreset: AppDisplayScalePreset = AppDisplayScalePreset.Default,
     val navidromeWifiAudioQuality: NavidromeAudioQuality = NavidromeAudioQuality.Original,
     val navidromeMobileAudioQuality: NavidromeAudioQuality = NavidromeAudioQuality.Kbps192,
+    val navidromePlaybackCacheSizePreset: NavidromePlaybackCacheSizePreset =
+        NavidromePlaybackCacheSizePreset.GB2,
     val useAndroidExtensionDecoder: Boolean = false,
     val playerArtworkStyle: PlayerArtworkStyle = PlayerArtworkStyle.VINYL,
+    val playerLyricsFontSizePreset: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard,
+    val playerArtworkSizePreset: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard,
     val supportsLyricsShareFontImport: Boolean = false,
     val importedLyricsShareFonts: List<LyricsShareFontOption> = emptyList(),
     val lyricsShareFontsLoading: Boolean = false,
@@ -142,6 +150,7 @@ sealed interface SettingsIntent {
     data class ShowMenuBarLyricsControlsChanged(val value: Boolean) : SettingsIntent
     data object RecheckDesktopLyricsPermission : SettingsIntent
     data class AutoPlayOnStartupChanged(val value: Boolean) : SettingsIntent
+    data class AutoPlayOnStartupDelaySecondsChanged(val value: Int) : SettingsIntent
     data class AutoOpenPlayerOnStartupChanged(val value: Boolean) : SettingsIntent
     data class MinimizeWindowOnCloseChanged(
         val value: Boolean,
@@ -150,8 +159,13 @@ sealed interface SettingsIntent {
     data class AppDisplayScalePresetChanged(val value: AppDisplayScalePreset) : SettingsIntent
     data class NavidromeWifiAudioQualityChanged(val value: NavidromeAudioQuality) : SettingsIntent
     data class NavidromeMobileAudioQualityChanged(val value: NavidromeAudioQuality) : SettingsIntent
+    data class NavidromePlaybackCacheSizePresetChanged(
+        val value: NavidromePlaybackCacheSizePreset,
+    ) : SettingsIntent
     data class AndroidExtensionDecoderChanged(val value: Boolean) : SettingsIntent
     data class PlayerArtworkStyleChanged(val value: PlayerArtworkStyle) : SettingsIntent
+    data class PlayerLyricsFontSizePresetChanged(val value: PlayerVisualSizePreset) : SettingsIntent
+    data class PlayerArtworkSizePresetChanged(val value: PlayerVisualSizePreset) : SettingsIntent
     data class ThemeSelected(val value: AppThemeId) : SettingsIntent
     data class ThemeTextPaletteSelected(val themeId: AppThemeId, val value: AppThemeTextPalette) : SettingsIntent
     data class CustomThemeColorUpdated(val role: CustomThemeColorRole, val argb: Int) : SettingsIntent
@@ -332,6 +346,11 @@ class SettingsStore(
             }
         }
         scope.launch {
+            repository.autoPlayOnStartupDelaySeconds.collect { seconds ->
+                updateState { state -> state.copy(autoPlayOnStartupDelaySeconds = seconds) }
+            }
+        }
+        scope.launch {
             repository.autoOpenPlayerOnStartup.collect { enabled ->
                 updateState { state -> state.copy(autoOpenPlayerOnStartup = enabled) }
             }
@@ -352,6 +371,11 @@ class SettingsStore(
             }
         }
         scope.launch {
+            repository.navidromePlaybackCacheSizePreset.collect { preset ->
+                updateState { state -> state.copy(navidromePlaybackCacheSizePreset = preset) }
+            }
+        }
+        scope.launch {
             repository.useAndroidExtensionDecoder.collect { enabled ->
                 updateState { state -> state.copy(useAndroidExtensionDecoder = enabled) }
             }
@@ -359,6 +383,16 @@ class SettingsStore(
         scope.launch {
             repository.playerArtworkStyle.collect { style ->
                 updateState { state -> state.copy(playerArtworkStyle = style) }
+            }
+        }
+        scope.launch {
+            repository.playerLyricsFontSizePreset.collect { preset ->
+                updateState { state -> state.copy(playerLyricsFontSizePreset = preset) }
+            }
+        }
+        scope.launch {
+            repository.playerArtworkSizePreset.collect { preset ->
+                updateState { state -> state.copy(playerArtworkSizePreset = preset) }
             }
         }
         scope.launch {
@@ -569,6 +603,11 @@ class SettingsStore(
                 updateState { it.copy(autoPlayOnStartup = intent.value) }
             }
 
+            is SettingsIntent.AutoPlayOnStartupDelaySecondsChanged -> {
+                repository.setAutoPlayOnStartupDelaySeconds(intent.value)
+                updateState { it.copy(autoPlayOnStartupDelaySeconds = repository.autoPlayOnStartupDelaySeconds.value) }
+            }
+
             is SettingsIntent.AutoOpenPlayerOnStartupChanged -> {
                 repository.setAutoOpenPlayerOnStartup(intent.value)
                 updateState { it.copy(autoOpenPlayerOnStartup = intent.value) }
@@ -593,6 +632,11 @@ class SettingsStore(
                 updateState { it.copy(navidromeMobileAudioQuality = intent.value) }
             }
 
+            is SettingsIntent.NavidromePlaybackCacheSizePresetChanged -> {
+                repository.setNavidromePlaybackCacheSizePreset(intent.value)
+                updateState { it.copy(navidromePlaybackCacheSizePreset = intent.value) }
+            }
+
             is SettingsIntent.AndroidExtensionDecoderChanged -> {
                 repository.setUseAndroidExtensionDecoder(intent.value)
                 updateState { it.copy(useAndroidExtensionDecoder = intent.value) }
@@ -601,6 +645,16 @@ class SettingsStore(
             is SettingsIntent.PlayerArtworkStyleChanged -> {
                 repository.setPlayerArtworkStyle(intent.value)
                 updateState { it.copy(playerArtworkStyle = intent.value) }
+            }
+
+            is SettingsIntent.PlayerLyricsFontSizePresetChanged -> {
+                repository.setPlayerLyricsFontSizePreset(intent.value)
+                updateState { it.copy(playerLyricsFontSizePreset = intent.value) }
+            }
+
+            is SettingsIntent.PlayerArtworkSizePresetChanged -> {
+                repository.setPlayerArtworkSizePreset(intent.value)
+                updateState { it.copy(playerArtworkSizePreset = intent.value) }
             }
 
             is SettingsIntent.ThemeSelected -> {
@@ -1524,6 +1578,7 @@ class SettingsStore(
         return when (this) {
             AppStorageCategory.Artwork -> "封面缓存"
             AppStorageCategory.PlaybackCache -> "播放缓存"
+            AppStorageCategory.NavidromePlaybackCache -> "Navidrome 播放缓存"
             AppStorageCategory.OfflineDownloads -> "离线音乐"
             AppStorageCategory.LyricsShareTemp -> "歌词分享临时文件"
             AppStorageCategory.TagEditTemp -> "标签编辑临时文件"

@@ -90,9 +90,13 @@ import top.iwesley.lyn.music.core.model.PlaybackGatewayState
 import top.iwesley.lyn.music.core.model.PlaybackLoadToken
 import top.iwesley.lyn.music.core.model.PlaybackPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.LyricsShareFontPreferencesStore
 import top.iwesley.lyn.music.core.model.JvmAppDataDirectory
+import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.DEFAULT_PLAYBACK_VOLUME
 import top.iwesley.lyn.music.core.model.SAME_NAME_LRC_MAX_BYTES
 import top.iwesley.lyn.music.core.model.SambaCachePreferencesStore
@@ -106,8 +110,10 @@ import top.iwesley.lyn.music.core.model.defaultCustomThemeTokens
 import top.iwesley.lyn.music.core.model.defaultThemeTextPalettePreferences
 import top.iwesley.lyn.music.core.model.inferArtworkFileExtension
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
+import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
 import top.iwesley.lyn.music.core.model.playerArtworkStyleOrDefault
+import top.iwesley.lyn.music.core.model.playerVisualSizePresetOrDefault
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
 import top.iwesley.lyn.music.core.model.stableArtworkBytesHash
 import top.iwesley.lyn.music.core.model.withThemePalette
@@ -263,6 +269,8 @@ fun createJvmAppComponent(
             autoOpenPlayerOnStartupPreferencesStore = appPreferencesStore,
             windowClosePreferencesStore = appPreferencesStore,
             playerArtworkStylePreferencesStore = appPreferencesStore,
+            playerLyricsFontSizePreferencesStore = appPreferencesStore,
+            playerArtworkSizePreferencesStore = appPreferencesStore,
             desktopVlcPreferencesStore = appPreferencesStore,
             networkConnectionTypeProvider = WifiNetworkConnectionTypeProvider,
             remoteSourceAddressSelector = remoteSourceAddressSelector,
@@ -428,6 +436,7 @@ internal class JvmAppPreferencesStore(
 ) : PlaybackPreferencesStore, SambaCachePreferencesStore, ThemePreferencesStore,
     CompactPlayerLyricsPreferencesStore, DesktopLyricsPreferencesStore, MenuBarLyricsControlsPreferencesStore,
     DesktopVlcPreferencesStore, LyricsShareFontPreferencesStore, PlayerArtworkStylePreferencesStore,
+    PlayerLyricsFontSizePreferencesStore, PlayerArtworkSizePreferencesStore,
     LibrarySourceFilterPreferencesStore, WindowClosePreferencesStore, AutoOpenPlayerOnStartupPreferencesStore {
     private val propertiesFile = JvmSettingsPropertiesFile(settingsFile)
     private val mutableUseSambaCache = MutableStateFlow(readUseSambaCache())
@@ -436,6 +445,7 @@ internal class JvmAppPreferencesStore(
     private val mutableShowDesktopLyrics = MutableStateFlow(readShowDesktopLyrics())
     private val mutableShowMenuBarLyricsControls = MutableStateFlow(readShowMenuBarLyricsControls())
     private val mutableAutoPlayOnStartup = MutableStateFlow(readAutoPlayOnStartup())
+    private val mutableAutoPlayOnStartupDelaySeconds = MutableStateFlow(readAutoPlayOnStartupDelaySeconds())
     private val mutableAutoOpenPlayerOnStartup = MutableStateFlow(readAutoOpenPlayerOnStartup())
     private val mutableMinimizeWindowOnClose = MutableStateFlow(readMinimizeWindowOnClose())
     private val mutableLibrarySourceFilter = MutableStateFlow(readLibrarySourceFilter(KEY_LIBRARY_SOURCE_FILTER))
@@ -454,6 +464,8 @@ internal class JvmAppPreferencesStore(
     private val mutableTextPalettePreferences = MutableStateFlow(readTextPalettePreferences())
     private val mutableDesktopVlcManualPath = MutableStateFlow(readDesktopVlcManualPath())
     private val mutablePlayerArtworkStyle = MutableStateFlow(readPlayerArtworkStyle())
+    private val mutablePlayerLyricsFontSizePreset = MutableStateFlow(readPlayerLyricsFontSizePreset())
+    private val mutablePlayerArtworkSizePreset = MutableStateFlow(readPlayerArtworkSizePreset())
     private val mutableDesktopVlcAutoDetectedPath = MutableStateFlow<String?>(null)
     private val mutableDesktopVlcEffectivePath = MutableStateFlow(
         resolveDesktopVlcEffectivePath(
@@ -469,6 +481,8 @@ internal class JvmAppPreferencesStore(
     override val showDesktopLyrics: StateFlow<Boolean> = mutableShowDesktopLyrics.asStateFlow()
     override val showMenuBarLyricsControls: StateFlow<Boolean> = mutableShowMenuBarLyricsControls.asStateFlow()
     override val autoPlayOnStartup: StateFlow<Boolean> = mutableAutoPlayOnStartup.asStateFlow()
+    override val autoPlayOnStartupDelaySeconds: StateFlow<Int> =
+        mutableAutoPlayOnStartupDelaySeconds.asStateFlow()
     override val autoOpenPlayerOnStartup: StateFlow<Boolean> =
         mutableAutoOpenPlayerOnStartup.asStateFlow()
     override val minimizeWindowOnClose: StateFlow<Boolean> = mutableMinimizeWindowOnClose.asStateFlow()
@@ -480,6 +494,10 @@ internal class JvmAppPreferencesStore(
     override val desktopVlcEffectivePath: StateFlow<String?> = mutableDesktopVlcEffectivePath.asStateFlow()
     override val selectedLyricsShareFontKey: StateFlow<String?> = mutableSelectedLyricsShareFontKey.asStateFlow()
     override val playerArtworkStyle: StateFlow<PlayerArtworkStyle> = mutablePlayerArtworkStyle.asStateFlow()
+    override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> =
+        mutablePlayerLyricsFontSizePreset.asStateFlow()
+    override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> =
+        mutablePlayerArtworkSizePreset.asStateFlow()
     override val librarySourceFilter: StateFlow<LibrarySourceFilter> = mutableLibrarySourceFilter.asStateFlow()
     override val favoritesSourceFilter: StateFlow<LibrarySourceFilter> = mutableFavoritesSourceFilter.asStateFlow()
     override val onlineLibrarySourceId: StateFlow<String?> = mutableOnlineLibrarySourceId.asStateFlow()
@@ -531,6 +549,14 @@ internal class JvmAppPreferencesStore(
         )
     }
 
+    override suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int) {
+        val normalizedSeconds = normalizeAutoPlayOnStartupDelaySeconds(seconds)
+        updateProperties(
+            mutate = { setProperty(KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS, normalizedSeconds.toString()) },
+            onPersisted = { mutableAutoPlayOnStartupDelaySeconds.value = normalizedSeconds },
+        )
+    }
+
     override suspend fun setAutoOpenPlayerOnStartup(enabled: Boolean) {
         updateProperties(
             mutate = { setProperty(KEY_AUTO_OPEN_PLAYER_ON_STARTUP, enabled.toString()) },
@@ -549,6 +575,20 @@ internal class JvmAppPreferencesStore(
         updateProperties(
             mutate = { setProperty(KEY_PLAYER_ARTWORK_STYLE, style.name) },
             onPersisted = { mutablePlayerArtworkStyle.value = style },
+        )
+    }
+
+    override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {
+        updateProperties(
+            mutate = { setProperty(KEY_PLAYER_LYRICS_FONT_SIZE_PRESET, preset.name) },
+            onPersisted = { mutablePlayerLyricsFontSizePreset.value = preset },
+        )
+    }
+
+    override suspend fun setPlayerArtworkSizePreset(preset: PlayerVisualSizePreset) {
+        updateProperties(
+            mutate = { setProperty(KEY_PLAYER_ARTWORK_SIZE_PRESET, preset.name) },
+            onPersisted = { mutablePlayerArtworkSizePreset.value = preset },
         )
     }
 
@@ -701,6 +741,13 @@ internal class JvmAppPreferencesStore(
         return loadProperties().getProperty(KEY_AUTO_PLAY_ON_STARTUP)?.toBooleanStrictOrNull() ?: false
     }
 
+    private fun readAutoPlayOnStartupDelaySeconds(): Int {
+        return normalizeAutoPlayOnStartupDelaySeconds(
+            loadProperties().getProperty(KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS)?.toIntOrNull()
+                ?: DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS,
+        )
+    }
+
     private fun readAutoOpenPlayerOnStartup(): Boolean {
         return loadProperties().getProperty(KEY_AUTO_OPEN_PLAYER_ON_STARTUP)?.toBooleanStrictOrNull() ?: false
     }
@@ -713,6 +760,14 @@ internal class JvmAppPreferencesStore(
 
     private fun readPlayerArtworkStyle(): PlayerArtworkStyle {
         return playerArtworkStyleOrDefault(loadProperties().getProperty(KEY_PLAYER_ARTWORK_STYLE))
+    }
+
+    private fun readPlayerLyricsFontSizePreset(): PlayerVisualSizePreset {
+        return playerVisualSizePresetOrDefault(loadProperties().getProperty(KEY_PLAYER_LYRICS_FONT_SIZE_PRESET))
+    }
+
+    private fun readPlayerArtworkSizePreset(): PlayerVisualSizePreset {
+        return playerVisualSizePresetOrDefault(loadProperties().getProperty(KEY_PLAYER_ARTWORK_SIZE_PRESET))
     }
 
     private fun readLibrarySourceFilter(key: String): LibrarySourceFilter {
@@ -3124,9 +3179,12 @@ private const val KEY_SHOW_COMPACT_PLAYER_LYRICS = "show_compact_player_lyrics"
 private const val KEY_SHOW_DESKTOP_LYRICS = "show_desktop_lyrics"
 private const val KEY_SHOW_MENU_BAR_LYRICS_CONTROLS = "show_menu_bar_lyrics_controls"
 private const val KEY_AUTO_PLAY_ON_STARTUP = "auto_play_on_startup"
+private const val KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS = "auto_play_on_startup_delay_seconds"
 private const val KEY_AUTO_OPEN_PLAYER_ON_STARTUP = "auto_open_player_on_startup"
 private const val KEY_MACOS_MINIMIZE_WINDOW_ON_CLOSE = "macos_minimize_window_on_close"
 private const val KEY_PLAYER_ARTWORK_STYLE = "player_artwork_style"
+private const val KEY_PLAYER_LYRICS_FONT_SIZE_PRESET = "player_lyrics_font_size_preset"
+private const val KEY_PLAYER_ARTWORK_SIZE_PRESET = "player_artwork_size_preset"
 private const val KEY_LIBRARY_SOURCE_FILTER = "library_source_filter"
 private const val KEY_FAVORITES_SOURCE_FILTER = "favorites_source_filter"
 private const val KEY_ONLINE_LIBRARY_SOURCE_ID = "online_library_source_id"

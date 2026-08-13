@@ -142,6 +142,7 @@ import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlaybackAudioFormat
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.debug
 import top.iwesley.lyn.music.core.model.parseSubsonicCompatibleSongLocator
@@ -169,6 +170,8 @@ internal fun PlayerDrawerHost(
     appDisplayScalePreset: AppDisplayScalePreset,
     showCompactPlayerLyrics: Boolean,
     playerArtworkStyle: PlayerArtworkStyle,
+    playerLyricsFontSizePreset: PlayerVisualSizePreset,
+    playerArtworkSizePreset: PlayerVisualSizePreset,
     showEqualizerEntry: Boolean,
     onOpenEqualizer: () -> Unit,
     lyricsShareThemeTokens: AppThemeTokens,
@@ -222,6 +225,8 @@ internal fun PlayerDrawerHost(
                 appDisplayScalePreset = appDisplayScalePreset,
                 showCompactPlayerLyrics = showCompactPlayerLyrics,
                 playerArtworkStyle = playerArtworkStyle,
+                playerLyricsFontSizePreset = playerLyricsFontSizePreset,
+                playerArtworkSizePreset = playerArtworkSizePreset,
                 showEqualizerEntry = showEqualizerEntry,
                 onOpenEqualizer = onOpenEqualizer,
                 lyricsShareThemeTokens = lyricsShareThemeTokens,
@@ -469,6 +474,7 @@ private fun MiniPlayerBar(
         return
     }
     val miniPlayerLyricsText = rememberMiniPlayerLyricsText(state)
+    val startupCountdownText = startupAutoPlayCountdownText(snapshot)
     if (mobile) {
         MobileMiniPlayerBar(
             snapshot = snapshot,
@@ -519,6 +525,7 @@ private fun MiniPlayerBar(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            val miniPlayerSecondaryText = startupCountdownText ?: miniPlayerLyricsText
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -544,14 +551,14 @@ private fun MiniPlayerBar(
                     maxLines = 1,
                 )
             }
-            if (miniPlayerLyricsText != null) {
+            if (miniPlayerSecondaryText != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = miniPlayerLyricsText,
+                        text = miniPlayerSecondaryText,
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.78f),
@@ -618,6 +625,13 @@ internal fun automotiveLandscapeMiniPlayerActions(): List<AutomotiveLandscapeMin
     )
 }
 
+private fun startupAutoPlayCountdownText(snapshot: PlaybackSnapshot): String? {
+    val seconds = snapshot.startupAutoPlayCountdownSeconds
+        ?.takeIf { it > 0 }
+        ?: return null
+    return "将在 ${seconds} 秒后自动播放"
+}
+
 @Composable
 private fun AutomotiveLandscapeMiniPlayerBar(
     snapshot: PlaybackSnapshot,
@@ -629,7 +643,8 @@ private fun AutomotiveLandscapeMiniPlayerBar(
     onOpenQueue: () -> Unit,
 ) {
     val actionTint = Color.White.copy(alpha = 0.96f)
-    val supportingText = lyricsText
+    val supportingText = startupAutoPlayCountdownText(snapshot)
+        ?: lyricsText
         ?.takeIf { hasMiniPlayerLyricsContent(showPortraitLyrics = true, lyricsText = it) }
         ?: snapshot.currentDisplayArtistName
         ?: "未知艺人"
@@ -820,11 +835,12 @@ private fun MobileMiniPlayerBar(
     onPlayerIntent: (PlayerIntent) -> Unit,
     onOpenQueue: () -> Unit,
 ) {
+    val startupCountdownText = startupAutoPlayCountdownText(snapshot)
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { 72.dp.toPx() }
     val maxVisualOffsetPx = with(density) { 84.dp.toPx() }
     var dragOffsetPx by remember(snapshot.currentTrack?.id) { mutableStateOf(0f) }
-    val showLyrics = hasMiniPlayerLyricsContent(
+    val showLyrics = startupCountdownText == null && hasMiniPlayerLyricsContent(
         showPortraitLyrics = showPortraitLyrics,
         lyricsText = lyricsText,
     )
@@ -891,7 +907,17 @@ private fun MobileMiniPlayerBar(
                 spinning = snapshot.isPlaying,
                 retainPreviousArtworkWhileLoading = true,
             )
-            if (showLyrics && preferLyricsView) {
+            if (startupCountdownText != null) {
+                Text(
+                    text = startupCountdownText,
+                    modifier = Modifier
+                        .weight(1f)
+                        .basicMarquee(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.88f),
+                    maxLines = 1,
+                )
+            } else if (showLyrics && preferLyricsView) {
                 Text(
                     text = lyricsText.orEmpty(),
                     modifier = Modifier
@@ -914,7 +940,7 @@ private fun MobileMiniPlayerBar(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = snapshot.currentDisplayArtistName ?: "未知艺人",
+                        text = startupCountdownText ?: snapshot.currentDisplayArtistName ?: "未知艺人",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.72f),
                         maxLines = 1,
@@ -1042,6 +1068,19 @@ internal fun resolvePlayerInfoVinylSize(
     }
 }
 
+internal fun resolveScaledPlayerInfoVinylSize(
+    baseSize: Dp,
+    maxWidth: Dp,
+    maxHeight: Dp,
+    preset: PlayerVisualSizePreset,
+): Dp {
+    val maxSize = minOf(maxWidth, maxHeight) * 0.96f
+    return (baseSize * preset.scale).coerceIn(
+        minimumValue = 160.dp,
+        maximumValue = maxSize.coerceAtLeast(160.dp),
+    )
+}
+
 internal fun resolvePlayerArtworkDragOffsetPx(
     currentOffsetPx: Float,
     dragAmountPx: Float,
@@ -1148,6 +1187,8 @@ private fun PlayerOverlay(
     appDisplayScalePreset: AppDisplayScalePreset,
     showCompactPlayerLyrics: Boolean,
     playerArtworkStyle: PlayerArtworkStyle,
+    playerLyricsFontSizePreset: PlayerVisualSizePreset,
+    playerArtworkSizePreset: PlayerVisualSizePreset,
     showEqualizerEntry: Boolean,
     onOpenEqualizer: () -> Unit,
     lyricsShareThemeTokens: AppThemeTokens,
@@ -1447,6 +1488,8 @@ private fun PlayerOverlay(
                             artworkBitmap = null,
                             showCompactPlayerLyrics = showCompactPlayerLyrics,
                             playerArtworkStyle = playerArtworkStyle,
+                            playerLyricsFontSizePreset = playerLyricsFontSizePreset,
+                            playerArtworkSizePreset = playerArtworkSizePreset,
                             onPlayerIntent = onPlayerIntent,
                             modifier = Modifier
                                 .weight(1f)
@@ -1465,6 +1508,7 @@ private fun PlayerOverlay(
                                 track = track,
                                 artworkBitmap = null,
                                 playerArtworkStyle = playerArtworkStyle,
+                                playerArtworkSizePreset = playerArtworkSizePreset,
                                 onPlayerIntent = onPlayerIntent,
                                 modifier = Modifier
                                     .weight(0.5f)
@@ -1478,6 +1522,7 @@ private fun PlayerOverlay(
                                 onlineNavigationSourceId = onlineNavigationSourceId,
                                 mobilePlayback = mobilePlayback,
                                 pure = isPureMode,
+                                lyricsFontSizePreset = playerLyricsFontSizePreset,
                                 modifier = Modifier
                                     .weight(0.5f)
                                     .fillMaxHeight(),
@@ -1495,6 +1540,7 @@ private fun PlayerOverlay(
                                 track = track,
                                 artworkBitmap = null,
                                 playerArtworkStyle = playerArtworkStyle,
+                                playerArtworkSizePreset = playerArtworkSizePreset,
                                 modifier = Modifier.fillMaxWidth(),
                                 compact = true,
                             )
@@ -1503,6 +1549,7 @@ private fun PlayerOverlay(
                                 track = track,
                                 onPlayerIntent = onPlayerIntent,
                                 mobilePlayback = mobilePlayback,
+                                lyricsFontSizePreset = playerLyricsFontSizePreset,
                                 modifier = Modifier.weight(1f),
                                 compact = true,
                             )
@@ -1579,6 +1626,8 @@ private fun MobilePlayerPrimaryPane(
     artworkBitmap: ImageBitmap?,
     showCompactPlayerLyrics: Boolean,
     playerArtworkStyle: PlayerArtworkStyle,
+    playerLyricsFontSizePreset: PlayerVisualSizePreset,
+    playerArtworkSizePreset: PlayerVisualSizePreset,
     onPlayerIntent: (PlayerIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1611,6 +1660,7 @@ private fun MobilePlayerPrimaryPane(
                 track = track,
                 artworkBitmap = artworkBitmap,
                 playerArtworkStyle = playerArtworkStyle,
+                playerArtworkSizePreset = playerArtworkSizePreset,
                 modifier = Modifier.fillMaxSize(),
                 compact = true,
                 compactLyricsText = displayCompactLyricsText,
@@ -1630,6 +1680,7 @@ private fun MobilePlayerPrimaryPane(
                     state = state,
                     track = track,
                     onPlayerIntent = onPlayerIntent,
+                    lyricsFontSizePreset = playerLyricsFontSizePreset,
                     modifier = Modifier.fillMaxSize(),
                     compact = true,
                 )
@@ -1645,6 +1696,7 @@ private fun PlayerInfoPane(
     track: Track,
     artworkBitmap: ImageBitmap? = null,
     playerArtworkStyle: PlayerArtworkStyle,
+    playerArtworkSizePreset: PlayerVisualSizePreset,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     compactLyricsText: String? = null,
@@ -1655,12 +1707,20 @@ private fun PlayerInfoPane(
         contentAlignment = Alignment.Center,
     ) {
         val hasCompactLyrics = compact && !compactLyricsText.isNullOrBlank()
-        val vinylSize = remember(maxWidth, maxHeight, compact, hasCompactLyrics) {
+        val baseVinylSize = remember(maxWidth, maxHeight, compact, hasCompactLyrics) {
             resolvePlayerInfoVinylSize(
                 maxWidth = maxWidth,
                 maxHeight = maxHeight,
                 compact = compact,
                 hasCompactLyrics = hasCompactLyrics,
+            )
+        }
+        val vinylSize = remember(baseVinylSize, maxWidth, maxHeight, playerArtworkSizePreset) {
+            resolveScaledPlayerInfoVinylSize(
+                baseSize = baseVinylSize,
+                maxWidth = maxWidth,
+                maxHeight = maxHeight,
+                preset = playerArtworkSizePreset,
             )
         }
         val compactLyricsAreaTopOffset = ((maxHeight - vinylSize) / 2) + vinylSize
@@ -1891,6 +1951,15 @@ private fun PlayerBottomControls(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    startupAutoPlayCountdownText(snapshot)?.let { countdownText ->
+                        Text(
+                            text = countdownText,
+                            color = Color.White.copy(alpha = 0.82f),
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

@@ -8,6 +8,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -433,6 +434,7 @@ class DefaultPlaybackRepository(
                 "repository-toggle-play-pause track=${mutableSnapshot.value.currentTrack?.id.orEmpty()} " +
                     "snapshotPlaying=${mutableSnapshot.value.isPlaying}"
             }
+            clearStartupAutoPlayCountdownLocked()
             if (mutableSnapshot.value.isPlaying) {
                 gateway.pause()
             } else {
@@ -567,6 +569,7 @@ class DefaultPlaybackRepository(
     private suspend fun playCurrentTrack() {
         playbackCommandMutex.withLock {
             if (mutableSnapshot.value.currentTrack == null) return
+            clearStartupAutoPlayCountdownLocked()
             gateway.play()
         }
     }
@@ -578,7 +581,14 @@ class DefaultPlaybackRepository(
                 "repository-pause-current track=${mutableSnapshot.value.currentTrack?.id.orEmpty()} " +
                     "snapshotPlaying=${mutableSnapshot.value.isPlaying} position=${mutableSnapshot.value.positionMs}"
             }
+            clearStartupAutoPlayCountdownLocked()
             gateway.pause()
+        }
+    }
+
+    private fun clearStartupAutoPlayCountdownLocked() {
+        if (mutableSnapshot.value.startupAutoPlayCountdownSeconds != null) {
+            mutableSnapshot.update { it.copy(startupAutoPlayCountdownSeconds = null) }
         }
     }
 
@@ -690,7 +700,9 @@ class DefaultPlaybackRepository(
             persisted.currentIndex.coerceIn(0, queueIds.lastIndex),
         )
         val mode = persisted.mode.toPlaybackMode()
-        val playWhenReady = playbackPreferencesStore.autoPlayOnStartup.value
+        val shouldAutoPlayOnStartup = playbackPreferencesStore.autoPlayOnStartup.value
+        val autoPlayDelayMs = playbackPreferencesStore.autoPlayOnStartupDelaySeconds.value * 1_000L
+        val playWhenReady = shouldAutoPlayOnStartup && autoPlayDelayMs == 0L
         var loadRequest: PlaybackLoadRequest? = null
         var shouldApplyRestore = false
         playbackCommandMutex.withLock {
@@ -724,10 +736,56 @@ class DefaultPlaybackRepository(
         if (!shouldApplyRestore) return PlaybackHydrationResult.SupersededByPlayback
         val restoreLoadRequest = loadRequest ?: return PlaybackHydrationResult.Failed
         loadGatewaySafely(restoreLoadRequest)
+        if (shouldAutoPlayOnStartup && autoPlayDelayMs > 0L && restoreLoadRequest.loadToken.isCurrent()) {
+            runStartupAutoPlayCountdown(
+                restoreLoadRequest = restoreLoadRequest,
+                delaySeconds = (autoPlayDelayMs / 1_000L).toInt(),
+            )
+        }
         return if (restoreLoadRequest.loadToken.isCurrent()) {
             PlaybackHydrationResult.Restored(restoreLoadRequest.loadToken)
         } else {
             PlaybackHydrationResult.SupersededByPlayback
+        }
+    }
+
+    private suspend fun runStartupAutoPlayCountdown(
+        restoreLoadRequest: PlaybackLoadRequest,
+        delaySeconds: Int,
+    ) {
+        val shouldStartCountdown = playbackCommandMutex.withLock {
+            if (!restoreLoadRequest.loadToken.isCurrent() || mutableSnapshot.value.errorMessage != null) {
+                false
+            } else {
+                mutableSnapshot.update { it.copy(startupAutoPlayCountdownSeconds = delaySeconds) }
+                true
+            }
+        }
+        if (!shouldStartCountdown) return
+
+        var remainingSeconds = delaySeconds
+        while (remainingSeconds > 0) {
+            delay(1_000L)
+            remainingSeconds -= 1
+            val shouldContinue = playbackCommandMutex.withLock {
+                val snapshot = mutableSnapshot.value
+                if (
+                    !restoreLoadRequest.loadToken.isCurrent() ||
+                    snapshot.startupAutoPlayCountdownSeconds == null ||
+                    snapshot.errorMessage != null
+                ) {
+                    false
+                } else {
+                    mutableSnapshot.value = snapshot.copy(
+                        startupAutoPlayCountdownSeconds = remainingSeconds.takeIf { it > 0 },
+                    )
+                    true
+                }
+            }
+            if (!shouldContinue) return
+        }
+        if (restoreLoadRequest.loadToken.isCurrent()) {
+            playCurrentTrack()
         }
     }
 

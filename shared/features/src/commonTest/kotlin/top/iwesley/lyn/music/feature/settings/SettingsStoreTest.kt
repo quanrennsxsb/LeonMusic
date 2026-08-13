@@ -37,6 +37,7 @@ import top.iwesley.lyn.music.core.model.AppThemeTokens
 import top.iwesley.lyn.music.core.model.DeviceInfoGateway
 import top.iwesley.lyn.music.core.model.DeviceInfoSnapshot
 import top.iwesley.lyn.music.core.model.DesktopLyricsPlatformService
+import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.DEFAULT_MINIMIZE_WINDOW_ON_CLOSE
 import top.iwesley.lyn.music.core.model.LyricsShareFontLibraryPlatformService
 import top.iwesley.lyn.music.core.model.LyricsShareFontKind
@@ -59,6 +60,7 @@ import top.iwesley.lyn.music.core.model.defaultCustomThemeTokens
 import top.iwesley.lyn.music.core.model.defaultThemeTextPalettePreferences
 import top.iwesley.lyn.music.core.model.deriveAppThemePalette
 import top.iwesley.lyn.music.core.model.isAppReleaseNewer
+import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.resolveAppThemeTextPalette
 import top.iwesley.lyn.music.core.model.withThemePalette
 import top.iwesley.lyn.music.data.repository.AppUpdateRepository
@@ -457,6 +459,34 @@ class SettingsStoreTest {
         advanceUntilIdle()
         assertFalse(store.state.value.autoPlayOnStartup)
         assertFalse(repository.currentAutoPlayOnStartup())
+        scope.cancel()
+    }
+
+    @Test
+    fun `auto play on startup delay preference defaults to five seconds`() = runTest {
+        val repository = FakeSettingsRepository()
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val store = SettingsStore(repository, scope)
+
+        advanceUntilIdle()
+
+        assertEquals(DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS, store.state.value.autoPlayOnStartupDelaySeconds)
+        scope.cancel()
+    }
+
+    @Test
+    fun `updating auto play on startup delay preference writes through immediately`() = runTest {
+        val repository = FakeSettingsRepository()
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val store = SettingsStore(repository, scope)
+
+        advanceUntilIdle()
+
+        store.dispatch(SettingsIntent.AutoPlayOnStartupDelaySecondsChanged(99))
+        advanceUntilIdle()
+
+        assertEquals(30, store.state.value.autoPlayOnStartupDelaySeconds)
+        assertEquals(30, repository.currentAutoPlayOnStartupDelaySeconds())
         scope.cancel()
     }
 
@@ -2068,6 +2098,7 @@ private class FakeSettingsRepository(
     showDesktopLyrics: Boolean = false,
     showMenuBarLyricsControls: Boolean = false,
     autoPlayOnStartup: Boolean = false,
+    autoPlayOnStartupDelaySeconds: Int = DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS,
     autoOpenPlayerOnStartup: Boolean = false,
     minimizeWindowOnClose: Boolean = DEFAULT_MINIMIZE_WINDOW_ON_CLOSE,
     useAndroidExtensionDecoder: Boolean = false,
@@ -2088,6 +2119,9 @@ private class FakeSettingsRepository(
     private val mutableShowDesktopLyrics = MutableStateFlow(showDesktopLyrics)
     private val mutableShowMenuBarLyricsControls = MutableStateFlow(showMenuBarLyricsControls)
     private val mutableAutoPlayOnStartup = MutableStateFlow(autoPlayOnStartup)
+    private val mutableAutoPlayOnStartupDelaySeconds = MutableStateFlow(
+        normalizeAutoPlayOnStartupDelaySeconds(autoPlayOnStartupDelaySeconds),
+    )
     private val mutableAutoOpenPlayerOnStartup = MutableStateFlow(autoOpenPlayerOnStartup)
     private val mutableMinimizeWindowOnClose = MutableStateFlow(minimizeWindowOnClose)
     private val mutableUseAndroidExtensionDecoder = MutableStateFlow(useAndroidExtensionDecoder)
@@ -2111,6 +2145,8 @@ private class FakeSettingsRepository(
     override val showMenuBarLyricsControls: StateFlow<Boolean> =
         mutableShowMenuBarLyricsControls.asStateFlow()
     override val autoPlayOnStartup: StateFlow<Boolean> = mutableAutoPlayOnStartup.asStateFlow()
+    override val autoPlayOnStartupDelaySeconds: StateFlow<Int> =
+        mutableAutoPlayOnStartupDelaySeconds.asStateFlow()
     override val autoOpenPlayerOnStartup: StateFlow<Boolean> =
         mutableAutoOpenPlayerOnStartup.asStateFlow()
     override val minimizeWindowOnClose: StateFlow<Boolean> = mutableMinimizeWindowOnClose.asStateFlow()
@@ -2137,6 +2173,7 @@ private class FakeSettingsRepository(
     fun currentShowDesktopLyrics(): Boolean = mutableShowDesktopLyrics.value
     fun currentShowMenuBarLyricsControls(): Boolean = mutableShowMenuBarLyricsControls.value
     fun currentAutoPlayOnStartup(): Boolean = mutableAutoPlayOnStartup.value
+    fun currentAutoPlayOnStartupDelaySeconds(): Int = mutableAutoPlayOnStartupDelaySeconds.value
     fun currentAutoOpenPlayerOnStartup(): Boolean = mutableAutoOpenPlayerOnStartup.value
     fun currentMinimizeWindowOnClose(): Boolean = mutableMinimizeWindowOnClose.value
     fun currentUseAndroidExtensionDecoder(): Boolean = mutableUseAndroidExtensionDecoder.value
@@ -2169,6 +2206,10 @@ private class FakeSettingsRepository(
 
     override suspend fun setAutoPlayOnStartup(enabled: Boolean) {
         mutableAutoPlayOnStartup.value = enabled
+    }
+
+    override suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int) {
+        mutableAutoPlayOnStartupDelaySeconds.value = normalizeAutoPlayOnStartupDelaySeconds(seconds)
     }
 
     override suspend fun setAutoOpenPlayerOnStartup(enabled: Boolean) {

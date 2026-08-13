@@ -27,12 +27,15 @@ import top.iwesley.lyn.music.core.model.LyricsHttpClient
 import top.iwesley.lyn.music.core.model.MenuBarLyricsControlsPreferencesStore
 import top.iwesley.lyn.music.core.model.MobileNetworkConnectionTypeProvider
 import top.iwesley.lyn.music.core.model.NavidromeAudioQualityPreferencesStore
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCachePreferencesStore
 import top.iwesley.lyn.music.core.model.NoopDiagnosticLogger
 import top.iwesley.lyn.music.core.model.NetworkConnectionTypeProvider
 import top.iwesley.lyn.music.core.model.OfflineDownloadGateway
 import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlaybackDecoderPreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlaybackStatsReporter
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
 import top.iwesley.lyn.music.core.model.SambaCachePreferencesStore
@@ -55,9 +58,12 @@ import top.iwesley.lyn.music.core.model.UnsupportedLyricsShareFontLibraryPlatfor
 import top.iwesley.lyn.music.core.model.UnsupportedLyricsShareFontPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedMenuBarLyricsControlsPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedNavidromeAudioQualityPreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedNavidromePlaybackCachePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedOfflineDownloadGateway
 import top.iwesley.lyn.music.core.model.UnsupportedPlaybackDecoderPreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedPlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedPlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedPlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedSameNameLyricsFileGateway
 import top.iwesley.lyn.music.core.model.UnsupportedWindowClosePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedVlcPathPickerPlatformService
@@ -129,10 +135,16 @@ data class SharedRuntimeServices(
         UnsupportedWindowClosePreferencesStore,
     val navidromeAudioQualityPreferencesStore: NavidromeAudioQualityPreferencesStore =
         UnsupportedNavidromeAudioQualityPreferencesStore,
+    val navidromePlaybackCachePreferencesStore: NavidromePlaybackCachePreferencesStore =
+        UnsupportedNavidromePlaybackCachePreferencesStore,
     val playbackDecoderPreferencesStore: PlaybackDecoderPreferencesStore =
         UnsupportedPlaybackDecoderPreferencesStore,
     val playerArtworkStylePreferencesStore: PlayerArtworkStylePreferencesStore =
         UnsupportedPlayerArtworkStylePreferencesStore,
+    val playerLyricsFontSizePreferencesStore: PlayerLyricsFontSizePreferencesStore =
+        UnsupportedPlayerLyricsFontSizePreferencesStore,
+    val playerArtworkSizePreferencesStore: PlayerArtworkSizePreferencesStore =
+        UnsupportedPlayerArtworkSizePreferencesStore,
     val networkConnectionTypeProvider: NetworkConnectionTypeProvider = MobileNetworkConnectionTypeProvider,
     val remoteSourceAddressSelector: RemoteSourceAddressSelector =
         RemoteSourceAddressSelector(networkConnectionTypeProvider),
@@ -229,8 +241,11 @@ fun buildSharedGraph(
         autoOpenPlayerOnStartupPreferencesStore = runtimeServices.autoOpenPlayerOnStartupPreferencesStore,
         windowClosePreferencesStore = runtimeServices.windowClosePreferencesStore,
         navidromeAudioQualityPreferencesStore = runtimeServices.navidromeAudioQualityPreferencesStore,
+        navidromePlaybackCachePreferencesStore = runtimeServices.navidromePlaybackCachePreferencesStore,
         playbackDecoderPreferencesStore = runtimeServices.playbackDecoderPreferencesStore,
         playerArtworkStylePreferencesStore = runtimeServices.playerArtworkStylePreferencesStore,
+        playerLyricsFontSizePreferencesStore = runtimeServices.playerLyricsFontSizePreferencesStore,
+        playerArtworkSizePreferencesStore = runtimeServices.playerArtworkSizePreferencesStore,
     )
     val appUpdateRepository = DefaultAppUpdateRepository(runtimeServices.lyricsHttpClient)
     NavidromeLocatorRuntime.install(

@@ -33,6 +33,10 @@ private class AndroidAppStorageGateway(
                     sizeBytes = androidPlaybackCacheSizeBytes(context.cacheDir, smbSourceIds),
                 ),
                 AppStorageCategoryUsage(
+                    category = AppStorageCategory.NavidromePlaybackCache,
+                    sizeBytes = directorySizeBytes(File(context.cacheDir, "navidrome-playback-cache")),
+                ),
+                AppStorageCategoryUsage(
                     category = AppStorageCategory.OfflineDownloads,
                     sizeBytes = directorySizeBytes(File(context.filesDir, "offline")),
                 ),
@@ -69,6 +73,14 @@ private class AndroidAppStorageGateway(
                     context.cacheDir.listFiles().orEmpty()
                         .filter { it.isFile && isAndroidPlaybackCacheFileName(it.name, smbSourceIds) }
                         .forEach(::deleteRecursively)
+                    Unit
+                }
+
+                AppStorageCategory.NavidromePlaybackCache -> {
+                    releaseAndroidNavidromePlaybackCache()
+                    val directory = File(context.cacheDir, "navidrome-playback-cache")
+                    clearDirectory(directory)
+                    directory.mkdirs()
                     Unit
                 }
 

@@ -27,11 +27,13 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.DEFAULT_PLAYBACK_VOLUME
 import top.iwesley.lyn.music.core.model.DesktopVlcPreferencesStore
 import top.iwesley.lyn.music.core.model.PlaybackLoadToken
 import top.iwesley.lyn.music.core.model.PlaybackPreferencesStore
 import top.iwesley.lyn.music.core.model.Track
+import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
 import top.iwesley.lyn.music.data.db.LynMusicDatabase
 import top.iwesley.lyn.music.data.db.buildLynMusicDatabase
@@ -634,10 +636,13 @@ private class FakePlaybackPreferencesStore : PlaybackPreferencesStore {
     private val mutableUseSambaCache = MutableStateFlow(false)
     private val mutablePlaybackVolume = MutableStateFlow(DEFAULT_PLAYBACK_VOLUME)
     private val mutableAutoPlayOnStartup = MutableStateFlow(false)
+    private val mutableAutoPlayOnStartupDelaySeconds = MutableStateFlow(DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS)
 
     override val useSambaCache: StateFlow<Boolean> = mutableUseSambaCache.asStateFlow()
     override val playbackVolume: StateFlow<Float> = mutablePlaybackVolume.asStateFlow()
     override val autoPlayOnStartup: StateFlow<Boolean> = mutableAutoPlayOnStartup.asStateFlow()
+    override val autoPlayOnStartupDelaySeconds: StateFlow<Int> =
+        mutableAutoPlayOnStartupDelaySeconds.asStateFlow()
 
     override suspend fun setUseSambaCache(enabled: Boolean) {
         mutableUseSambaCache.value = enabled
@@ -649,6 +654,10 @@ private class FakePlaybackPreferencesStore : PlaybackPreferencesStore {
 
     override suspend fun setAutoPlayOnStartup(enabled: Boolean) {
         mutableAutoPlayOnStartup.value = enabled
+    }
+
+    override suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int) {
+        mutableAutoPlayOnStartupDelaySeconds.value = normalizeAutoPlayOnStartupDelaySeconds(seconds)
     }
 }
 

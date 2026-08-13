@@ -92,6 +92,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import top.iwesley.lyn.music.core.model.DEFAULT_LYRICS_SHARE_FONT_KEY
 import top.iwesley.lyn.music.core.model.LyricsDocument
 import top.iwesley.lyn.music.core.model.LyricsSearchCandidate
@@ -102,6 +103,7 @@ import top.iwesley.lyn.music.core.model.LyricsShareFontOption
 import top.iwesley.lyn.music.core.model.LyricsShareTemplate
 import top.iwesley.lyn.music.core.model.PlaybackArtworkBackgroundPalette
 import top.iwesley.lyn.music.core.model.PlatformDescriptor
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.buildLyricsShareTitleArtistLine
 import top.iwesley.lyn.music.core.model.parseLyricsShareImportedFontHash
@@ -129,6 +131,7 @@ internal fun PlayerLyricsPane(
     compact: Boolean = false,
     pure: Boolean = false,
     mobilePlayback: Boolean = false,
+    lyricsFontSizePreset: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard,
 ) {
     val listState = rememberLazyListState()
     val lyricsPrimaryTextColor = Color.White
@@ -340,6 +343,23 @@ internal fun PlayerLyricsPane(
                         pure -> 6.dp
                         else -> 4.dp
                     }
+                    val lyricsFontScale = lyricsFontSizePreset.scale
+                    val highlightedLyricsStyle = MaterialTheme.typography.headlineSmall.copy(
+                        fontSize = (24f * lyricsFontScale).sp,
+                        lineHeight = (32f * lyricsFontScale).sp,
+                    )
+                    val normalLyricsStyle = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = (22f * lyricsFontScale).sp,
+                        lineHeight = (28f * lyricsFontScale).sp,
+                    )
+                    val highlightedTranslationStyle = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = (16f * lyricsFontScale).sp,
+                        lineHeight = (24f * lyricsFontScale).sp,
+                    )
+                    val normalTranslationStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = (16f * lyricsFontScale).sp,
+                        lineHeight = (24f * lyricsFontScale).sp,
+                    )
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxHeight()
@@ -405,7 +425,7 @@ internal fun PlayerLyricsPane(
                                             currentPositionMs = activeLyricsPositionMs,
                                             activeColor = animatedColor,
                                             inactiveColor = lyricsSecondaryTextColor.copy(alpha = 0.78f),
-                                            style = MaterialTheme.typography.headlineSmall,
+                                            style = highlightedLyricsStyle,
                                             textAlign = TextAlign.Start,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.fillMaxWidth(),
@@ -413,7 +433,7 @@ internal fun PlayerLyricsPane(
                                     } else {
                                         Text(
                                             text = line.text,
-                                            style = if (isHighlighted) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
+                                            style = if (isHighlighted) highlightedLyricsStyle else normalLyricsStyle,
                                             color = animatedColor,
                                             textAlign = TextAlign.Start,
                                             fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
@@ -422,7 +442,7 @@ internal fun PlayerLyricsPane(
                                     }
                                     Text(
                                         text = translationText,
-                                        style = if (isHighlighted) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+                                        style = if (isHighlighted) highlightedTranslationStyle else normalTranslationStyle,
                                         color = lyricsSecondaryTextColor.copy(alpha = if (isHighlighted) 0.9f else 0.72f),
                                         textAlign = TextAlign.Start,
                                         fontWeight = FontWeight.Normal,
@@ -435,7 +455,7 @@ internal fun PlayerLyricsPane(
                                     currentPositionMs = activeLyricsPositionMs,
                                     activeColor = animatedColor,
                                     inactiveColor = lyricsSecondaryTextColor.copy(alpha = 0.78f),
-                                    style = MaterialTheme.typography.headlineSmall,
+                                    style = highlightedLyricsStyle,
                                     textAlign = TextAlign.Start,
                                     fontWeight = FontWeight.Bold,
                                     modifier = lineModifier,
@@ -443,7 +463,7 @@ internal fun PlayerLyricsPane(
                             } else {
                                 Text(
                                     text = line.text,
-                                    style = if (isHighlighted) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
+                                    style = if (isHighlighted) highlightedLyricsStyle else normalLyricsStyle,
                                     color = animatedColor,
                                     textAlign = TextAlign.Start,
                                     fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,

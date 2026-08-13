@@ -50,14 +50,14 @@ private class JvmUncaughtExceptionHandler : Thread.UncaughtExceptionHandler {
         }
 
         val report = formatJvmCrashReport(threadName = thread.name, throwable = throwable)
+        System.err.println(report)
         runCatching {
             if (GraphicsEnvironment.isHeadless()) {
-                System.err.println(report)
+                Unit
             } else {
                 showJvmCrashWindowAndWait(report)
             }
         }.onFailure { reportFailure ->
-            System.err.println(report)
             System.err.println("Failed to show LynMusic crash report window.")
             reportFailure.printStackTrace(System.err)
         }

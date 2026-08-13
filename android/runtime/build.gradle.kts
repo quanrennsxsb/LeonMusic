@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.media)
     implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.database)
     implementation(libs.androidx.media3.datasource)
     implementation(libs.androidx.media3.decoder)
     implementation(libs.androidx.media3.exoplayer)

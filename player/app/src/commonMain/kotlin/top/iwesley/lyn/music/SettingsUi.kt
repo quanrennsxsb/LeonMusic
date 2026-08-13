@@ -84,12 +84,15 @@ import top.iwesley.lyn.music.core.model.AppThemeId
 import top.iwesley.lyn.music.core.model.AppThemeTextPalette
 import top.iwesley.lyn.music.core.model.AppThemeTokens
 import top.iwesley.lyn.music.core.model.BuildMetadata
+import top.iwesley.lyn.music.core.model.MAX_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.LyricsShareFontOption
 import top.iwesley.lyn.music.core.model.LyricsSourceConfig
 import top.iwesley.lyn.music.core.model.LynMusicUpdateLinks
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheSizePreset
 import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.deriveAppThemePalette
 import top.iwesley.lyn.music.core.model.formatThemeHexColor
 import top.iwesley.lyn.music.core.model.presetThemeTokens
@@ -680,6 +683,9 @@ private fun GeneralSettingsPane(
     val effectivePath = state.desktopVlcEffectivePath?.takeIf { it.isNotBlank() }
     val currentPath = effectivePath ?: "未自动识别到 VLC 路径"
     val currentSource = if (manualPath != null) "手动指定" else "自动识别"
+    var autoPlayDelayInput by rememberSaveable(state.autoPlayOnStartupDelaySeconds) {
+        mutableStateOf(state.autoPlayOnStartupDelaySeconds.toString())
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -694,35 +700,78 @@ private fun GeneralSettingsPane(
             )
         }
         MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = "启动应用后自动播放",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "启动时恢复上次播放队列和进度，并自动开始播放。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = shellColors.secondaryText,
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "启动应用后自动播放",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "启动时恢复上次播放队列和进度，并自动开始播放。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = shellColors.secondaryText,
+                        )
+                    }
+                    Switch(
+                        checked = state.autoPlayOnStartup,
+                        onCheckedChange = { enabled ->
+                            onSettingsIntent(SettingsIntent.AutoPlayOnStartupChanged(enabled))
+                        },
+                        colors = SwitchDefaults.colors(),
                     )
                 }
-                Switch(
-                    checked = state.autoPlayOnStartup,
-                    onCheckedChange = { enabled ->
-                        onSettingsIntent(SettingsIntent.AutoPlayOnStartupChanged(enabled))
-                    },
-                    colors = SwitchDefaults.colors(),
-                )
+                if (state.autoPlayOnStartup) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 18.dp, end = 18.dp, bottom = 18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = "自动播放缓冲时间",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "恢复队列后等待一会儿再开始播放，最多 ${MAX_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS} 秒。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = shellColors.secondaryText,
+                            )
+                        }
+                        ImeAwareOutlinedTextField(
+                            value = autoPlayDelayInput,
+                            onValueChange = { value ->
+                                val digits = value.filter { it.isDigit() }.take(2)
+                                autoPlayDelayInput = digits
+                                digits.toIntOrNull()?.let { seconds ->
+                                    onSettingsIntent(
+                                        SettingsIntent.AutoPlayOnStartupDelaySecondsChanged(seconds),
+                                    )
+                                }
+                            },
+                            modifier = Modifier.width(96.dp),
+                            singleLine = true,
+                            trailingIcon = { Text("秒") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        )
+                    }
+                }
             }
         }
         if (showAutoOpenPlayerOnStartupSetting) {
@@ -1010,6 +1059,56 @@ private fun GeneralSettingsPane(
                 }
             }
         }
+        MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "歌词字体大小",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "调整播放页歌词文字大小。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = shellColors.secondaryText,
+                    )
+                }
+                PlayerVisualSizePresetRow(
+                    selected = state.playerLyricsFontSizePreset,
+                    onSelected = { preset ->
+                        onSettingsIntent(SettingsIntent.PlayerLyricsFontSizePresetChanged(preset))
+                    },
+                )
+            }
+        }
+        MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "封面大小",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "调整播放页封面显示大小。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = shellColors.secondaryText,
+                    )
+                }
+                PlayerVisualSizePresetRow(
+                    selected = state.playerArtworkSizePreset,
+                    onSelected = { preset ->
+                        onSettingsIntent(SettingsIntent.PlayerArtworkSizePresetChanged(preset))
+                    },
+                )
+            }
+        }
         if (showNavidromeAudioQualitySetting) {
             MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                 Column(
@@ -1040,6 +1139,12 @@ private fun GeneralSettingsPane(
                         selected = state.navidromeMobileAudioQuality,
                         onSelected = { quality ->
                             onSettingsIntent(SettingsIntent.NavidromeMobileAudioQualityChanged(quality))
+                        },
+                    )
+                    NavidromePlaybackCacheSizeSettingRow(
+                        selected = state.navidromePlaybackCacheSizePreset,
+                        onSelected = { preset ->
+                            onSettingsIntent(SettingsIntent.NavidromePlaybackCacheSizePresetChanged(preset))
                         },
                     )
                 }
@@ -1136,6 +1241,45 @@ internal fun shouldShowAutoOpenPlayerOnStartupSetting(platform: PlatformDescript
 }
 
 @Composable
+private fun PlayerVisualSizePresetRow(
+    selected: PlayerVisualSizePreset,
+    onSelected: (PlayerVisualSizePreset) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PlayerVisualSizePreset.entries.forEach { preset ->
+            val isSelected = selected == preset
+            if (isSelected) {
+                Button(
+                    onClick = { onSelected(preset) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = playerVisualSizePresetLabel(preset),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            } else {
+                OutlinedButton(
+                    onClick = { onSelected(preset) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = playerVisualSizePresetLabel(preset),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun NavidromeAudioQualitySettingRow(
     title: String,
     selected: NavidromeAudioQuality,
@@ -1184,6 +1328,62 @@ private fun NavidromeAudioQualitySettingRow(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun NavidromePlaybackCacheSizeSettingRow(
+    selected: NavidromePlaybackCacheSizePreset,
+    onSelected: (NavidromePlaybackCacheSizePreset) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "Navidrome 播放缓存",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NavidromePlaybackCacheSizePreset.entries.forEach { preset ->
+                val isSelected = preset == selected
+                if (isSelected) {
+                    Button(
+                        onClick = { onSelected(preset) },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
+                    ) {
+                        Text(
+                            text = navidromePlaybackCacheSizePresetLabel(preset),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { onSelected(preset) },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
+                    ) {
+                        Text(
+                            text = navidromePlaybackCacheSizePresetLabel(preset),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            text = "第一次播放时边播边缓存；再次播放同一首歌优先使用本地缓存。",
+            style = MaterialTheme.typography.bodySmall,
+            color = mainShellColors.secondaryText,
+        )
     }
 }
 
@@ -2200,6 +2400,7 @@ private fun StorageSettingsPane(
         listOf(
             AppStorageCategory.Artwork,
             AppStorageCategory.PlaybackCache,
+            AppStorageCategory.NavidromePlaybackCache,
             AppStorageCategory.OfflineDownloads,
             AppStorageCategory.LyricsShareTemp,
             AppStorageCategory.TagEditTemp,
@@ -2655,6 +2856,7 @@ private fun storageCategoryTitle(category: AppStorageCategory): String {
     return when (category) {
         AppStorageCategory.Artwork -> "封面缓存"
         AppStorageCategory.PlaybackCache -> "播放缓存"
+        AppStorageCategory.NavidromePlaybackCache -> "Navidrome 播放缓存"
         AppStorageCategory.OfflineDownloads -> "离线音乐"
         AppStorageCategory.LyricsShareTemp -> "歌词分享临时文件"
         AppStorageCategory.TagEditTemp -> "标签编辑临时文件"
@@ -2665,6 +2867,7 @@ private fun storageCategoryDescription(category: AppStorageCategory): String {
     return when (category) {
         AppStorageCategory.Artwork -> "包含下载封面，以及扫描或标签编辑时生成的本地封面文件。"
         AppStorageCategory.PlaybackCache -> "包含 SMB 播放时落到本地的临时音频缓存。"
+        AppStorageCategory.NavidromePlaybackCache -> "包含 Navidrome 在线播放时边播边写入的音频缓存。"
         AppStorageCategory.OfflineDownloads -> "包含手动下载到本机的非本地音乐文件。"
         AppStorageCategory.LyricsShareTemp -> "包含生成歌词分享图时写入的临时图片。"
         AppStorageCategory.TagEditTemp -> "包含编辑标签封面时写入的临时中转文件。"
@@ -2684,6 +2887,24 @@ private fun playerArtworkStyleLabel(style: PlayerArtworkStyle): String {
         PlayerArtworkStyle.VINYL -> "黑胶"
         PlayerArtworkStyle.HALF_RECORD -> "半出唱片"
         PlayerArtworkStyle.MINIMAL_COVER -> "极简大封面"
+    }
+}
+
+private fun playerVisualSizePresetLabel(preset: PlayerVisualSizePreset): String {
+    return when (preset) {
+        PlayerVisualSizePreset.Small -> "小"
+        PlayerVisualSizePreset.Standard -> "标准"
+        PlayerVisualSizePreset.Large -> "大"
+        PlayerVisualSizePreset.VeryLarge -> "很大"
+        PlayerVisualSizePreset.Maximum -> "最大"
+    }
+}
+
+private fun navidromePlaybackCacheSizePresetLabel(preset: NavidromePlaybackCacheSizePreset): String {
+    return when (preset) {
+        NavidromePlaybackCacheSizePreset.GB1 -> "1 GB"
+        NavidromePlaybackCacheSizePreset.GB2 -> "2 GB"
+        NavidromePlaybackCacheSizePreset.GB5 -> "5 GB"
     }
 }
 

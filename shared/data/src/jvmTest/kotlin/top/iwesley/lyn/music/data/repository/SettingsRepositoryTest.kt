@@ -19,6 +19,7 @@ import top.iwesley.lyn.music.core.model.AutoOpenPlayerOnStartupPreferencesStore
 import top.iwesley.lyn.music.core.model.CompactPlayerLyricsPreferencesStore
 import top.iwesley.lyn.music.core.model.DesktopLyricsPreferencesStore
 import top.iwesley.lyn.music.core.model.DesktopVlcPreferencesStore
+import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.LyricsResponseFormat
 import top.iwesley.lyn.music.core.model.LyricsSourceConfig
 import top.iwesley.lyn.music.core.model.MenuBarLyricsControlsPreferencesStore
@@ -34,6 +35,7 @@ import top.iwesley.lyn.music.core.model.WindowClosePreferencesStore
 import top.iwesley.lyn.music.core.model.WorkflowLyricsSourceConfig
 import top.iwesley.lyn.music.core.model.defaultCustomThemeTokens
 import top.iwesley.lyn.music.core.model.defaultThemeTextPalettePreferences
+import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.withThemePalette
 import top.iwesley.lyn.music.data.db.LyricsSourceConfigEntity
 import top.iwesley.lyn.music.data.db.LynMusicDatabase
@@ -219,6 +221,39 @@ class SettingsRepositoryTest {
 
         assertEquals(false, preferences.autoPlayOnStartup.value)
         assertEquals(false, repository.autoPlayOnStartup.value)
+    }
+
+    @Test
+    fun `auto play on startup delay preference defaults to five seconds`() = runTest {
+        val database = createSettingsTestDatabase()
+        val preferences = FakePreferencesStore()
+        val repository = DefaultSettingsRepository(
+            database = database,
+            sambaCachePreferencesStore = preferences,
+            themePreferencesStore = preferences,
+            desktopVlcPreferencesStore = preferences,
+            autoPlayOnStartupPreferencesStore = preferences,
+        )
+
+        assertEquals(DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS, repository.autoPlayOnStartupDelaySeconds.value)
+    }
+
+    @Test
+    fun `setting auto play on startup delay preference clamps to maximum`() = runTest {
+        val database = createSettingsTestDatabase()
+        val preferences = FakePreferencesStore()
+        val repository = DefaultSettingsRepository(
+            database = database,
+            sambaCachePreferencesStore = preferences,
+            themePreferencesStore = preferences,
+            desktopVlcPreferencesStore = preferences,
+            autoPlayOnStartupPreferencesStore = preferences,
+        )
+
+        repository.setAutoPlayOnStartupDelaySeconds(99)
+
+        assertEquals(30, preferences.autoPlayOnStartupDelaySeconds.value)
+        assertEquals(30, repository.autoPlayOnStartupDelaySeconds.value)
     }
 
     @Test
@@ -726,6 +761,7 @@ private class FakePreferencesStore : SambaCachePreferencesStore, ThemePreference
     override val showDesktopLyrics = MutableStateFlow(false)
     override val showMenuBarLyricsControls = MutableStateFlow(false)
     override val autoPlayOnStartup = MutableStateFlow(false)
+    override val autoPlayOnStartupDelaySeconds = MutableStateFlow(DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS)
     override val autoOpenPlayerOnStartup = MutableStateFlow(false)
     override val minimizeWindowOnClose = MutableStateFlow(true)
     override val useAndroidExtensionDecoder = MutableStateFlow(false)
@@ -757,6 +793,10 @@ private class FakePreferencesStore : SambaCachePreferencesStore, ThemePreference
 
     override suspend fun setAutoPlayOnStartup(enabled: Boolean) {
         autoPlayOnStartup.value = enabled
+    }
+
+    override suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int) {
+        autoPlayOnStartupDelaySeconds.value = normalizeAutoPlayOnStartupDelaySeconds(seconds)
     }
 
     override suspend fun setAutoOpenPlayerOnStartup(enabled: Boolean) {

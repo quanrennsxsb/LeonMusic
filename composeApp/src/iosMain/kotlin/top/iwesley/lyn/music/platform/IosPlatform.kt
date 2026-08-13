@@ -52,8 +52,12 @@ import top.iwesley.lyn.music.core.model.PlatformCapabilities
 import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlaybackPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.RequestMethod
+import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.DEFAULT_PLAYBACK_VOLUME
 import top.iwesley.lyn.music.core.model.SambaCachePreferencesStore
 import top.iwesley.lyn.music.core.model.ThemePreferencesStore
@@ -66,8 +70,10 @@ import top.iwesley.lyn.music.core.model.defaultCustomThemeTokens
 import top.iwesley.lyn.music.core.model.defaultThemeTextPalettePreferences
 import top.iwesley.lyn.music.core.model.info
 import top.iwesley.lyn.music.core.model.navidromeAudioQualityOrDefault
+import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
 import top.iwesley.lyn.music.core.model.playerArtworkStyleOrDefault
+import top.iwesley.lyn.music.core.model.playerVisualSizePresetOrDefault
 import top.iwesley.lyn.music.core.model.withThemePalette
 import top.iwesley.lyn.music.core.model.SambaSourceDraft
 import top.iwesley.lyn.music.core.model.SecureCredentialStore
@@ -175,6 +181,8 @@ fun createIosAppComponent(): top.iwesley.lyn.music.LynMusicAppComponent {
             autoOpenPlayerOnStartupPreferencesStore = appPreferencesStore,
             navidromeAudioQualityPreferencesStore = appPreferencesStore,
             playerArtworkStylePreferencesStore = appPreferencesStore,
+            playerLyricsFontSizePreferencesStore = appPreferencesStore,
+            playerArtworkSizePreferencesStore = appPreferencesStore,
             networkConnectionTypeProvider = networkConnectionTypeProvider,
             remoteSourceAddressSelector = remoteSourceAddressSelector,
             librarySourceFilterPreferencesStore = appPreferencesStore,
@@ -370,7 +378,8 @@ private class IosKeychainCredentialStore : SecureCredentialStore {
 
 private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePreferencesStore, ThemePreferencesStore,
     CompactPlayerLyricsPreferencesStore, NavidromeAudioQualityPreferencesStore, LyricsShareFontPreferencesStore,
-    PlayerArtworkStylePreferencesStore, LibrarySourceFilterPreferencesStore,
+    PlayerArtworkStylePreferencesStore, PlayerLyricsFontSizePreferencesStore,
+    PlayerArtworkSizePreferencesStore, LibrarySourceFilterPreferencesStore,
     AutoOpenPlayerOnStartupPreferencesStore {
     private val defaults = NSUserDefaults.standardUserDefaults
     private val mutableUseSambaCache = MutableStateFlow(
@@ -391,6 +400,7 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
             defaults.boolForKey(KEY_AUTO_PLAY_ON_STARTUP)
         },
     )
+    private val mutableAutoPlayOnStartupDelaySeconds = MutableStateFlow(readAutoPlayOnStartupDelaySeconds())
     private val mutableAutoOpenPlayerOnStartup = MutableStateFlow(
         if (defaults.objectForKey(KEY_AUTO_OPEN_PLAYER_ON_STARTUP) == null) {
             false
@@ -419,12 +429,16 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
     private val mutableCustomThemeTokens = MutableStateFlow(readCustomThemeTokens())
     private val mutableTextPalettePreferences = MutableStateFlow(readTextPalettePreferences())
     private val mutablePlayerArtworkStyle = MutableStateFlow(readPlayerArtworkStyle())
+    private val mutablePlayerLyricsFontSizePreset = MutableStateFlow(readPlayerLyricsFontSizePreset())
+    private val mutablePlayerArtworkSizePreset = MutableStateFlow(readPlayerArtworkSizePreset())
     private val mutableSelectedLyricsShareFontKey = MutableStateFlow(readSelectedLyricsShareFontKey())
 
     override val useSambaCache: StateFlow<Boolean> = mutableUseSambaCache.asStateFlow()
     override val playbackVolume: StateFlow<Float> = mutablePlaybackVolume.asStateFlow()
     override val showCompactPlayerLyrics: StateFlow<Boolean> = mutableShowCompactPlayerLyrics.asStateFlow()
     override val autoPlayOnStartup: StateFlow<Boolean> = mutableAutoPlayOnStartup.asStateFlow()
+    override val autoPlayOnStartupDelaySeconds: StateFlow<Int> =
+        mutableAutoPlayOnStartupDelaySeconds.asStateFlow()
     override val autoOpenPlayerOnStartup: StateFlow<Boolean> =
         mutableAutoOpenPlayerOnStartup.asStateFlow()
     override val navidromeWifiAudioQuality: StateFlow<NavidromeAudioQuality> =
@@ -435,6 +449,10 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
     override val customThemeTokens: StateFlow<AppThemeTokens> = mutableCustomThemeTokens.asStateFlow()
     override val textPalettePreferences: StateFlow<AppThemeTextPalettePreferences> = mutableTextPalettePreferences.asStateFlow()
     override val playerArtworkStyle: StateFlow<PlayerArtworkStyle> = mutablePlayerArtworkStyle.asStateFlow()
+    override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> =
+        mutablePlayerLyricsFontSizePreset.asStateFlow()
+    override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> =
+        mutablePlayerArtworkSizePreset.asStateFlow()
     override val selectedLyricsShareFontKey: StateFlow<String?> = mutableSelectedLyricsShareFontKey.asStateFlow()
     override val librarySourceFilter: StateFlow<LibrarySourceFilter> = mutableLibrarySourceFilter.asStateFlow()
     override val favoritesSourceFilter: StateFlow<LibrarySourceFilter> = mutableFavoritesSourceFilter.asStateFlow()
@@ -465,6 +483,12 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
         mutableAutoPlayOnStartup.value = enabled
     }
 
+    override suspend fun setAutoPlayOnStartupDelaySeconds(seconds: Int) {
+        val normalizedSeconds = normalizeAutoPlayOnStartupDelaySeconds(seconds)
+        defaults.setInteger(normalizedSeconds.toLong(), KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS)
+        mutableAutoPlayOnStartupDelaySeconds.value = normalizedSeconds
+    }
+
     override suspend fun setAutoOpenPlayerOnStartup(enabled: Boolean) {
         defaults.setBool(enabled, KEY_AUTO_OPEN_PLAYER_ON_STARTUP)
         mutableAutoOpenPlayerOnStartup.value = enabled
@@ -483,6 +507,16 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
     override suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle) {
         defaults.setObject(style.name, KEY_PLAYER_ARTWORK_STYLE)
         mutablePlayerArtworkStyle.value = style
+    }
+
+    override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {
+        defaults.setObject(preset.name, KEY_PLAYER_LYRICS_FONT_SIZE_PRESET)
+        mutablePlayerLyricsFontSizePreset.value = preset
+    }
+
+    override suspend fun setPlayerArtworkSizePreset(preset: PlayerVisualSizePreset) {
+        defaults.setObject(preset.name, KEY_PLAYER_ARTWORK_SIZE_PRESET)
+        mutablePlayerArtworkSizePreset.value = preset
     }
 
     override suspend fun setSelectedLyricsShareFontKey(value: String?) {
@@ -578,6 +612,14 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
         return playerArtworkStyleOrDefault(defaults.stringForKey(KEY_PLAYER_ARTWORK_STYLE))
     }
 
+    private fun readPlayerLyricsFontSizePreset(): PlayerVisualSizePreset {
+        return playerVisualSizePresetOrDefault(defaults.stringForKey(KEY_PLAYER_LYRICS_FONT_SIZE_PRESET))
+    }
+
+    private fun readPlayerArtworkSizePreset(): PlayerVisualSizePreset {
+        return playerVisualSizePresetOrDefault(defaults.stringForKey(KEY_PLAYER_ARTWORK_SIZE_PRESET))
+    }
+
     private fun readPlaybackVolume(): Float {
         val storedVolume = if (defaults.objectForKey(KEY_PLAYBACK_VOLUME) == null) {
             DEFAULT_PLAYBACK_VOLUME
@@ -585,6 +627,15 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
             defaults.doubleForKey(KEY_PLAYBACK_VOLUME).toFloat()
         }
         return normalizePlaybackVolume(storedVolume)
+    }
+
+    private fun readAutoPlayOnStartupDelaySeconds(): Int {
+        val storedSeconds = if (defaults.objectForKey(KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS) == null) {
+            DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
+        } else {
+            defaults.integerForKey(KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS).toInt()
+        }
+        return normalizeAutoPlayOnStartupDelaySeconds(storedSeconds)
     }
 
     private fun readSelectedTheme(): AppThemeId {
@@ -892,8 +943,11 @@ private const val KEY_USE_SAMBA_CACHE = "use_samba_cache"
 private const val KEY_PLAYBACK_VOLUME = "playback_volume"
 private const val KEY_SHOW_COMPACT_PLAYER_LYRICS = "show_compact_player_lyrics"
 private const val KEY_AUTO_PLAY_ON_STARTUP = "auto_play_on_startup"
+private const val KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS = "auto_play_on_startup_delay_seconds"
 private const val KEY_AUTO_OPEN_PLAYER_ON_STARTUP = "auto_open_player_on_startup"
 private const val KEY_PLAYER_ARTWORK_STYLE = "player_artwork_style"
+private const val KEY_PLAYER_LYRICS_FONT_SIZE_PRESET = "player_lyrics_font_size_preset"
+private const val KEY_PLAYER_ARTWORK_SIZE_PRESET = "player_artwork_size_preset"
 private const val KEY_NAVIDROME_WIFI_AUDIO_QUALITY = "navidrome_wifi_audio_quality"
 private const val KEY_NAVIDROME_MOBILE_AUDIO_QUALITY = "navidrome_mobile_audio_quality"
 private const val KEY_LIBRARY_SOURCE_FILTER = "library_source_filter"

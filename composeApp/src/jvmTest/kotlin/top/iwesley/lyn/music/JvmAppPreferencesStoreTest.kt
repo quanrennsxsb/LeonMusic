@@ -14,6 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import top.iwesley.lyn.music.core.model.AppThemeId
+import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.platform.JvmAppPreferencesStore
 import top.iwesley.lyn.music.platform.JvmSettingsPropertiesFile
 
@@ -102,8 +103,15 @@ class JvmAppPreferencesStoreTest {
             val settingsFile = temporaryDirectory.resolve("settings.properties").toFile()
             val store = JvmAppPreferencesStore(settingsFile)
 
+            assertEquals(DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS, store.autoPlayOnStartupDelaySeconds.value)
+            store.setAutoPlayOnStartupDelaySeconds(99)
+
+            val reloadedDelayStore = JvmAppPreferencesStore(settingsFile)
+            assertEquals(30, reloadedDelayStore.autoPlayOnStartupDelaySeconds.value)
+
             awaitAll(
                 async(Dispatchers.Default) { store.setAutoPlayOnStartup(true) },
+                async(Dispatchers.Default) { store.setAutoPlayOnStartupDelaySeconds(12) },
                 async(Dispatchers.Default) { store.setMinimizeWindowOnClose(false) },
                 async(Dispatchers.Default) { store.setShowDesktopLyrics(true) },
                 async(Dispatchers.Default) { store.setPlaybackVolume(0.42f) },
@@ -112,6 +120,7 @@ class JvmAppPreferencesStoreTest {
 
             val reloadedStore = JvmAppPreferencesStore(settingsFile)
             assertTrue(reloadedStore.autoPlayOnStartup.value)
+            assertEquals(12, reloadedStore.autoPlayOnStartupDelaySeconds.value)
             assertFalse(reloadedStore.minimizeWindowOnClose.value)
             assertTrue(reloadedStore.showDesktopLyrics.value)
             assertEquals(0.42f, reloadedStore.playbackVolume.value)

@@ -69,6 +69,8 @@ internal class JvmAppStorageGateway(
                     Unit
                 }
 
+                AppStorageCategory.NavidromePlaybackCache -> Unit
+
                 AppStorageCategory.OfflineDownloads -> {
                     val directory = File(rootDirectory, "offline")
                     clearDirectory(directory)

@@ -2839,6 +2839,7 @@ private fun formatTimestamp(value: Long?): String {
 private val storageCategoryOrder = listOf(
     AppStorageCategory.Artwork,
     AppStorageCategory.PlaybackCache,
+    AppStorageCategory.NavidromePlaybackCache,
     AppStorageCategory.OfflineDownloads,
     AppStorageCategory.LyricsShareTemp,
     AppStorageCategory.TagEditTemp,
@@ -2848,6 +2849,7 @@ private fun tvStorageCategoryTitle(category: AppStorageCategory): String {
     return when (category) {
         AppStorageCategory.Artwork -> "封面缓存"
         AppStorageCategory.PlaybackCache -> "播放缓存"
+        AppStorageCategory.NavidromePlaybackCache -> "Navidrome 播放缓存"
         AppStorageCategory.OfflineDownloads -> "离线音乐"
         AppStorageCategory.LyricsShareTemp -> "歌词分享临时文件"
         AppStorageCategory.TagEditTemp -> "标签编辑临时文件"
@@ -2858,6 +2860,7 @@ private fun tvStorageCategoryDescription(category: AppStorageCategory): String {
     return when (category) {
         AppStorageCategory.Artwork -> "下载封面、扫描封面和标签编辑生成的本地封面文件。"
         AppStorageCategory.PlaybackCache -> "SMB 播放时落到本地的临时音频缓存。"
+        AppStorageCategory.NavidromePlaybackCache -> "包含 Navidrome 在线播放时边播边写入的音频缓存。"
         AppStorageCategory.OfflineDownloads -> "手动下载到本机的非本地音乐文件。"
         AppStorageCategory.LyricsShareTemp -> "生成歌词分享图时写入的临时图片。"
         AppStorageCategory.TagEditTemp -> "编辑标签封面时写入的临时中转文件。"

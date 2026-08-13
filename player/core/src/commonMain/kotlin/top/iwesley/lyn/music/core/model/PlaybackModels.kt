@@ -25,6 +25,7 @@ data class PlaybackSnapshot(
     val metadataArtworkLocator: String? = null,
     val currentNavidromeAudioQuality: NavidromeAudioQuality? = null,
     val currentPlaybackAudioFormat: PlaybackAudioFormat? = null,
+    val startupAutoPlayCountdownSeconds: Int? = null,
     val errorMessage: String? = null,
 ) {
     val currentTrack: Track?
