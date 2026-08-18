@@ -1463,6 +1463,10 @@ private class FakeQueuePlaybackRepository(
         )
     }
 
+    override suspend fun resumeCurrentTrackPlayback() {
+        togglePlayPause()
+    }
+
     override suspend fun togglePlayPause() {
         togglePlayPauseCallCount += 1
         mutableSnapshot.value = mutableSnapshot.value.copy(isPlaying = !mutableSnapshot.value.isPlaying)

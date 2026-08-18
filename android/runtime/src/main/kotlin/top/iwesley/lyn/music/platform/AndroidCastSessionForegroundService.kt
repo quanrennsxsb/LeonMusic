@@ -280,7 +280,7 @@ internal class AndroidCastSessionForegroundService : Service() {
         }
         return builder
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("LynMusic")
+            .setContentTitle("LeonMusic")
             .setContentText("正在同步投屏状态")
             .setOnlyAlertOnce(true)
             .setShowWhen(false)

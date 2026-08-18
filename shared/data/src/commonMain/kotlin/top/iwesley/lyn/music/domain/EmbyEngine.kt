@@ -41,8 +41,8 @@ import top.iwesley.lyn.music.data.db.LynMusicDatabase
 import kotlin.random.Random
 import kotlin.time.Instant
 
-private const val EMBY_CLIENT_NAME = "LynMusic"
-private const val EMBY_DEVICE_NAME = "LynMusic"
+private const val EMBY_CLIENT_NAME = "LeonMusic"
+private const val EMBY_DEVICE_NAME = "LeonMusic"
 private const val EMBY_VERSION = "1.0.0"
 private const val EMBY_PAGE_SIZE = 200
 private const val EMBY_IMPORT_PAGE_SIZE = 100

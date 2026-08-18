@@ -41,7 +41,7 @@ class JvmCrashReporterTest {
             throwable = throwable,
         )
 
-        assertContains(report, "LynMusic Desktop Crash")
+        assertContains(report, "LeonMusic Desktop Crash")
         assertContains(report, "Thread: player-worker")
         assertContains(report, "Exception: java.lang.IllegalStateException")
         assertContains(report, "Message: outer failure")

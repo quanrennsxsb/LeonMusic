@@ -12,7 +12,7 @@ import java.io.StringWriter
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 
-class LynMusicApplication : Application() {
+class LeonMusicApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         if (isCrashReportProcess()) {
@@ -67,7 +67,7 @@ internal fun formatAndroidCrashReport(
 ): String {
     val writer = StringWriter()
     PrintWriter(writer).use { printer ->
-        printer.println("LynMusic Android Crash")
+        printer.println("LeonMusic Android Crash")
         printer.println("Thread: $threadName")
         printer.println("Exception: ${throwable.javaClass.name}")
         throwable.message?.takeIf { it.isNotBlank() }?.let { message ->
@@ -105,6 +105,6 @@ private fun resolveCurrentProcessName(context: Context): String? {
 
 internal const val EXTRA_ANDROID_CRASH_REPORT = "top.iwesley.lyn.music.automotive.extra.CRASH_REPORT"
 
-private const val ANDROID_CRASH_LOG_TAG = "LynMusic"
+private const val ANDROID_CRASH_LOG_TAG = "LeonMusic"
 private const val ANDROID_CRASH_EXIT_CODE = 10
 private const val MAX_ANDROID_CRASH_REPORT_CHARS = 120_000

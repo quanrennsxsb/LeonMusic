@@ -81,6 +81,7 @@ interface PlaybackRepository {
     suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int)
     suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot?
     suspend fun playQueueIndex(index: Int)
+    suspend fun resumeCurrentTrackPlayback()
     suspend fun togglePlayPause()
     suspend fun pause()
     suspend fun skipNext()
@@ -157,7 +158,7 @@ class DefaultPlaybackRepository(
     init {
         systemPlaybackControlsPlatformService.bind(
             SystemPlaybackControlCallbacks(
-                play = { playCurrentTrack() },
+                play = { resumeCurrentTrackPlayback() },
                 pause = { pauseCurrentTrack() },
                 togglePlayPause = { togglePlayPause() },
                 skipNext = { skipNext() },
@@ -428,18 +429,26 @@ class DefaultPlaybackRepository(
     }
 
     override suspend fun togglePlayPause() {
+        var reloadRequest: PlaybackLoadRequest? = null
         playbackCommandMutex.withLock {
-            if (mutableSnapshot.value.currentTrack == null) return
+            val snapshot = mutableSnapshot.value
+            val currentTrack = snapshot.currentTrack ?: return@withLock
             logger.warn(PLAYBACK_LOG_TAG) {
-                "repository-toggle-play-pause track=${mutableSnapshot.value.currentTrack?.id.orEmpty()} " +
-                    "snapshotPlaying=${mutableSnapshot.value.isPlaying}"
+                "repository-toggle-play-pause track=${currentTrack.id} " +
+                    "snapshotPlaying=${snapshot.isPlaying} error=${snapshot.errorMessage.orEmpty()}"
             }
             clearStartupAutoPlayCountdownLocked()
-            if (mutableSnapshot.value.isPlaying) {
+            if (snapshot.isPlaying) {
                 gateway.pause()
+            } else if (shouldReloadCurrentTrackForPlayback(snapshot)) {
+                reloadRequest = createCurrentTrackResumeLoadRequestLocked(snapshot)
             } else {
                 gateway.play()
             }
+        }
+        reloadRequest?.let {
+            loadGatewaySafely(it)
+            persistSnapshotCursorIfPersistent()
         }
     }
 
@@ -574,6 +583,20 @@ class DefaultPlaybackRepository(
         }
     }
 
+    override suspend fun resumeCurrentTrackPlayback() {
+        var loadRequest: PlaybackLoadRequest? = null
+        playbackCommandMutex.withLock {
+            val snapshot = mutableSnapshot.value
+            if (snapshot.currentTrack == null) return@withLock
+            clearStartupAutoPlayCountdownLocked()
+            loadRequest = createCurrentTrackResumeLoadRequestLocked(snapshot)
+        }
+        loadRequest?.let {
+            loadGatewaySafely(it)
+            persistSnapshotCursorIfPersistent()
+        }
+    }
+
     private suspend fun pauseCurrentTrack() {
         playbackCommandMutex.withLock {
             if (mutableSnapshot.value.currentTrack == null) return
@@ -590,6 +613,33 @@ class DefaultPlaybackRepository(
         if (mutableSnapshot.value.startupAutoPlayCountdownSeconds != null) {
             mutableSnapshot.update { it.copy(startupAutoPlayCountdownSeconds = null) }
         }
+    }
+
+    private fun shouldReloadCurrentTrackForPlayback(snapshot: PlaybackSnapshot): Boolean {
+        return snapshot.errorMessage != null ||
+            (!snapshot.canSeek && snapshot.durationMs > 0L)
+    }
+
+    private fun createCurrentTrackResumeLoadRequestLocked(snapshot: PlaybackSnapshot): PlaybackLoadRequest? {
+        val track = snapshot.currentTrack ?: return null
+        ignoreCurrentGatewayErrorForNextTrack()
+        val startPositionMs = snapshot.positionMs.coerceAtLeast(0L)
+        mutableSnapshot.update {
+            it.copy(
+                isHydratingPlayback = false,
+                isPlaying = true,
+                errorMessage = null,
+                startupAutoPlayCountdownSeconds = null,
+            )
+        }
+        logger.warn(PLAYBACK_LOG_TAG) {
+            "repository-resume-current-reload track=${track.id} positionMs=$startPositionMs"
+        }
+        return createLoadRequest(
+            track = track,
+            playWhenReady = true,
+            startPositionMs = startPositionMs,
+        )
     }
 
     private suspend fun advanceLocked(autoTriggered: Boolean): PlaybackLoadRequest? {
@@ -1462,8 +1512,13 @@ private fun buildPlaybackLoadFailureMessage(throwable: Throwable): String {
     val detail = throwable.message?.takeIf { it.isNotBlank() }
         ?: throwable::class.simpleName
         ?: "未知错误"
+    if (detail.contains(WAITING_FOR_NETWORK_MESSAGE_PREFIX)) {
+        return detail
+    }
     return "访问歌曲失败：$detail"
 }
+
+private const val WAITING_FOR_NETWORK_MESSAGE_PREFIX = "等待网络连接"
 
 private fun String.toPlaybackMode(): PlaybackMode {
     return runCatching { PlaybackMode.valueOf(this) }.getOrDefault(PlaybackMode.ORDER)

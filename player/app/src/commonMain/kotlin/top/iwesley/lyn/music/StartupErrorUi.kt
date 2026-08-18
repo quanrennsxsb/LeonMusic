@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import top.iwesley.lyn.music.ui.LynMusicTheme
+import top.iwesley.lyn.music.ui.LeonMusicTheme
 import top.iwesley.lyn.music.ui.mainShellColors
 
 internal const val STARTUP_DATABASE_COMPATIBILITY_ERROR_TITLE =
@@ -48,7 +48,7 @@ fun StartupDatabaseErrorScreen(
     showDetails: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    LynMusicTheme {
+    LeonMusicTheme {
         val shellColors = mainShellColors
         val clipboardManager = LocalClipboardManager.current
         var detailsCopied by remember(error) { mutableStateOf(false) }
@@ -173,7 +173,7 @@ private fun StartupDataLocationSurface(
     modifier: Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    LynMusicTheme {
+    LeonMusicTheme {
         val shellColors = mainShellColors
         Box(
             modifier = modifier

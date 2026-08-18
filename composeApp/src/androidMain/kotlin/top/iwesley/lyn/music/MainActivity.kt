@@ -41,7 +41,7 @@ import kotlin.math.roundToInt
 class MainActivity : ComponentActivity() {
     private val startupAutoOpenViewModel by viewModels<StartupAutoOpenViewModel>()
     private val externalAudioOpenScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var appComponent: LynMusicAppComponent? = null
+    private var appComponent: LeonMusicAppComponent? = null
     private var pendingExternalAudioOpenIntent: Intent? = null
     private var externalAudioOpenJob: Job? = null
     private var externalAudioOpenRequestId = 0L
@@ -149,7 +149,7 @@ internal class StartupAutoOpenViewModel : ViewModel() {
 
 @Composable
 private fun MainActivity.AndroidMainShellSystemBars(
-    appComponent: LynMusicAppComponent,
+    appComponent: LeonMusicAppComponent,
 ) {
     val settingsState by appComponent.settingsStore.state.collectAsState()
     val playerState by appComponent.playerStore.state.collectAsState()

@@ -40,7 +40,7 @@ class CrashReportActivity : Activity() {
 
         root.addView(
             TextView(this).apply {
-                text = "LynMusic 遇到未捕获异常"
+                text = "LeonMusic 遇到未捕获异常"
                 setTextColor(Color.rgb(23, 23, 23))
                 textSize = 20f
                 typeface = Typeface.DEFAULT_BOLD
@@ -119,7 +119,7 @@ class CrashReportActivity : Activity() {
 
     private fun copyCrashReport(report: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("LynMusic crash report", report))
+        clipboard.setPrimaryClip(ClipData.newPlainText("LeonMusic crash report", report))
         Toast.makeText(this, "已复制崩溃堆栈", Toast.LENGTH_SHORT).show()
     }
 

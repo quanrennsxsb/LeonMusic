@@ -92,6 +92,8 @@ import top.iwesley.lyn.music.core.model.PlaybackPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
 import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.LyricsShareFontPreferencesStore
@@ -113,6 +115,7 @@ import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
 import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
 import top.iwesley.lyn.music.core.model.playerArtworkStyleOrDefault
+import top.iwesley.lyn.music.core.model.playerLyricsColorPreferenceOrDefault
 import top.iwesley.lyn.music.core.model.playerVisualSizePresetOrDefault
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
 import top.iwesley.lyn.music.core.model.stableArtworkBytesHash
@@ -194,7 +197,7 @@ import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 
 fun createJvmAppComponent(
     dataLocationManager: JvmDataLocationManager = JvmDataLocationManager(),
-): top.iwesley.lyn.music.LynMusicAppComponent {
+): top.iwesley.lyn.music.LeonMusicAppComponent {
     val osName = System.getProperty("os.name").orEmpty()
     JvmAppDataDirectory.initialize(dataLocationManager.currentRootDirectory())
     val resourceGuard = JvmDesktopResourceGuard()
@@ -269,6 +272,7 @@ fun createJvmAppComponent(
             autoOpenPlayerOnStartupPreferencesStore = appPreferencesStore,
             windowClosePreferencesStore = appPreferencesStore,
             playerArtworkStylePreferencesStore = appPreferencesStore,
+            playerLyricsColorPreferencesStore = appPreferencesStore,
             playerLyricsFontSizePreferencesStore = appPreferencesStore,
             playerArtworkSizePreferencesStore = appPreferencesStore,
             desktopVlcPreferencesStore = appPreferencesStore,
@@ -436,7 +440,7 @@ internal class JvmAppPreferencesStore(
 ) : PlaybackPreferencesStore, SambaCachePreferencesStore, ThemePreferencesStore,
     CompactPlayerLyricsPreferencesStore, DesktopLyricsPreferencesStore, MenuBarLyricsControlsPreferencesStore,
     DesktopVlcPreferencesStore, LyricsShareFontPreferencesStore, PlayerArtworkStylePreferencesStore,
-    PlayerLyricsFontSizePreferencesStore, PlayerArtworkSizePreferencesStore,
+    PlayerLyricsColorPreferencesStore, PlayerLyricsFontSizePreferencesStore, PlayerArtworkSizePreferencesStore,
     LibrarySourceFilterPreferencesStore, WindowClosePreferencesStore, AutoOpenPlayerOnStartupPreferencesStore {
     private val propertiesFile = JvmSettingsPropertiesFile(settingsFile)
     private val mutableUseSambaCache = MutableStateFlow(readUseSambaCache())
@@ -464,6 +468,8 @@ internal class JvmAppPreferencesStore(
     private val mutableTextPalettePreferences = MutableStateFlow(readTextPalettePreferences())
     private val mutableDesktopVlcManualPath = MutableStateFlow(readDesktopVlcManualPath())
     private val mutablePlayerArtworkStyle = MutableStateFlow(readPlayerArtworkStyle())
+    private val mutablePlayerLyricsColorPreference = MutableStateFlow(readPlayerLyricsColorPreference())
+    private val mutablePlayerActiveLyricsColorPreference = MutableStateFlow(readPlayerActiveLyricsColorPreference())
     private val mutablePlayerLyricsFontSizePreset = MutableStateFlow(readPlayerLyricsFontSizePreset())
     private val mutablePlayerArtworkSizePreset = MutableStateFlow(readPlayerArtworkSizePreset())
     private val mutableDesktopVlcAutoDetectedPath = MutableStateFlow<String?>(null)
@@ -494,6 +500,10 @@ internal class JvmAppPreferencesStore(
     override val desktopVlcEffectivePath: StateFlow<String?> = mutableDesktopVlcEffectivePath.asStateFlow()
     override val selectedLyricsShareFontKey: StateFlow<String?> = mutableSelectedLyricsShareFontKey.asStateFlow()
     override val playerArtworkStyle: StateFlow<PlayerArtworkStyle> = mutablePlayerArtworkStyle.asStateFlow()
+    override val playerLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerLyricsColorPreference.asStateFlow()
+    override val playerActiveLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerActiveLyricsColorPreference.asStateFlow()
     override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> =
         mutablePlayerLyricsFontSizePreset.asStateFlow()
     override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> =
@@ -575,6 +585,20 @@ internal class JvmAppPreferencesStore(
         updateProperties(
             mutate = { setProperty(KEY_PLAYER_ARTWORK_STYLE, style.name) },
             onPersisted = { mutablePlayerArtworkStyle.value = style },
+        )
+    }
+
+    override suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        updateProperties(
+            mutate = { setProperty(KEY_PLAYER_LYRICS_COLOR_PREFERENCE, preference.name) },
+            onPersisted = { mutablePlayerLyricsColorPreference.value = preference },
+        )
+    }
+
+    override suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        updateProperties(
+            mutate = { setProperty(KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE, preference.name) },
+            onPersisted = { mutablePlayerActiveLyricsColorPreference.value = preference },
         )
     }
 
@@ -760,6 +784,18 @@ internal class JvmAppPreferencesStore(
 
     private fun readPlayerArtworkStyle(): PlayerArtworkStyle {
         return playerArtworkStyleOrDefault(loadProperties().getProperty(KEY_PLAYER_ARTWORK_STYLE))
+    }
+
+    private fun readPlayerLyricsColorPreference(): PlayerLyricsColorPreference {
+        return playerLyricsColorPreferenceOrDefault(loadProperties().getProperty(KEY_PLAYER_LYRICS_COLOR_PREFERENCE))
+    }
+
+    private fun readPlayerActiveLyricsColorPreference(): PlayerLyricsColorPreference {
+        val properties = loadProperties()
+        return playerLyricsColorPreferenceOrDefault(
+            properties.getProperty(KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE)
+                ?: properties.getProperty(KEY_PLAYER_LYRICS_COLOR_PREFERENCE),
+        )
     }
 
     private fun readPlayerLyricsFontSizePreset(): PlayerVisualSizePreset {
@@ -3183,6 +3219,8 @@ private const val KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS = "auto_play_on_startup
 private const val KEY_AUTO_OPEN_PLAYER_ON_STARTUP = "auto_open_player_on_startup"
 private const val KEY_MACOS_MINIMIZE_WINDOW_ON_CLOSE = "macos_minimize_window_on_close"
 private const val KEY_PLAYER_ARTWORK_STYLE = "player_artwork_style"
+private const val KEY_PLAYER_LYRICS_COLOR_PREFERENCE = "player_lyrics_color_preference"
+private const val KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE = "player_active_lyrics_color_preference"
 private const val KEY_PLAYER_LYRICS_FONT_SIZE_PRESET = "player_lyrics_font_size_preset"
 private const val KEY_PLAYER_ARTWORK_SIZE_PRESET = "player_artwork_size_preset"
 private const val KEY_LIBRARY_SOURCE_FILTER = "library_source_filter"

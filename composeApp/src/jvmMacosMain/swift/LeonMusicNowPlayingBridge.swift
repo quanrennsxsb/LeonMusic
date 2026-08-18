@@ -1,10 +1,11 @@
 import AppKit
 import Foundation
 import MediaPlayer
+import WidgetKit
 
-public typealias LynMusicNowPlayingCallback = @convention(c) (Int32, Double) -> Void
+public typealias LeonMusicNowPlayingCallback = @convention(c) (Int32, Double) -> Void
 
-private enum LynMusicNowPlayingCommand: Int32 {
+private enum LeonMusicNowPlayingCommand: Int32 {
     case play = 1
     case pause = 2
     case togglePlayPause = 3
@@ -13,16 +14,19 @@ private enum LynMusicNowPlayingCommand: Int32 {
     case seek = 6
 }
 
-private final class LynMusicNowPlayingController {
-    private let callback: LynMusicNowPlayingCallback
+private final class LeonMusicNowPlayingController {
+    private let callback: LeonMusicNowPlayingCallback
     private let infoCenter = MPNowPlayingInfoCenter.default()
     private let commandCenter = MPRemoteCommandCenter.shared()
     private var commandTargets: [(MPRemoteCommand, Any)] = []
     private var currentArtworkImage: NSImage?
     private var currentArtwork: MPMediaItemArtwork?
+    private var lastWidgetReloadAt: Date?
+    private var lastWidgetTitle: String?
+    private var lastWidgetArtworkPath: String?
     private var isDisposed = false
 
-    init(callback: @escaping LynMusicNowPlayingCallback) {
+    init(callback: @escaping LeonMusicNowPlayingCallback) {
         self.callback = callback
         runOnMainSync {
             self.installRemoteCommands()
@@ -48,6 +52,7 @@ private final class LynMusicNowPlayingController {
                 self.clear()
                 return
             }
+            let widgetReloadShouldBeForced = self.shouldForceWidgetReload(title: title, artworkPath: artworkPath)
 
             self.updateArtwork(path: artworkPath?.trimmedNonEmpty)
 
@@ -73,6 +78,9 @@ private final class LynMusicNowPlayingController {
                 self.infoCenter.playbackState = isPlaying ? .playing : .paused
             }
             self.updateCommandAvailability(hasTrack: true, canSeek: canSeek, hasNext: hasNext, hasPrevious: hasPrevious)
+            self.lastWidgetTitle = title
+            self.lastWidgetArtworkPath = artworkPath?.trimmedNonEmpty
+            self.reloadWidgetTimelineIfNeeded(force: widgetReloadShouldBeForced)
         }
     }
 
@@ -85,7 +93,10 @@ private final class LynMusicNowPlayingController {
             }
             self.currentArtwork = nil
             self.currentArtworkImage = nil
+            self.lastWidgetTitle = nil
+            self.lastWidgetArtworkPath = nil
             self.updateCommandAvailability(hasTrack: false, canSeek: false, hasNext: false, hasPrevious: false)
+            self.reloadWidgetTimelineIfNeeded(force: true)
         }
     }
 
@@ -110,7 +121,7 @@ private final class LynMusicNowPlayingController {
         register(commandCenter.changePlaybackPositionCommand, command: .seek)
     }
 
-    private func register(_ remoteCommand: MPRemoteCommand, command: LynMusicNowPlayingCommand) {
+    private func register(_ remoteCommand: MPRemoteCommand, command: LeonMusicNowPlayingCommand) {
         let target = remoteCommand.addTarget { [weak self] event in
             guard let self = self, !self.isDisposed else {
                 return .commandFailed
@@ -151,6 +162,20 @@ private final class LynMusicNowPlayingController {
             image
         }
     }
+
+    private func shouldForceWidgetReload(title: String, artworkPath: String?) -> Bool {
+        return lastWidgetTitle != title || lastWidgetArtworkPath != artworkPath?.trimmedNonEmpty
+    }
+
+    private func reloadWidgetTimelineIfNeeded(force: Bool) {
+        guard #available(macOS 11.0, *) else { return }
+        let now = Date()
+        if !force, let lastWidgetReloadAt, now.timeIntervalSince(lastWidgetReloadAt) < 30 {
+            return
+        }
+        lastWidgetReloadAt = now
+        WidgetCenter.shared.reloadTimelines(ofKind: "LeonMusicNowPlayingWidget")
+    }
 }
 
 private extension String {
@@ -169,9 +194,9 @@ private func runOnMainSync(_ block: @escaping () -> Void) {
 }
 
 @_cdecl("lyn_music_now_playing_create")
-public func lyn_music_now_playing_create(_ callback: LynMusicNowPlayingCallback?) -> UnsafeMutableRawPointer? {
+public func lyn_music_now_playing_create(_ callback: LeonMusicNowPlayingCallback?) -> UnsafeMutableRawPointer? {
     guard let callback = callback else { return nil }
-    let controller = LynMusicNowPlayingController(callback: callback)
+    let controller = LeonMusicNowPlayingController(callback: callback)
     return Unmanaged.passRetained(controller).toOpaque()
 }
 
@@ -190,7 +215,7 @@ public func lyn_music_now_playing_update(
     _ hasPrevious: Int32
 ) -> Int32 {
     guard let handle = handle else { return 0 }
-    let controller = Unmanaged<LynMusicNowPlayingController>.fromOpaque(handle).takeUnretainedValue()
+    let controller = Unmanaged<LeonMusicNowPlayingController>.fromOpaque(handle).takeUnretainedValue()
     controller.update(
         title: title.map(String.init(cString:)),
         artist: artist.map(String.init(cString:)),
@@ -209,7 +234,7 @@ public func lyn_music_now_playing_update(
 @_cdecl("lyn_music_now_playing_clear")
 public func lyn_music_now_playing_clear(_ handle: UnsafeMutableRawPointer?) -> Int32 {
     guard let handle = handle else { return 0 }
-    let controller = Unmanaged<LynMusicNowPlayingController>.fromOpaque(handle).takeUnretainedValue()
+    let controller = Unmanaged<LeonMusicNowPlayingController>.fromOpaque(handle).takeUnretainedValue()
     controller.clear()
     return 1
 }
@@ -217,7 +242,7 @@ public func lyn_music_now_playing_clear(_ handle: UnsafeMutableRawPointer?) -> I
 @_cdecl("lyn_music_now_playing_dispose")
 public func lyn_music_now_playing_dispose(_ handle: UnsafeMutableRawPointer?) -> Int32 {
     guard let handle = handle else { return 0 }
-    let controller = Unmanaged<LynMusicNowPlayingController>.fromOpaque(handle).takeRetainedValue()
+    let controller = Unmanaged<LeonMusicNowPlayingController>.fromOpaque(handle).takeRetainedValue()
     controller.dispose()
     return 1
 }

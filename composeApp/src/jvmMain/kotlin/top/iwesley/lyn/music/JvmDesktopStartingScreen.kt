@@ -19,13 +19,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import top.iwesley.lyn.music.ui.LynMusicTheme
+import top.iwesley.lyn.music.ui.LeonMusicTheme
 
 @Composable
 internal fun JvmDesktopStartingScreen(
     modifier: Modifier = Modifier,
 ) {
-    LynMusicTheme {
+    LeonMusicTheme {
         Box(
             modifier = modifier
                 .fillMaxSize()

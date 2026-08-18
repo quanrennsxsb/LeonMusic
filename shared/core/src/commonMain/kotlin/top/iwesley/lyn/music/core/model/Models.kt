@@ -183,6 +183,16 @@ enum class LocalFolderPickerMode {
     BuiltIn,
 }
 
+interface NavidromePlaybackCacheDirectoryPicker {
+    suspend fun pickDirectory(): Result<LocalFolderSelection?>
+}
+
+object UnsupportedNavidromePlaybackCacheDirectoryPicker : NavidromePlaybackCacheDirectoryPicker {
+    override suspend fun pickDirectory(): Result<LocalFolderSelection?> {
+        return Result.failure(IllegalStateException("当前平台不支持选择 Navidrome 播放缓存目录。"))
+    }
+}
+
 data class SambaSourceDraft(
     val label: String,
     val server: String,

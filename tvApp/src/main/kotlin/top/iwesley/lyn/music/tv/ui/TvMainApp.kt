@@ -7,7 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import top.iwesley.lyn.music.LynMusicAppComponent
+import top.iwesley.lyn.music.LeonMusicAppComponent
 import top.iwesley.lyn.music.feature.favorites.FavoritesIntent
 import top.iwesley.lyn.music.feature.library.LibraryIntent
 import top.iwesley.lyn.music.feature.player.PlayerIntent
@@ -17,7 +17,7 @@ import top.iwesley.lyn.music.tv.TvPlayerActivity
 
 @Composable
 internal fun TvMainApp(
-    component: LynMusicAppComponent,
+    component: LeonMusicAppComponent,
 ) {
     ConfigureTvImageLoader()
 

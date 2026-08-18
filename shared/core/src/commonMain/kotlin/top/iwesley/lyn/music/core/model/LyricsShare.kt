@@ -93,7 +93,7 @@ fun parseLyricsShareImportedFontHash(fontKey: String): String? {
 }
 
 object LyricsShareCardSpec {
-    const val BRAND_TEXT: String = "Via LynMusic"
+    const val BRAND_TEXT: String = "Via LeonMusic"
     // Layout keeps the existing design grid; IMAGE_* exposes the exported PNG dimensions.
     const val OUTPUT_SCALE: Int = 2
     const val LAYOUT_WIDTH_PX: Int = 1080
@@ -226,7 +226,7 @@ fun buildLyricsShareSuggestedName(title: String): String {
     val normalized = title.trim()
         .replace(ILLEGAL_FILE_NAME_CHARS, "_")
         .trim('_', ' ')
-        .ifBlank { "lynmusic" }
+        .ifBlank { "leonmusic" }
     return "$normalized-lyrics-share.png"
 }
 

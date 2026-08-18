@@ -9,7 +9,6 @@ import android.util.DisplayMetrics
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.focusGroup
@@ -17,7 +16,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -86,11 +84,9 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -117,7 +113,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.iwesley.lyn.music.BadgedIcon
-import top.iwesley.lyn.music.LynMusicAppComponent
+import top.iwesley.lyn.music.LeonMusicAppComponent
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
 import top.iwesley.lyn.music.core.model.AppStorageCategory
 import top.iwesley.lyn.music.core.model.AppStorageCategoryUsage
@@ -126,7 +122,7 @@ import top.iwesley.lyn.music.core.model.DeviceInfoSnapshot
 import top.iwesley.lyn.music.core.model.ImportSource
 import top.iwesley.lyn.music.core.model.ImportSourceType
 import top.iwesley.lyn.music.core.model.LocalFolderSelection
-import top.iwesley.lyn.music.core.model.LynMusicUpdateLinks
+import top.iwesley.lyn.music.core.model.LeonMusicUpdateLinks
 import top.iwesley.lyn.music.core.model.PlatformCapabilities
 import top.iwesley.lyn.music.core.model.SourceWithStatus
 import top.iwesley.lyn.music.core.model.SubsonicAuthMode
@@ -170,7 +166,7 @@ class TvSettingsActivity : TvComponentActivity() {
             ProvideTvSettingsDensity(appDisplayScalePreset) {
                 TvSettingsApp(
                     component = component,
-                    pickLocalFolder = { (application as LynMusicApplication).pickLocalFolder() },
+                    pickLocalFolder = { (application as LeonMusicApplication).pickLocalFolder() },
                     onBack = ::finish,
                 )
             }
@@ -188,7 +184,7 @@ class TvSettingsActivity : TvComponentActivity() {
 
 @Composable
 private fun TvSettingsApp(
-    component: LynMusicAppComponent,
+    component: LeonMusicAppComponent,
     pickLocalFolder: suspend () -> LocalFolderSelection?,
     onBack: () -> Unit,
 ) {
@@ -1928,7 +1924,7 @@ private fun TvAboutAppSettingsPane(
         item {
             TvSettingsPaneHeader(
                 title = "关于应用",
-                subtitle = "查看版本、开发者、项目地址和公众号信息。",
+                subtitle = "查看版本、开发者和项目地址。",
             )
         }
         item {
@@ -1940,7 +1936,7 @@ private fun TvAboutAppSettingsPane(
             TvDeviceInfoGroup(
                 title = "基本信息",
                 rows = listOf(
-                    "应用名称" to "LynMusic",
+                    "应用名称" to "LeonMusic",
                     "版本号" to BuildMetadata.versionDisplay,
                     "平台名称" to platformName,
                     "编译时间" to BuildMetadata.buildTimeUtc,
@@ -2026,37 +2022,10 @@ private fun TvAboutAppSettingsPane(
             TvDeviceInfoGroup(
                 title = "开发者",
                 rows = listOf(
-                    "名称" to "Wesley",
-                    "项目地址" to LynMusicUpdateLinks.PROJECT_URL,
+                    "名称" to "斯文扫地",
+                    "项目地址" to LeonMusicUpdateLinks.PROJECT_URL,
                 ),
             )
-        }
-        item {
-            TvSettingsInfoCard(title = "微信公众号") {
-                TvSettingsFieldRow(label = "账号", value = "锋风")
-                Text(
-                    text = "公众号二维码",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    TvAboutAppQrImage(
-                        modifier = Modifier
-                            .widthIn(max = 260.dp)
-                            .fillMaxWidth(0.38f)
-                            .aspectRatio(1f),
-                    )
-                }
-                Text(
-                    text = "扫码关注公众号，获取更新和交流信息。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
         }
     }
 }
@@ -2110,26 +2079,6 @@ private fun TvSettingsInfoCard(
     ) {
         Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
         content()
-    }
-}
-
-@Composable
-private fun TvAboutAppQrImage(
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color.White)
-            .padding(2.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.about_app_wechat_qr),
-            contentDescription = "公众号二维码",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
-        )
     }
 }
 

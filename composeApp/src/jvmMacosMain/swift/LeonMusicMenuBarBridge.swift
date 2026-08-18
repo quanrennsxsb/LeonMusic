@@ -1,16 +1,16 @@
 import AppKit
 import Foundation
 
-public typealias LynMusicMenuBarCallback = @convention(c) (Int32) -> Void
+public typealias LeonMusicMenuBarCallback = @convention(c) (Int32) -> Void
 
-private enum LynMusicMenuBarCommand: Int32 {
+private enum LeonMusicMenuBarCommand: Int32 {
     case previous = 1
     case togglePlayPause = 2
     case next = 3
 }
 
-private final class LynMusicMenuBarController: NSObject {
-    private let callback: LynMusicMenuBarCallback
+private final class LeonMusicMenuBarController: NSObject {
+    private let callback: LeonMusicMenuBarCallback
     private var lyricsItem: NSStatusItem?
     private var previousItem: NSStatusItem?
     private var playPauseItem: NSStatusItem?
@@ -25,7 +25,7 @@ private final class LynMusicMenuBarController: NSObject {
     private var lyricsScrollOffset = 0
     private var isDisposed = false
 
-    init(callback: @escaping LynMusicMenuBarCallback) {
+    init(callback: @escaping LeonMusicMenuBarCallback) {
         self.callback = callback
         super.init()
     }
@@ -232,15 +232,15 @@ private final class LynMusicMenuBarController: NSObject {
     }
 
     @objc private func previousAction() {
-        callback(LynMusicMenuBarCommand.previous.rawValue)
+        callback(LeonMusicMenuBarCommand.previous.rawValue)
     }
 
     @objc private func togglePlayPauseAction() {
-        callback(LynMusicMenuBarCommand.togglePlayPause.rawValue)
+        callback(LeonMusicMenuBarCommand.togglePlayPause.rawValue)
     }
 
     @objc private func nextAction() {
-        callback(LynMusicMenuBarCommand.next.rawValue)
+        callback(LeonMusicMenuBarCommand.next.rawValue)
     }
 }
 
@@ -274,7 +274,7 @@ private let LYRICS_ITEM_WIDTH: CGFloat = 220
 private let LYRICS_SCROLL_INTERVAL: TimeInterval = 0.5
 private let LYRICS_VISIBLE_CHARACTER_COUNT = 18
 private let LYRICS_SCROLL_GAP = "      "
-private let DEFAULT_LYRICS_TEXT = "LynMusic"
+private let DEFAULT_LYRICS_TEXT = "LeonMusic"
 
 private func runMenuBarOnMainSync(_ block: @escaping () -> Void) {
     if Thread.isMainThread {
@@ -285,16 +285,16 @@ private func runMenuBarOnMainSync(_ block: @escaping () -> Void) {
 }
 
 @_cdecl("lyn_music_menu_bar_create")
-public func lyn_music_menu_bar_create(_ callback: LynMusicMenuBarCallback?) -> UnsafeMutableRawPointer? {
+public func lyn_music_menu_bar_create(_ callback: LeonMusicMenuBarCallback?) -> UnsafeMutableRawPointer? {
     guard let callback = callback else { return nil }
-    let controller = LynMusicMenuBarController(callback: callback)
+    let controller = LeonMusicMenuBarController(callback: callback)
     return Unmanaged.passRetained(controller).toOpaque()
 }
 
 @_cdecl("lyn_music_menu_bar_set_enabled")
 public func lyn_music_menu_bar_set_enabled(_ handle: UnsafeMutableRawPointer?, _ enabled: Int32) -> Int32 {
     guard let handle = handle else { return 0 }
-    let controller = Unmanaged<LynMusicMenuBarController>.fromOpaque(handle).takeUnretainedValue()
+    let controller = Unmanaged<LeonMusicMenuBarController>.fromOpaque(handle).takeUnretainedValue()
     controller.setEnabled(enabled != 0)
     return 1
 }
@@ -305,7 +305,7 @@ public func lyn_music_menu_bar_update_lyrics(
     _ lyrics: UnsafePointer<CChar>?
 ) -> Int32 {
     guard let handle = handle else { return 0 }
-    let controller = Unmanaged<LynMusicMenuBarController>.fromOpaque(handle).takeUnretainedValue()
+    let controller = Unmanaged<LeonMusicMenuBarController>.fromOpaque(handle).takeUnretainedValue()
     controller.updateLyrics(lyrics.map(String.init(cString:)))
     return 1
 }
@@ -319,7 +319,7 @@ public func lyn_music_menu_bar_update_playback_state(
     _ hasNext: Int32
 ) -> Int32 {
     guard let handle = handle else { return 0 }
-    let controller = Unmanaged<LynMusicMenuBarController>.fromOpaque(handle).takeUnretainedValue()
+    let controller = Unmanaged<LeonMusicMenuBarController>.fromOpaque(handle).takeUnretainedValue()
     controller.updatePlaybackState(
         hasTrack: hasTrack != 0,
         isPlaying: isPlaying != 0,
@@ -332,7 +332,7 @@ public func lyn_music_menu_bar_update_playback_state(
 @_cdecl("lyn_music_menu_bar_dispose")
 public func lyn_music_menu_bar_dispose(_ handle: UnsafeMutableRawPointer?) -> Int32 {
     guard let handle = handle else { return 0 }
-    let controller = Unmanaged<LynMusicMenuBarController>.fromOpaque(handle).takeRetainedValue()
+    let controller = Unmanaged<LeonMusicMenuBarController>.fromOpaque(handle).takeRetainedValue()
     controller.dispose()
     return 1
 }

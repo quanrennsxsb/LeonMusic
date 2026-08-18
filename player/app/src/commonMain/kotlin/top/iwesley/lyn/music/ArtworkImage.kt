@@ -27,8 +27,8 @@ import coil3.request.ImageRequest
 import coil3.request.maxBitmapSize
 import coil3.size.Size
 import kotlinx.coroutines.flow.flowOf
-import lynmusic.player.app.generated.resources.Res
-import lynmusic.player.app.generated.resources.default_cover
+import leonmusic.player.app.generated.resources.Res
+import leonmusic.player.app.generated.resources.default_cover
 import org.jetbrains.compose.resources.painterResource
 import top.iwesley.lyn.music.core.model.ArtworkCachedTarget
 import top.iwesley.lyn.music.core.model.ArtworkCacheStore

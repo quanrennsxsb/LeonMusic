@@ -43,7 +43,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `windows starts synchronously without pending migration or cleanup`() {
         withTemporaryHome { home ->
-            val active = File(home, "custom/LynMusic").apply { mkdirs() }
+            val active = File(home, "custom/LeonMusic").apply { mkdirs() }
             File(active, ".lynmusic-data-root").writeText("owned")
             updateLocationProperty(home, "active_data_root", active.absolutePath)
             val manager = JvmDataLocationManager(home, "Windows 11")
@@ -114,7 +114,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `valid owned custom active root is accepted`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "custom/LynMusic").apply { mkdirs() }
+            val active = File(home, "custom/LeonMusic").apply { mkdirs() }
             File(active, ".lynmusic-data-root").writeText("owned")
             updateLocationProperty(home, "active_data_root", active.absolutePath)
             val manager = JvmDataLocationManager(home, "Windows 11")
@@ -126,7 +126,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `custom active root without ownership marker fails before startup`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "unowned/LynMusic").apply { mkdirs() }
+            val active = File(home, "unowned/LeonMusic").apply { mkdirs() }
             File(active, "keep.txt").writeText("external")
             updateLocationProperty(home, "active_data_root", active.absolutePath)
             val manager = JvmDataLocationManager(home, "Windows 11")
@@ -143,7 +143,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `missing custom active root fails instead of falling back to default`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "missing/LynMusic")
+            val active = File(home, "missing/LeonMusic")
             updateLocationProperty(home, "active_data_root", active.absolutePath)
             val manager = JvmDataLocationManager(home, "Windows 11")
 
@@ -158,7 +158,7 @@ class JvmDataLocationManagerTest {
             val external = File(home, "external-data").apply { mkdirs() }
             File(external, ".lynmusic-data-root").writeText("owned")
             File(external, "keep.txt").writeText("external")
-            val active = File(File(home, "linked").apply { mkdirs() }, "LynMusic")
+            val active = File(File(home, "linked").apply { mkdirs() }, "LeonMusic")
             if (!createSymbolicLinkOrSkip(active.toPath(), external.toPath())) return@withTemporaryHome
             updateLocationProperty(home, "active_data_root", active.absolutePath)
             val manager = JvmDataLocationManager(home, "Windows 11")
@@ -179,7 +179,7 @@ class JvmDataLocationManagerTest {
             val result = manager.applyPendingChange()
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("必须命名为 LynMusic"))
+            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("必须命名为 LeonMusic"))
         }
     }
 
@@ -193,7 +193,7 @@ class JvmDataLocationManagerTest {
                 writeBytes(byteArrayOf(1, 2, 3, 4))
             }
             val targetParent = File(home, "second-drive").apply { mkdirs() }
-            val target = File(targetParent, "LynMusic")
+            val target = File(targetParent, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11")
 
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
@@ -218,7 +218,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("source=true")
-            val target = File(File(home, "serialized-operation").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "serialized-operation").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> true }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             val applyReachedMove = CountDownLatch(1)
@@ -262,8 +262,8 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("source=true")
-            val firstTarget = File(File(home, "first-target").apply { mkdirs() }, "LynMusic")
-            val secondTarget = File(File(home, "second-target").apply { mkdirs() }, "LynMusic")
+            val firstTarget = File(File(home, "first-target").apply { mkdirs() }, "LeonMusic")
+            val secondTarget = File(File(home, "second-target").apply { mkdirs() }, "LeonMusic")
             val resolverCalls = AtomicInteger()
             val firstScheduleReachedResolver = CountDownLatch(1)
             val allowFirstScheduleToContinue = CountDownLatch(1)
@@ -325,7 +325,7 @@ class JvmDataLocationManagerTest {
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "lynmusic.db").writeText("old database")
             val targetParent = File(home, "new-location").apply { mkdirs() }
-            val target = File(targetParent, "LynMusic")
+            val target = File(targetParent, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 10")
 
             manager.scheduleChange(target, AppDataLocationChangeMode.Discard)
@@ -343,7 +343,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("old=true")
-            val target = File(File(home, "existing-target").apply { mkdirs() }, "LynMusic").apply { mkdirs() }
+            val target = File(File(home, "existing-target").apply { mkdirs() }, "LeonMusic").apply { mkdirs() }
             val manager = JvmDataLocationManager(home, "Windows 11")
 
             manager.scheduleChange(target, AppDataLocationChangeMode.Discard)
@@ -360,7 +360,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("old=true")
-            val target = File(File(home, "discard-operation-only").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "discard-operation-only").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11")
             manager.scheduleChange(target, AppDataLocationChangeMode.Discard)
             writePendingOperationMarker(home, target, role = "target", root = PendingMarkerRoot.Target)
@@ -397,7 +397,7 @@ class JvmDataLocationManagerTest {
                 ),
             )
             sourceDatabase.close()
-            val target = File(File(home, "new-drive").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "new-drive").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11")
 
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
@@ -416,7 +416,7 @@ class JvmDataLocationManagerTest {
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("source=true")
             val targetParent = File(home, "retry-drive").apply { mkdirs() }
-            val target = File(targetParent, "LynMusic")
+            val target = File(targetParent, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> true }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             writePendingOperationMarker(home, source, role = "target", root = PendingMarkerRoot.Source)
@@ -433,11 +433,11 @@ class JvmDataLocationManagerTest {
     @Test
     fun `prepared move resumes when configured custom source has already moved`() = runTest {
         withTemporaryHome { home ->
-            val source = File(home, "old-location/LynMusic").apply { mkdirs() }
+            val source = File(home, "old-location/LeonMusic").apply { mkdirs() }
             File(source, ".lynmusic-data-root").writeText("owned")
             File(source, "settings.properties").writeText("source=true")
             updateLocationProperty(home, "active_data_root", source.absolutePath)
-            val target = File(File(home, "new-location").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "new-location").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> true }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             writePendingOperationMarker(home, source, role = "target", root = PendingMarkerRoot.Source)
@@ -473,7 +473,7 @@ class JvmDataLocationManagerTest {
             database.close()
             File(source, "lynmusic.db-wal").writeText("stale sidecar")
             File(source, "settings.properties").writeText("theme=ocean")
-            val target = File(File(home, "other-store").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "other-store").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
 
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
@@ -496,7 +496,7 @@ class JvmDataLocationManagerTest {
             sourceDatabase.offlineDownloadDao().upsert(sampleOfflineDownload("source-row"))
             sourceDatabase.close()
             File(source, "settings.properties").writeText("source=true")
-            val target = File(File(home, "copy-recovery").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "copy-recovery").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(home, target, role = "target")
@@ -516,7 +516,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("source=true")
-            val target = File(File(home, "copy-source-missing").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "copy-source-missing").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(home, target, role = "target")
@@ -541,7 +541,7 @@ class JvmDataLocationManagerTest {
                 File(source, "settings.properties").writeText("source=true")
                 val target = File(
                     File(home, "orphan-prepared-${artifactName.replace('.', '-')}").apply { mkdirs() },
-                    "LynMusic",
+                    "LeonMusic",
                 )
                 val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
                 manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
@@ -567,7 +567,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("source=true")
-            val target = File(File(home, "foreign-operation").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "foreign-operation").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(
@@ -592,8 +592,8 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("source=true")
-            val target = File(File(home, "operation-only-staging").apply { mkdirs() }, "LynMusic")
-            val staging = File(target.parentFile, ".LynMusic.migrating")
+            val target = File(File(home, "operation-only-staging").apply { mkdirs() }, "LeonMusic")
+            val staging = File(target.parentFile, ".LeonMusic.migrating")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             writePendingOperationMarker(home, staging, role = "staging", root = PendingMarkerRoot.Target)
@@ -610,7 +610,7 @@ class JvmDataLocationManagerTest {
     fun `cancelling copy with missing source preserves target and pending journal`() = runTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
-            val target = File(File(home, "copy-cancel-source-missing").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "copy-cancel-source-missing").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             target.mkdirs()
@@ -632,7 +632,7 @@ class JvmDataLocationManagerTest {
             val source = File(home, ".lynmusic").apply { mkdirs() }
             openTestDatabase(File(source, "lynmusic.db")).close()
             File(source, "settings.properties").writeText("source=true")
-            val target = File(File(home, "broken-ready").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "broken-ready").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(home, target, role = "target")
@@ -652,7 +652,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("source=true")
-            val target = File(File(home, "no-database-copy").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "no-database-copy").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
 
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
@@ -674,7 +674,7 @@ class JvmDataLocationManagerTest {
                     File(source, "settings.properties").writeText("source=true")
                     val target = File(
                         File(home, "orphan-$artifactRoot-${artifactName.replace('.', '-')}").apply { mkdirs() },
-                        "LynMusic",
+                        "LeonMusic",
                     )
                     val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
                     manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
@@ -702,7 +702,7 @@ class JvmDataLocationManagerTest {
             val sourceDatabaseFile = File(source, "lynmusic.db")
             openTestDatabase(sourceDatabaseFile).close()
             downgradeDatabaseToVersion18(sourceDatabaseFile)
-            val target = File(File(home, "wrong-version").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "wrong-version").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(home, target, role = "target")
@@ -724,7 +724,7 @@ class JvmDataLocationManagerTest {
             val source = File(home, ".lynmusic").apply { mkdirs() }
             val sourceDatabaseFile = File(source, "lynmusic.db")
             openTestDatabase(sourceDatabaseFile).close()
-            val target = File(File(home, "readonly-preflight").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "readonly-preflight").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(home, target, role = "target")
@@ -755,7 +755,7 @@ class JvmDataLocationManagerTest {
             val externalDatabase = File(home, "external.db")
             openTestDatabase(externalDatabase).close()
             val originalBytes = externalDatabase.readBytes()
-            val target = File(File(home, "symlink-preflight").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "symlink-preflight").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(home, target, role = "target")
@@ -780,7 +780,7 @@ class JvmDataLocationManagerTest {
             val sourceDatabaseFile = File(source, "lynmusic.db")
             openTestDatabase(sourceDatabaseFile).close()
             downgradeDatabaseToVersion18(sourceDatabaseFile)
-            val target = File(File(home, "upgrade-before-copy").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "upgrade-before-copy").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
 
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
@@ -799,7 +799,7 @@ class JvmDataLocationManagerTest {
             openTestDatabase(sourceDatabaseFile).close()
             downgradeDatabaseToVersion18(sourceDatabaseFile)
             File(source, ".lynmusic-data-root").writeText("owned")
-            val target = File(File(home, "upgrade-data-ready").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "upgrade-data-ready").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(home, target, role = "target")
@@ -823,7 +823,7 @@ class JvmDataLocationManagerTest {
             openTestDatabase(sourceDatabaseFile).close()
             downgradeDatabaseToVersion18(sourceDatabaseFile)
             File(source, ".lynmusic-data-root").writeText("owned")
-            val target = File(File(home, "upgrade-both-data-ready").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "upgrade-both-data-ready").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             createPendingOwnedDirectory(home, target, role = "target")
@@ -845,7 +845,7 @@ class JvmDataLocationManagerTest {
             val external = File(home, "external.txt").apply { writeText("keep") }
             val link = File(source, "external-link").toPath()
             if (!createSymbolicLinkOrSkip(link, external.toPath())) return@withTemporaryHome
-            val target = File(File(home, "discard-target").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "discard-target").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11")
 
             manager.scheduleChange(target, AppDataLocationChangeMode.Discard)
@@ -863,7 +863,7 @@ class JvmDataLocationManagerTest {
             val external = File(home, "outside.txt").apply { writeText("keep") }
             val link = File(source, "outside-link").toPath()
             if (!createSymbolicLinkOrSkip(link, external.toPath())) return@withTemporaryHome
-            val target = File(File(home, "migration-target").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "migration-target").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11")
 
             val error = runCatching {
@@ -878,7 +878,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `cleanup failure blocks another location change until retry succeeds`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "active/LynMusic").apply { mkdirs() }
+            val active = File(home, "active/LeonMusic").apply { mkdirs() }
             val cleanup = File(home, "residual").apply { mkdirs() }
             val activeRootId = UUID.randomUUID().toString()
             val cleanupRootId = UUID.randomUUID().toString()
@@ -893,7 +893,7 @@ class JvmDataLocationManagerTest {
             }
             File(home, ".lynmusic-location.properties").outputStream().use { properties.store(it, "test") }
             val manager = JvmDataLocationManager(home, "Windows 11")
-            val next = File(File(home, "next").apply { mkdirs() }, "LynMusic")
+            val next = File(File(home, "next").apply { mkdirs() }, "LeonMusic")
 
             assertTrue(manager.applyPendingChange().isSuccess)
             assertTrue(manager.cleanupWarning != null)
@@ -919,7 +919,7 @@ class JvmDataLocationManagerTest {
             }
             val properties = Properties().apply { setProperty("cleanup_root", "relative/residual") }
             File(home, ".lynmusic-location.properties").outputStream().use { properties.store(it, "test") }
-            val target = File(File(home, "next-location").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "next-location").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11")
 
             assertEquals(null, manager.pendingCleanupRootPath())
@@ -955,7 +955,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `deleting cleanup phase finishes empty markerless directory`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "active/LynMusic").apply { mkdirs() }
+            val active = File(home, "active/LeonMusic").apply { mkdirs() }
             val cleanup = File(home, "empty-cleanup").apply { mkdirs() }
             val activeRootId = UUID.randomUUID().toString()
             val cleanupRootId = UUID.randomUUID().toString()
@@ -983,7 +983,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `deleting cleanup phase rejects nonempty markerless directory`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "active/LynMusic").apply { mkdirs() }
+            val active = File(home, "active/LeonMusic").apply { mkdirs() }
             val cleanup = File(home, "unsafe-cleanup").apply { mkdirs() }
             File(cleanup, "keep.txt").writeText("external")
             val activeRootId = UUID.randomUUID().toString()
@@ -1012,7 +1012,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `invalid cleanup phase remains visible and never deletes data`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "active/LynMusic").apply { mkdirs() }
+            val active = File(home, "active/LeonMusic").apply { mkdirs() }
             File(active, ".lynmusic-data-root").writeText("owned")
             val cleanup = File(home, "invalid-phase").apply { mkdirs() }
             File(cleanup, ".lynmusic-data-root").writeText("owned")
@@ -1035,7 +1035,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `cleanup operation id mismatch remains visible and never deletes data`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "active/LynMusic")
+            val active = File(home, "active/LeonMusic")
             val cleanup = File(home, "foreign-cleanup")
             val activeRootId = UUID.randomUUID().toString()
             val cleanupRootId = UUID.randomUUID().toString()
@@ -1073,7 +1073,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "lynmusic.db").writeText("keep me")
-            val target = File(File(home, "discard-drive").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "discard-drive").apply { mkdirs() }, "LeonMusic")
             val tombstone = File(home, "..lynmusic.discarding")
             val manager = JvmDataLocationManager(home, "Windows 11")
             manager.scheduleChange(target, AppDataLocationChangeMode.Discard)
@@ -1094,7 +1094,7 @@ class JvmDataLocationManagerTest {
     fun `non empty target is rejected`() = runTest {
         withTemporaryHome { home ->
             File(home, ".lynmusic").mkdirs()
-            val target = File(home, "drive/LynMusic").apply {
+            val target = File(home, "drive/LeonMusic").apply {
                 mkdirs()
                 resolve("unrelated.txt").writeText("keep")
             }
@@ -1114,13 +1114,13 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "keep.txt").writeText("active")
-            val target = File(File(home, "pending-source-mismatch").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "pending-source-mismatch").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             target.mkdirs()
             File(target, ".lynmusic-data-root").writeText("owned")
             File(target, "keep.txt").writeText("target")
-            val otherSource = File(home, "other/LynMusic").apply { mkdirs() }
+            val otherSource = File(home, "other/LeonMusic").apply { mkdirs() }
             File(otherSource, ".lynmusic-data-root").writeText("owned")
             updateLocationProperty(home, "pending_source_root", otherSource.absolutePath)
 
@@ -1138,7 +1138,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "keep.txt").writeText("source")
-            val target = File(File(home, "invalid-pending").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "invalid-pending").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
 
@@ -1164,7 +1164,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "settings.properties").writeText("legacy=true")
-            val target = File(File(home, "legacy-pending").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "legacy-pending").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             val properties = loadLocationProperties(home).apply {
@@ -1188,7 +1188,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "keep.txt").writeText("source")
-            val target = File(File(home, "legacy-residual").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "legacy-residual").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             val properties = loadLocationProperties(home).apply {
@@ -1219,7 +1219,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "keep.txt").writeText("source")
-            val target = File(File(home, "corrupt-cancel").apply { mkdirs() }, "LynMusic")
+            val target = File(File(home, "corrupt-cancel").apply { mkdirs() }, "LeonMusic")
             val manager = JvmDataLocationManager(home, "Windows 11") { _, _ -> false }
             manager.scheduleChange(target, AppDataLocationChangeMode.Migrate)
             target.mkdirs()
@@ -1247,7 +1247,7 @@ class JvmDataLocationManagerTest {
         withTemporaryHome { home ->
             val source = File(home, ".lynmusic").apply { mkdirs() }
             File(source, "keep.txt").writeText("source")
-            val target = File(File(home, "missing-parent"), "LynMusic")
+            val target = File(File(home, "missing-parent"), "LeonMusic")
             val properties = Properties().apply {
                 setProperty("pending_source_root", source.absolutePath)
                 setProperty("pending_target_root", target.absolutePath)
@@ -1267,7 +1267,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `pending target equal to active root is rejected before deletion`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "active/LynMusic").apply { mkdirs() }
+            val active = File(home, "active/LeonMusic").apply { mkdirs() }
             File(active, ".lynmusic-data-root").writeText("owned")
             File(active, "keep.txt").writeText("active")
             val properties = Properties().apply {
@@ -1290,11 +1290,11 @@ class JvmDataLocationManagerTest {
     @Test
     fun `pending target canonical alias of active root is rejected before deletion`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "active/LynMusic").apply { mkdirs() }
+            val active = File(home, "active/LeonMusic").apply { mkdirs() }
             File(active, ".lynmusic-data-root").writeText("owned")
             File(active, "keep.txt").writeText("active")
             val aliasParent = File(home, "alias-parent").apply { mkdirs() }
-            val aliasTarget = File(aliasParent, "LynMusic")
+            val aliasTarget = File(aliasParent, "LeonMusic")
             if (!createSymbolicLinkOrSkip(aliasTarget.toPath(), active.toPath())) return@withTemporaryHome
             val properties = Properties().apply {
                 setProperty("active_data_root", active.absolutePath)
@@ -1316,7 +1316,7 @@ class JvmDataLocationManagerTest {
     @Test
     fun `invalid active root has no cancellable pending change`() = runTest {
         withTemporaryHome { home ->
-            val active = File(home, "invalid-active/LynMusic").apply { mkdirs() }
+            val active = File(home, "invalid-active/LeonMusic").apply { mkdirs() }
             File(active, "keep.txt").writeText("external")
             updateLocationProperty(home, "active_data_root", active.absolutePath)
             val manager = JvmDataLocationManager(home, "Windows 11")

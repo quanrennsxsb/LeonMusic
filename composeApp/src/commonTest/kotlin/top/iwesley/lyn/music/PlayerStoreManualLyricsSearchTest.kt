@@ -591,6 +591,7 @@ private class FakePlaybackRepository(
     override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) = Unit
     override suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot? = null
     override suspend fun playQueueIndex(index: Int) = Unit
+    override suspend fun resumeCurrentTrackPlayback() = Unit
     override suspend fun togglePlayPause() = Unit
     override suspend fun pause() = Unit
     override suspend fun skipNext() = Unit

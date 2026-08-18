@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import top.iwesley.lyn.music.core.model.AppThemeTextPalette
 import top.iwesley.lyn.music.core.model.AppThemeTokens
-import top.iwesley.lyn.music.ui.LynMusicTheme
+import top.iwesley.lyn.music.ui.LeonMusicTheme
 
 private val TvMainThemeTokens = AppThemeTokens(
     backgroundArgb = 0xFF0B0D10.toInt(),
@@ -16,7 +16,7 @@ private val TvMainThemeTokens = AppThemeTokens(
 internal fun TvMainTheme(
     content: @Composable () -> Unit,
 ) {
-    LynMusicTheme(
+    LeonMusicTheme(
         themeTokens = TvMainThemeTokens,
         textPalette = AppThemeTextPalette.White,
     ) {

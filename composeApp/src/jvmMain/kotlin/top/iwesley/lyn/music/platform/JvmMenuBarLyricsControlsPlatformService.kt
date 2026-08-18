@@ -160,10 +160,10 @@ internal interface MacOsMenuBarLyricsControlsBridge {
 }
 
 private class JnaMacOsMenuBarLyricsControlsBridge private constructor(
-    private val nativeLibrary: LynMusicMenuBarNativeLibrary,
+    private val nativeLibrary: LeonMusicMenuBarNativeLibrary,
     private val handle: Pointer,
     @Suppress("unused")
-    private val nativeCallback: LynMusicMenuBarCommandCallback,
+    private val nativeCallback: LeonMusicMenuBarCommandCallback,
     private val commandHandlerRef: AtomicReference<(MacOsMenuBarCommand) -> Unit>,
 ) : MacOsMenuBarLyricsControlsBridge {
     private var isDisposed = false
@@ -203,11 +203,11 @@ private class JnaMacOsMenuBarLyricsControlsBridge private constructor(
         fun load(): JnaMacOsMenuBarLyricsControlsBridge {
             val nativeLibrary = Native.load(
                 extractMacOsMenuBarBridgeLibrary().toAbsolutePath().toString(),
-                LynMusicMenuBarNativeLibrary::class.java,
+                LeonMusicMenuBarNativeLibrary::class.java,
                 mapOf(Library.OPTION_STRING_ENCODING to Charsets.UTF_8.name()),
             )
             val commandHandlerRef = AtomicReference<(MacOsMenuBarCommand) -> Unit>({})
-            val callback = LynMusicMenuBarCommandCallback { command ->
+            val callback = LeonMusicMenuBarCommandCallback { command ->
                 decodeMacOsMenuBarCommand(command)?.let { decoded ->
                     commandHandlerRef.get().invoke(decoded)
                 }
@@ -228,8 +228,8 @@ private fun decodeMacOsMenuBarCommand(command: Int): MacOsMenuBarCommand? {
     }
 }
 
-private interface LynMusicMenuBarNativeLibrary : Library {
-    fun lyn_music_menu_bar_create(callback: LynMusicMenuBarCommandCallback): Pointer?
+private interface LeonMusicMenuBarNativeLibrary : Library {
+    fun lyn_music_menu_bar_create(callback: LeonMusicMenuBarCommandCallback): Pointer?
 
     fun lyn_music_menu_bar_set_enabled(handle: Pointer, enabled: Int): Int
 
@@ -246,17 +246,17 @@ private interface LynMusicMenuBarNativeLibrary : Library {
     fun lyn_music_menu_bar_dispose(handle: Pointer): Int
 }
 
-private fun interface LynMusicMenuBarCommandCallback : Callback {
+private fun interface LeonMusicMenuBarCommandCallback : Callback {
     fun invoke(command: Int)
 }
 
 @OptIn(ExperimentalPathApi::class)
 private fun extractMacOsMenuBarBridgeLibrary(): java.nio.file.Path {
-    val resourceName = "/native/macos/libLynMusicNowPlayingBridge.dylib"
+    val resourceName = "/native/macos/libLeonMusicNowPlayingBridge.dylib"
     val resource = JnaMacOsMenuBarLyricsControlsBridge::class.java.getResourceAsStream(resourceName)
         ?: error("Missing resource $resourceName")
     val directory = Files.createTempDirectory("lynmusic-menubar-")
-    val target = directory.resolve("libLynMusicNowPlayingBridge.dylib")
+    val target = directory.resolve("libLeonMusicNowPlayingBridge.dylib")
     target.deleteIfExists()
     resource.use { input ->
         target.outputStream().use { output -> input.copyTo(output) }

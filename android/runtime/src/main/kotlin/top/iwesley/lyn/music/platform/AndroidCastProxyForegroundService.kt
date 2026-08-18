@@ -50,7 +50,7 @@ internal class AndroidCastProxyForegroundService : Service() {
         }
         return builder
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("LynMusic")
+            .setContentTitle("LeonMusic")
             .setContentText("正在为电视投屏当前歌曲")
             .setOnlyAlertOnce(true)
             .setShowWhen(false)

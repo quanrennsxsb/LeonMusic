@@ -132,10 +132,11 @@ internal fun PlayerLyricsPane(
     pure: Boolean = false,
     mobilePlayback: Boolean = false,
     lyricsFontSizePreset: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard,
+    lyricsPrimaryTextColor: Color = Color.White,
+    lyricsActiveTextColor: Color = lyricsPrimaryTextColor,
+    lyricsSecondaryTextColor: Color = lyricsPrimaryTextColor.copy(alpha = 0.6f),
 ) {
     val listState = rememberLazyListState()
-    val lyricsPrimaryTextColor = Color.White
-    val lyricsSecondaryTextColor = Color.White.copy(alpha = 0.6f)
     var showTrackInfoDialog by rememberSaveable(track.id, mobilePlayback) { mutableStateOf(false) }
     val lyrics = state.lyrics
     val enhancedLyricsPresentation = remember(lyrics) {
@@ -400,7 +401,7 @@ internal fun PlayerLyricsPane(
                             val animatedScale by animateFloatAsState(targetValue = targetScale)
                             val animatedColor by animateColorAsState(
                                 targetValue = if (index == activeHighlightedVisibleIndex) {
-                                    lyricsPrimaryTextColor
+                                    lyricsActiveTextColor
                                 } else {
                                     lyricsPrimaryTextColor
                                 },
@@ -426,7 +427,7 @@ internal fun PlayerLyricsPane(
                                             activeColor = animatedColor,
                                             inactiveColor = lyricsSecondaryTextColor.copy(alpha = 0.78f),
                                             style = highlightedLyricsStyle,
-                                            textAlign = TextAlign.Start,
+                                            textAlign = TextAlign.Center,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.fillMaxWidth(),
                                         )
@@ -435,7 +436,7 @@ internal fun PlayerLyricsPane(
                                             text = line.text,
                                             style = if (isHighlighted) highlightedLyricsStyle else normalLyricsStyle,
                                             color = animatedColor,
-                                            textAlign = TextAlign.Start,
+                                            textAlign = TextAlign.Center,
                                             fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
                                             modifier = Modifier.fillMaxWidth(),
                                         )
@@ -444,7 +445,7 @@ internal fun PlayerLyricsPane(
                                         text = translationText,
                                         style = if (isHighlighted) highlightedTranslationStyle else normalTranslationStyle,
                                         color = lyricsSecondaryTextColor.copy(alpha = if (isHighlighted) 0.9f else 0.72f),
-                                        textAlign = TextAlign.Start,
+                                        textAlign = TextAlign.Center,
                                         fontWeight = FontWeight.Normal,
                                         modifier = Modifier.fillMaxWidth(),
                                     )
@@ -456,19 +457,19 @@ internal fun PlayerLyricsPane(
                                     activeColor = animatedColor,
                                     inactiveColor = lyricsSecondaryTextColor.copy(alpha = 0.78f),
                                     style = highlightedLyricsStyle,
-                                    textAlign = TextAlign.Start,
+                                    textAlign = TextAlign.Center,
                                     fontWeight = FontWeight.Bold,
                                     modifier = lineModifier,
                                 )
                             } else {
                                 Text(
-                                    text = line.text,
-                                    style = if (isHighlighted) highlightedLyricsStyle else normalLyricsStyle,
-                                    color = animatedColor,
-                                    textAlign = TextAlign.Start,
-                                    fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = lineModifier,
-                                )
+                                text = line.text,
+                                style = if (isHighlighted) highlightedLyricsStyle else normalLyricsStyle,
+                                color = animatedColor,
+                                textAlign = TextAlign.Center,
+                                fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
+                                modifier = lineModifier,
+                            )
                             }
                         }
                     }

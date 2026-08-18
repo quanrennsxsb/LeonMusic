@@ -125,6 +125,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.absoluteValue
 import kotlin.math.cos
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
@@ -142,6 +143,7 @@ import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlaybackAudioFormat
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
 import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.debug
@@ -157,7 +159,7 @@ import top.iwesley.lyn.music.feature.player.SleepTimerState
 import top.iwesley.lyn.music.feature.player.normalizeSleepTimerMinutes
 import top.iwesley.lyn.music.platform.PlatformBackHandler
 import top.iwesley.lyn.music.platform.rememberPlatformArtworkBitmap
-import top.iwesley.lyn.music.ui.LynMusicTheme
+import top.iwesley.lyn.music.ui.LeonMusicTheme
 import top.iwesley.lyn.music.ui.heroGlow
 import top.iwesley.lyn.music.ui.mainShellColors
 
@@ -170,6 +172,8 @@ internal fun PlayerDrawerHost(
     appDisplayScalePreset: AppDisplayScalePreset,
     showCompactPlayerLyrics: Boolean,
     playerArtworkStyle: PlayerArtworkStyle,
+    playerLyricsColorPreference: PlayerLyricsColorPreference,
+    playerActiveLyricsColorPreference: PlayerLyricsColorPreference,
     playerLyricsFontSizePreset: PlayerVisualSizePreset,
     playerArtworkSizePreset: PlayerVisualSizePreset,
     showEqualizerEntry: Boolean,
@@ -225,6 +229,8 @@ internal fun PlayerDrawerHost(
                 appDisplayScalePreset = appDisplayScalePreset,
                 showCompactPlayerLyrics = showCompactPlayerLyrics,
                 playerArtworkStyle = playerArtworkStyle,
+                playerLyricsColorPreference = playerLyricsColorPreference,
+                playerActiveLyricsColorPreference = playerActiveLyricsColorPreference,
                 playerLyricsFontSizePreset = playerLyricsFontSizePreset,
                 playerArtworkSizePreset = playerArtworkSizePreset,
                 showEqualizerEntry = showEqualizerEntry,
@@ -986,11 +992,16 @@ private fun rememberMiniPlayerLyricsText(state: PlayerState): String? {
 
 @Composable
 private fun rememberCompactPlayerLyricsText(state: PlayerState): String? {
+    return rememberCompactPlayerLyricsLines(state)?.displayText
+}
+
+@Composable
+private fun rememberCompactPlayerLyricsLines(state: PlayerState): CompactPlayerLyricsLines? {
     return remember(
         state.lyrics,
         state.highlightedLineIndex,
     ) {
-        resolveCompactPlayerLyricsText(
+        resolveCompactPlayerLyricsLines(
             lyrics = state.lyrics,
             highlightedLineIndex = state.highlightedLineIndex,
         )
@@ -1033,10 +1044,51 @@ internal fun resolveCompactPlayerLyricsText(
     lyrics: LyricsDocument?,
     highlightedLineIndex: Int,
 ): String? {
-    return resolveHighlightedOrFirstLyricsText(
+    return resolveCompactPlayerLyricsLines(
         lyrics = lyrics,
         highlightedLineIndex = highlightedLineIndex,
-    )
+    )?.displayText
+}
+
+internal fun resolveCompactPlayerLyricsLines(
+    lyrics: LyricsDocument?,
+    highlightedLineIndex: Int,
+): CompactPlayerLyricsLines? {
+    val lines = lyrics?.lines.orEmpty()
+    if (lines.isEmpty()) return null
+    val fallbackIndex = lines.indexOfFirst { line -> line.text.trim().isNotEmpty() }
+    if (fallbackIndex < 0) return null
+    val centerIndex = highlightedLineIndex
+        .takeIf { it in lines.indices && lines[it].text.trim().isNotEmpty() }
+        ?: fallbackIndex
+    val startIndex = when {
+        centerIndex <= 0 -> 0
+        centerIndex >= lines.lastIndex -> (lines.lastIndex - (COMPACT_PLAYER_LYRICS_MAX_LINES - 1)).coerceAtLeast(0)
+        else -> centerIndex - 1
+    }
+    val visibleLines = lines
+        .drop(startIndex)
+        .mapIndexedNotNull { offset, line ->
+            val text = line.text.trim().takeIf { it.isNotEmpty() } ?: return@mapIndexedNotNull null
+            CompactPlayerLyricsLine(
+                text = text,
+                isActive = startIndex + offset == centerIndex,
+            )
+        }
+        .take(COMPACT_PLAYER_LYRICS_MAX_LINES)
+    if (visibleLines.isEmpty()) return null
+    return CompactPlayerLyricsLines(visibleLines)
+}
+
+internal data class CompactPlayerLyricsLine(
+    val text: String,
+    val isActive: Boolean,
+)
+
+internal data class CompactPlayerLyricsLines(
+    val lines: List<CompactPlayerLyricsLine>,
+) {
+    val displayText: String = lines.joinToString("\n") { it.text }
 }
 
 internal fun shouldShowCompactPlayerLyrics(
@@ -1054,7 +1106,7 @@ internal fun resolvePlayerInfoVinylSize(
 ): Dp {
     return if (compact) {
         val widthBound = maxWidth * 0.90f //if (hasCompactLyrics) 0.90f else 0.90f
-        val heightReserve = 32.dp //if (hasCompactLyrics) 32.dp else 32.dp
+        val heightReserve = if (hasCompactLyrics) 96.dp else 32.dp
         val heightBound = (maxHeight - heightReserve).coerceAtLeast(180.dp)
         minOf(widthBound, heightBound).coerceIn(
             minimumValue = 220.dp,
@@ -1122,6 +1174,7 @@ internal fun hasMiniPlayerLyricsContent(
 }
 
 private const val MINI_PLAYER_LYRICS_LOADING_TEXT = "正在准备歌词"
+private const val COMPACT_PLAYER_LYRICS_MAX_LINES = 3
 
 @Composable
 private fun MiniPlayerPlaybackProgress(
@@ -1187,6 +1240,8 @@ private fun PlayerOverlay(
     appDisplayScalePreset: AppDisplayScalePreset,
     showCompactPlayerLyrics: Boolean,
     playerArtworkStyle: PlayerArtworkStyle,
+    playerLyricsColorPreference: PlayerLyricsColorPreference,
+    playerActiveLyricsColorPreference: PlayerLyricsColorPreference,
     playerLyricsFontSizePreset: PlayerVisualSizePreset,
     playerArtworkSizePreset: PlayerVisualSizePreset,
     showEqualizerEntry: Boolean,
@@ -1234,6 +1289,21 @@ private fun PlayerOverlay(
         targetValue = backgroundPalette?.tertiaryColor ?: Color.Transparent,
         label = "player-background-tertiary",
     )
+    val lyricsPrimaryTextColor = remember(playerLyricsColorPreference, backgroundPalette) {
+        resolvePlayerLyricsPrimaryTextColor(
+            preference = playerLyricsColorPreference,
+            artworkPalette = backgroundPalette,
+        )
+    }
+    val lyricsActiveTextColor = remember(playerActiveLyricsColorPreference, backgroundPalette) {
+        resolvePlayerLyricsPrimaryTextColor(
+            preference = playerActiveLyricsColorPreference,
+            artworkPalette = backgroundPalette,
+        )
+    }
+    val lyricsSecondaryTextColor = remember(lyricsPrimaryTextColor) {
+        lyricsPrimaryTextColor.copy(alpha = 0.62f)
+    }
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = backgroundBaseColor,
@@ -1367,6 +1437,10 @@ private fun PlayerOverlay(
                     appDisplayScalePreset = appDisplayScalePreset,
                     isPureMode = isPureMode,
                     playerArtworkStyle = playerArtworkStyle,
+                    lyricsFontSizePreset = playerLyricsFontSizePreset,
+                    lyricsPrimaryTextColor = lyricsPrimaryTextColor,
+                    lyricsActiveTextColor = lyricsActiveTextColor,
+                    lyricsSecondaryTextColor = lyricsSecondaryTextColor,
                     isFavorite = isFavorite,
                     canToggleFavorite = canToggleFavorite,
                     onToggleFavorite = onToggleFavorite,
@@ -1486,8 +1560,10 @@ private fun PlayerOverlay(
                             state = state,
                             track = track,
                             artworkBitmap = null,
-                            showCompactPlayerLyrics = showCompactPlayerLyrics,
                             playerArtworkStyle = playerArtworkStyle,
+                            lyricsPrimaryTextColor = lyricsPrimaryTextColor,
+                            lyricsActiveTextColor = lyricsActiveTextColor,
+                            lyricsSecondaryTextColor = lyricsSecondaryTextColor,
                             playerLyricsFontSizePreset = playerLyricsFontSizePreset,
                             playerArtworkSizePreset = playerArtworkSizePreset,
                             onPlayerIntent = onPlayerIntent,
@@ -1523,6 +1599,9 @@ private fun PlayerOverlay(
                                 mobilePlayback = mobilePlayback,
                                 pure = isPureMode,
                                 lyricsFontSizePreset = playerLyricsFontSizePreset,
+                                lyricsPrimaryTextColor = lyricsPrimaryTextColor,
+                                lyricsActiveTextColor = lyricsActiveTextColor,
+                                lyricsSecondaryTextColor = lyricsSecondaryTextColor,
                                 modifier = Modifier
                                     .weight(0.5f)
                                     .fillMaxHeight(),
@@ -1550,6 +1629,9 @@ private fun PlayerOverlay(
                                 onPlayerIntent = onPlayerIntent,
                                 mobilePlayback = mobilePlayback,
                                 lyricsFontSizePreset = playerLyricsFontSizePreset,
+                                lyricsPrimaryTextColor = lyricsPrimaryTextColor,
+                                lyricsActiveTextColor = lyricsActiveTextColor,
+                                lyricsSecondaryTextColor = lyricsSecondaryTextColor,
                                 modifier = Modifier.weight(1f),
                                 compact = true,
                             )
@@ -1590,7 +1672,7 @@ private fun PlayerOverlay(
                 }
             }
             if (state.isLyricsShareVisible) {
-                LynMusicTheme(
+                LeonMusicTheme(
                     themeTokens = lyricsShareThemeTokens,
                     textPalette = lyricsShareTextPalette,
                 ) {
@@ -1619,53 +1701,108 @@ internal fun shouldRenderPlaybackBackgroundArtwork(
         !artworkLocator.isNullOrBlank()
 }
 
+internal fun resolvePlayerLyricsPrimaryTextColor(
+    preference: PlayerLyricsColorPreference,
+    artworkPalette: PlaybackArtworkBackgroundColors?,
+): Color {
+    preference.argb?.let { return Color(it) }
+    val backgroundColor = artworkPalette?.baseColor ?: return Color.White
+    return highestContrastTextColor(backgroundColor)
+}
+
+private fun highestContrastTextColor(backgroundColor: Color): Color {
+    val white = Color(0xFFF7F5F3)
+    val black = Color(0xFF111111)
+    return if (contrastRatio(white, backgroundColor) >= contrastRatio(black, backgroundColor)) {
+        white
+    } else {
+        black
+    }
+}
+
+private fun contrastRatio(foreground: Color, background: Color): Float {
+    val lighter = maxOf(relativeLuminance(foreground), relativeLuminance(background))
+    val darker = minOf(relativeLuminance(foreground), relativeLuminance(background))
+    return (lighter + 0.05f) / (darker + 0.05f)
+}
+
+private fun relativeLuminance(color: Color): Float {
+    fun channel(value: Float): Float {
+        return if (value <= 0.03928f) {
+            value / 12.92f
+        } else {
+            ((value + 0.055f) / 1.055f).toDouble().pow(2.4).toFloat()
+        }
+    }
+    return (0.2126f * channel(color.red)) +
+        (0.7152f * channel(color.green)) +
+        (0.0722f * channel(color.blue))
+}
+
 @Composable
 private fun MobilePlayerPrimaryPane(
     state: PlayerState,
     track: Track,
     artworkBitmap: ImageBitmap?,
-    showCompactPlayerLyrics: Boolean,
     playerArtworkStyle: PlayerArtworkStyle,
+    lyricsPrimaryTextColor: Color,
+    lyricsActiveTextColor: Color,
+    lyricsSecondaryTextColor: Color,
     playerLyricsFontSizePreset: PlayerVisualSizePreset,
     playerArtworkSizePreset: PlayerVisualSizePreset,
     onPlayerIntent: (PlayerIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val compactLyricsText = rememberCompactPlayerLyricsText(state)
-    val displayCompactLyricsText = compactLyricsText.takeIf {
-        shouldShowCompactPlayerLyrics(
-            enabled = showCompactPlayerLyrics,
-            compactLyricsText = compactLyricsText,
-        )
-    }
+    val compactLyricsLines = rememberCompactPlayerLyricsLines(state)
+    val displayCompactLyricsLines = compactLyricsLines?.takeIf { it.displayText.isNotBlank() }
     var lyricsVisible by rememberSaveable(track.id) { mutableStateOf(false) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(30.dp))
                 .alpha(if (lyricsVisible) 0f else 1f)
-                .clickable(
-                    enabled = !lyricsVisible,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { lyricsVisible = true },
+                .padding(bottom = if (displayCompactLyricsLines == null) 0.dp else 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            PlayerInfoPane(
-                snapshot = state.effectiveSnapshot,
-                track = track,
-                artworkBitmap = artworkBitmap,
-                playerArtworkStyle = playerArtworkStyle,
-                playerArtworkSizePreset = playerArtworkSizePreset,
-                modifier = Modifier.fillMaxSize(),
-                compact = true,
-                compactLyricsText = displayCompactLyricsText,
-                onPlayerIntent = onPlayerIntent,
-            )
+            Box(
+                modifier = Modifier
+                    .weight(if (displayCompactLyricsLines == null) 1f else 0.72f)
+                    .fillMaxWidth()
+                    .clickable(
+                        enabled = !lyricsVisible,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { lyricsVisible = true },
+            ) {
+                PlayerInfoPane(
+                    snapshot = state.effectiveSnapshot,
+                    track = track,
+                    artworkBitmap = artworkBitmap,
+                    playerArtworkStyle = playerArtworkStyle,
+                    playerArtworkSizePreset = playerArtworkSizePreset,
+                    modifier = Modifier.fillMaxSize(),
+                    compact = true,
+                    onPlayerIntent = onPlayerIntent,
+                )
+            }
+            if (displayCompactLyricsLines != null) {
+                CompactPlayerLyricsPreview(
+                    lines = displayCompactLyricsLines,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.28f)
+                        .heightIn(min = 86.dp)
+                        .padding(horizontal = 28.dp),
+                    normalColor = lyricsPrimaryTextColor,
+                    activeColor = lyricsActiveTextColor,
+                )
+            }
         }
         if (lyricsVisible) {
             Box(
@@ -1681,10 +1818,40 @@ private fun MobilePlayerPrimaryPane(
                     track = track,
                     onPlayerIntent = onPlayerIntent,
                     lyricsFontSizePreset = playerLyricsFontSizePreset,
+                    lyricsPrimaryTextColor = lyricsPrimaryTextColor,
+                    lyricsActiveTextColor = lyricsActiveTextColor,
+                    lyricsSecondaryTextColor = lyricsSecondaryTextColor,
                     modifier = Modifier.fillMaxSize(),
                     compact = true,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CompactPlayerLyricsPreview(
+    lines: CompactPlayerLyricsLines,
+    normalColor: Color,
+    activeColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        lines.lines.forEach { line ->
+            Text(
+                text = line.text,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (line.isActive) activeColor else normalColor.copy(alpha = 0.62f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = if (line.isActive) FontWeight.Bold else FontWeight.Normal,
+            )
         }
     }
 }
@@ -1700,6 +1867,7 @@ private fun PlayerInfoPane(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     compactLyricsText: String? = null,
+    compactLyricsColor: Color = Color.White.copy(alpha = 0.78f),
     onPlayerIntent: ((PlayerIntent) -> Unit)? = null,
 ) {
     BoxWithConstraints(
@@ -1762,13 +1930,12 @@ private fun PlayerInfoPane(
                     text = compactLyricsText,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 28.dp)
-                        .basicMarquee(),
+                        .padding(horizontal = 28.dp),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.78f),
+                    color = compactLyricsColor,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Clip,
+                    maxLines = COMPACT_PLAYER_LYRICS_MAX_LINES,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

@@ -35,7 +35,7 @@ internal fun logJvmStartupFailure(
     error: Throwable,
     output: PrintStream = System.err,
 ) {
-    output.println("LynMusic Desktop startup failure. stage=$stage")
+    output.println("LeonMusic Desktop startup failure. stage=$stage")
     error.printStackTrace(output)
 }
 
@@ -58,7 +58,7 @@ private class JvmUncaughtExceptionHandler : Thread.UncaughtExceptionHandler {
                 showJvmCrashWindowAndWait(report)
             }
         }.onFailure { reportFailure ->
-            System.err.println("Failed to show LynMusic crash report window.")
+            System.err.println("Failed to show LeonMusic crash report window.")
             reportFailure.printStackTrace(System.err)
         }
         exitProcess(JVM_CRASH_EXIT_CODE)
@@ -72,7 +72,7 @@ internal fun formatJvmCrashReport(
 ): String {
     val writer = StringWriter()
     PrintWriter(writer).use { printer ->
-        printer.println("LynMusic Desktop Crash")
+        printer.println("LeonMusic Desktop Crash")
         printer.println("Thread: $threadName")
         printer.println("Exception: ${throwable.javaClass.name}")
         throwable.message?.takeIf { it.isNotBlank() }?.let { message ->
@@ -117,7 +117,7 @@ private fun showJvmCrashWindowAndWait(report: String) {
 
 private fun buildJvmCrashFrame(report: String, onClosed: () -> Unit): JFrame {
     val closed = AtomicBoolean(false)
-    val frame = JFrame("LynMusic 崩溃报告")
+    val frame = JFrame("LeonMusic 崩溃报告")
 
     fun closeWindow() {
         if (closed.compareAndSet(false, true)) {
@@ -152,7 +152,7 @@ private fun buildJvmCrashFrame(report: String, onClosed: () -> Unit): JFrame {
     val contentPanel = JPanel(BorderLayout(0, 12)).apply {
         border = EmptyBorder(16, 16, 16, 16)
         add(
-            JLabel("LynMusic 遇到未捕获异常。应用将退出，你可以复制下面的崩溃堆栈给开发者用于排查。"),
+            JLabel("LeonMusic 遇到未捕获异常。应用将退出，你可以复制下面的崩溃堆栈给开发者用于排查。"),
             BorderLayout.NORTH,
         )
         add(JScrollPane(reportText), BorderLayout.CENTER)

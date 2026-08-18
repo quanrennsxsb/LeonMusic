@@ -152,7 +152,7 @@ fun main() {
                         }
                     }
                 },
-                title = "LynMusic",
+                title = "LeonMusic",
                 state = windowState,
                 icon = painterResource("desktop-icon.png"),
                 init = { composeWindow ->
@@ -284,7 +284,7 @@ private fun createJvmDesktopComponentState(
 
 private fun showDesktopStartupMessage(message: String) {
     runCatching {
-        JOptionPane.showMessageDialog(null, message, "LynMusic", JOptionPane.INFORMATION_MESSAGE)
+        JOptionPane.showMessageDialog(null, message, "LeonMusic", JOptionPane.INFORMATION_MESSAGE)
     }.onFailure {
         System.err.println(message)
     }
@@ -298,7 +298,7 @@ internal sealed interface JvmDesktopStartupState {
         val canCancelChange: Boolean,
     ) : JvmDesktopStartupState
     data class Ready(
-        val component: LynMusicAppComponent,
+        val component: LeonMusicAppComponent,
         val startupWarning: String?,
     ) : JvmDesktopStartupState
     data class ComponentFailed(val error: Throwable) : JvmDesktopStartupState

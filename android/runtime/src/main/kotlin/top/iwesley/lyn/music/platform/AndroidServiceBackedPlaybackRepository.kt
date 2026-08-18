@@ -95,6 +95,11 @@ internal class AndroidServiceBackedPlaybackRepository(
         repository().playQueueIndex(index)
     }
 
+    override suspend fun resumeCurrentTrackPlayback() {
+        Log.w(ANDROID_SERVICE_REPOSITORY_LOG_TAG, "client-resume-current-track-playback")
+        repository().resumeCurrentTrackPlayback()
+    }
+
     override suspend fun togglePlayPause() {
         Log.w(ANDROID_SERVICE_REPOSITORY_LOG_TAG, "client-toggle-play-pause")
         repository().togglePlayPause()
@@ -152,4 +157,4 @@ internal class AndroidServiceBackedPlaybackRepository(
     }
 }
 
-private const val ANDROID_SERVICE_REPOSITORY_LOG_TAG = "LynMusic"
+private const val ANDROID_SERVICE_REPOSITORY_LOG_TAG = "LeonMusic"

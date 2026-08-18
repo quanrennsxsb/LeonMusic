@@ -116,7 +116,7 @@ object AndroidAudioTagFileSupport {
     private fun replaceArtwork(tag: Tag, bytes: ByteArray, tempDirectory: File) {
         tempDirectory.mkdirs()
         val tempFile = File.createTempFile(
-            "lynmusic-artwork-",
+            "leonmusic-artwork-",
             inferArtworkFileExtension(bytes = bytes),
             tempDirectory,
         )

@@ -28,6 +28,8 @@ import top.iwesley.lyn.music.core.model.NavidromeAudioQualityPreferencesStore
 import top.iwesley.lyn.music.core.model.PlaybackDecoderPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreferencesStore
 import top.iwesley.lyn.music.core.model.RequestMethod
 import top.iwesley.lyn.music.core.model.SambaCachePreferencesStore
 import top.iwesley.lyn.music.core.model.ThemePreferencesStore
@@ -755,7 +757,8 @@ private fun createSettingsTestDatabase(): LynMusicDatabase {
 private class FakePreferencesStore : SambaCachePreferencesStore, ThemePreferencesStore, DesktopVlcPreferencesStore,
     AutoPlayOnStartupPreferencesStore, AutoOpenPlayerOnStartupPreferencesStore, WindowClosePreferencesStore,
     CompactPlayerLyricsPreferencesStore, DesktopLyricsPreferencesStore, MenuBarLyricsControlsPreferencesStore,
-    NavidromeAudioQualityPreferencesStore, PlaybackDecoderPreferencesStore, PlayerArtworkStylePreferencesStore {
+    NavidromeAudioQualityPreferencesStore, PlaybackDecoderPreferencesStore, PlayerArtworkStylePreferencesStore,
+    PlayerLyricsColorPreferencesStore {
     override val useSambaCache = MutableStateFlow(true)
     override val showCompactPlayerLyrics = MutableStateFlow(false)
     override val showDesktopLyrics = MutableStateFlow(false)
@@ -766,6 +769,8 @@ private class FakePreferencesStore : SambaCachePreferencesStore, ThemePreference
     override val minimizeWindowOnClose = MutableStateFlow(true)
     override val useAndroidExtensionDecoder = MutableStateFlow(false)
     override val playerArtworkStyle = MutableStateFlow(PlayerArtworkStyle.VINYL)
+    override val playerLyricsColorPreference = MutableStateFlow(PlayerLyricsColorPreference.Artwork)
+    override val playerActiveLyricsColorPreference = MutableStateFlow(PlayerLyricsColorPreference.Artwork)
     override val navidromeWifiAudioQuality = MutableStateFlow(NavidromeAudioQuality.Original)
     override val navidromeMobileAudioQuality = MutableStateFlow(NavidromeAudioQuality.Kbps192)
     override val selectedTheme = MutableStateFlow(AppThemeId.Ocean)
@@ -813,6 +818,14 @@ private class FakePreferencesStore : SambaCachePreferencesStore, ThemePreference
 
     override suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle) {
         playerArtworkStyle.value = style
+    }
+
+    override suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        playerLyricsColorPreference.value = preference
+    }
+
+    override suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        playerActiveLyricsColorPreference.value = preference
     }
 
     override suspend fun setNavidromeWifiAudioQuality(quality: NavidromeAudioQuality) {

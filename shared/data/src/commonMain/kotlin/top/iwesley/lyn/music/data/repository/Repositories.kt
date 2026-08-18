@@ -64,6 +64,8 @@ import top.iwesley.lyn.music.core.model.PlaybackDecoderPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
 import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.PlaylistDetail
@@ -96,6 +98,7 @@ import top.iwesley.lyn.music.core.model.UnsupportedSameNameLyricsFileGateway
 import top.iwesley.lyn.music.core.model.UnsupportedPlaybackDecoderPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedPlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedPlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedPlayerLyricsColorPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedPlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedWindowClosePreferencesStore
 import top.iwesley.lyn.music.core.model.WebDavSourceDraft
@@ -487,9 +490,13 @@ interface SettingsRepository {
     val appDisplayScalePreset: StateFlow<AppDisplayScalePreset>
     val navidromeWifiAudioQuality: StateFlow<NavidromeAudioQuality>
     val navidromeMobileAudioQuality: StateFlow<NavidromeAudioQuality>
+    val navidromePlaybackCacheEnabled: StateFlow<Boolean>
+    val navidromePlaybackCacheDirectory: StateFlow<LocalFolderSelection?>
     val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset>
     val useAndroidExtensionDecoder: StateFlow<Boolean>
     val playerArtworkStyle: StateFlow<PlayerArtworkStyle>
+    val playerLyricsColorPreference: StateFlow<PlayerLyricsColorPreference>
+    val playerActiveLyricsColorPreference: StateFlow<PlayerLyricsColorPreference>
     val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset>
     val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset>
     val selectedTheme: StateFlow<AppThemeId>
@@ -511,9 +518,13 @@ interface SettingsRepository {
     suspend fun setAppDisplayScalePreset(preset: AppDisplayScalePreset)
     suspend fun setNavidromeWifiAudioQuality(quality: NavidromeAudioQuality)
     suspend fun setNavidromeMobileAudioQuality(quality: NavidromeAudioQuality)
+    suspend fun setNavidromePlaybackCacheEnabled(enabled: Boolean)
+    suspend fun setNavidromePlaybackCacheDirectory(selection: LocalFolderSelection?)
     suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset)
     suspend fun setUseAndroidExtensionDecoder(enabled: Boolean)
     suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle)
+    suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference)
+    suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference)
     suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset)
     suspend fun setPlayerArtworkSizePreset(preset: PlayerVisualSizePreset)
     suspend fun setSelectedTheme(themeId: AppThemeId)
@@ -2361,6 +2372,8 @@ class DefaultSettingsRepository(
         UnsupportedPlaybackDecoderPreferencesStore,
     private val playerArtworkStylePreferencesStore: PlayerArtworkStylePreferencesStore =
         UnsupportedPlayerArtworkStylePreferencesStore,
+    private val playerLyricsColorPreferencesStore: PlayerLyricsColorPreferencesStore =
+        UnsupportedPlayerLyricsColorPreferencesStore,
     private val playerLyricsFontSizePreferencesStore: PlayerLyricsFontSizePreferencesStore =
         UnsupportedPlayerLyricsFontSizePreferencesStore,
     private val playerArtworkSizePreferencesStore: PlayerArtworkSizePreferencesStore =
@@ -2394,12 +2407,20 @@ class DefaultSettingsRepository(
         navidromeAudioQualityPreferencesStore.navidromeWifiAudioQuality
     override val navidromeMobileAudioQuality: StateFlow<NavidromeAudioQuality> =
         navidromeAudioQualityPreferencesStore.navidromeMobileAudioQuality
+    override val navidromePlaybackCacheEnabled: StateFlow<Boolean> =
+        navidromePlaybackCachePreferencesStore.navidromePlaybackCacheEnabled
+    override val navidromePlaybackCacheDirectory: StateFlow<LocalFolderSelection?> =
+        navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory
     override val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset> =
         navidromePlaybackCachePreferencesStore.navidromePlaybackCacheSizePreset
     override val useAndroidExtensionDecoder: StateFlow<Boolean> =
         playbackDecoderPreferencesStore.useAndroidExtensionDecoder
     override val playerArtworkStyle: StateFlow<PlayerArtworkStyle> =
         playerArtworkStylePreferencesStore.playerArtworkStyle
+    override val playerLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        playerLyricsColorPreferencesStore.playerLyricsColorPreference
+    override val playerActiveLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        playerLyricsColorPreferencesStore.playerActiveLyricsColorPreference
     override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> =
         playerLyricsFontSizePreferencesStore.playerLyricsFontSizePreset
     override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> =
@@ -2480,6 +2501,14 @@ class DefaultSettingsRepository(
         navidromeAudioQualityPreferencesStore.setNavidromeMobileAudioQuality(quality)
     }
 
+    override suspend fun setNavidromePlaybackCacheEnabled(enabled: Boolean) {
+        navidromePlaybackCachePreferencesStore.setNavidromePlaybackCacheEnabled(enabled)
+    }
+
+    override suspend fun setNavidromePlaybackCacheDirectory(selection: LocalFolderSelection?) {
+        navidromePlaybackCachePreferencesStore.setNavidromePlaybackCacheDirectory(selection)
+    }
+
     override suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset) {
         navidromePlaybackCachePreferencesStore.setNavidromePlaybackCacheSizePreset(preset)
     }
@@ -2490,6 +2519,14 @@ class DefaultSettingsRepository(
 
     override suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle) {
         playerArtworkStylePreferencesStore.setPlayerArtworkStyle(style)
+    }
+
+    override suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        playerLyricsColorPreferencesStore.setPlayerLyricsColorPreference(preference)
+    }
+
+    override suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        playerLyricsColorPreferencesStore.setPlayerActiveLyricsColorPreference(preference)
     }
 
     override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {

@@ -99,4 +99,4 @@ inline fun DiagnosticLogger.error(tag: String, throwable: Throwable? = null, mes
     log(DiagnosticLogLevel.ERROR, tag, message(), throwable)
 }
 
-private const val DEFAULT_DIAGNOSTIC_LOGGER_LABEL = "LynMusic"
+private const val DEFAULT_DIAGNOSTIC_LOGGER_LABEL = "LeonMusic"

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		6C04A2EB204B9C1C7EEF2244 /* LynMusic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LynMusic.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C04A2EB204B9C1C7EEF2244 /* LeonMusic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LeonMusic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -50,7 +50,7 @@
 		1424A8AD89B842D6CCDBF75C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				6C04A2EB204B9C1C7EEF2244 /* LynMusic.app */,
+				6C04A2EB204B9C1C7EEF2244 /* LeonMusic.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,7 +87,7 @@
 			packageProductDependencies = (
 			);
 			productName = iosApp;
-			productReference = 6C04A2EB204B9C1C7EEF2244 /* LynMusic.app */;
+			productReference = 6C04A2EB204B9C1C7EEF2244 /* LeonMusic.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

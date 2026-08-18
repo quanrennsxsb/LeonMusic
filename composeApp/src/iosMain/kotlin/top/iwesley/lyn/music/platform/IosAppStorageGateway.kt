@@ -28,7 +28,7 @@ private class IosAppStorageGateway : AppStorageGateway {
                 ),
                 AppStorageCategoryUsage(
                     category = AppStorageCategory.LyricsShareTemp,
-                    sizeBytes = fileSizeBytes(NSTemporaryDirectory() + "lynmusic-lyrics-share.png"),
+                    sizeBytes = fileSizeBytes(NSTemporaryDirectory() + "leonmusic-lyrics-share.png"),
                 ),
             )
             AppStorageSnapshot(
@@ -52,7 +52,7 @@ private class IosAppStorageGateway : AppStorageGateway {
                 }
 
                 AppStorageCategory.LyricsShareTemp -> {
-                    remove(NSTemporaryDirectory() + "lynmusic-lyrics-share.png")
+                    remove(NSTemporaryDirectory() + "leonmusic-lyrics-share.png")
                     Unit
                 }
 

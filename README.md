@@ -1,8 +1,8 @@
-LynMusic is a cross-platform local music player for Windows, Linux, macOS, Android and iOS , built with Kotlin Multiplatform.
+LeonMusic is a cross-platform local music player for Windows, Linux, macOS, Android and iOS , built with Kotlin Multiplatform.
 
-LynMusic是基于 Kotlin Multiplatform 的跨平台本地音乐播放器项目，目标平台包括 Android、iOS 和桌面端（JVM），支持 Windows 、 macOS 和 Linux。
+LeonMusic是基于 Kotlin Multiplatform 的跨平台本地音乐播放器项目，目标平台包括 Android、iOS 和桌面端（JVM），支持 Windows 、 macOS 和 Linux。
 
-![LynMusic](./doc/LynMusic.png)
+![LeonMusic](./doc/LeonMusic.png)
 ## 为什么做这个播放器
 
 第一，很多本地播放器搜索歌词太难用了，有些歌还不一定能搜到，比如 Bobby Chen、Mr Li；第二，想学习一下 KMP；第三，因为有了 codex 这样的编程工具，实现难度大大下降；第四，可以自主决策功能和界面。
@@ -49,11 +49,11 @@ LynMusic是基于 Kotlin Multiplatform 的跨平台本地音乐播放器项目�
 
 ## 介绍
 
-LynMusic 是一款面向个人音乐收藏场景打造的跨平台本地音乐播放器，基于 Kotlin Multiplatform 开发，可运行在 Android、iOS、Windows、macOS 和 Linux。
+LeonMusic 是一款面向个人音乐收藏场景打造的跨平台本地音乐播放器，基于 Kotlin Multiplatform 开发，可运行在 Android、iOS、Windows、macOS 和 Linux。
 
-在功能上，LynMusic 支持本地文件夹导入，也可接入 Samba、WebDAV、Navidrome 等私有音乐来源，帮助用户把分散在硬盘、NAS 和自建音乐服务中的内容汇总到同一套曲库中。应用提供歌曲、专辑、艺人等多维度浏览方式，并支持喜欢、歌单、播放队列等常用管理能力，方便日常收听与整理。当然，为了多端统一数据，推荐使用Navidrome。
+在功能上，LeonMusic 支持本地文件夹导入，也可接入 Samba、WebDAV、Navidrome 等私有音乐来源，帮助用户把分散在硬盘、NAS 和自建音乐服务中的内容汇总到同一套曲库中。应用提供歌曲、专辑、艺人等多维度浏览方式，并支持喜欢、歌单、播放队列等常用管理能力，方便日常收听与整理。当然，为了多端统一数据，推荐使用Navidrome。
 
-除了基础播放控制外，LynMusic 还提供歌词搜索、歌词分享、在线结果回填等增强功能。对于注重资料维护的用户，应用还支持音乐标签编辑，可修改标题、歌手、专辑、歌词和封面等信息，让曲库更加整洁统一。另外，还支持自定义界面主题等。
+除了基础播放控制外，LeonMusic 还提供歌词搜索、歌词分享、在线结果回填等增强功能。对于注重资料维护的用户，应用还支持音乐标签编辑，可修改标题、歌手、专辑、歌词和封面等信息，让曲库更加整洁统一。另外，还支持自定义界面主题等。
 
 ## 编译
 
@@ -99,12 +99,12 @@ LynMusic 是一款面向个人音乐收藏场景打造的跨平台本地音乐�
 
 ## 许可证
 
-LynMusic 以 GNU General Public License version 3 or later（GPL-3.0-or-later）分发，完整许可证文本见 [LICENSE](./LICENSE)。
+LeonMusic 以 GNU General Public License version 3 or later（GPL-3.0-or-later）分发，完整许可证文本见 [LICENSE](./LICENSE)。
 
-项目包含第三方 DLNA/UPnP 组件 Platinum UPnP SDK，该组件使用 GPL-2.0-or-later / commercial 双许可。由于完整应用包含该 GPL 组件，发布 LynMusic 的完整源码或二进制产物时需要遵守 GPL-3.0-or-later 的条款。第三方组件许可证说明见 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)。
+项目包含第三方 DLNA/UPnP 组件 Platinum UPnP SDK，该组件使用 GPL-2.0-or-later / commercial 双许可。由于完整应用包含该 GPL 组件，发布 LeonMusic 的完整源码或二进制产物时需要遵守 GPL-3.0-or-later 的条款。第三方组件许可证说明见 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)。
 
 ## 公众号
  ![/锋风](./doc/weixin.jpeg) 
 
 ## Star History
-[![Star History Chart](https://api.star-history.com/svg?repos=wesley666/LynMusic&type=Date)](https://star-history.com/#wesley666/LynMusic&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=leon0576/LeonMusic&type=Date)](https://star-history.com/#leon0576/LeonMusic&Date)

@@ -35,5 +35,5 @@ class AndroidDiagnosticLogger(
     }
 }
 
-private const val DEFAULT_ANDROID_LOG_TAG = "LynMusic"
+private const val DEFAULT_ANDROID_LOG_TAG = "LeonMusic"
 private const val MAX_ANDROID_LOG_TAG_LENGTH = 23

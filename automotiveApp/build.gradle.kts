@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 val sharedVersionConfig = rootProject.readSharedVersionConfig()
 val appVersionName = sharedVersionConfig.getValue("APP_VERSION_NAME")
-val androidArtifactBaseName = "LynMusic-Car-$appVersionName"
+val androidArtifactBaseName = "LeonMusic-Car-$appVersionName"
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.runtime)
     implementation(libs.compose.ui)
+    testImplementation(libs.junit)
 
     debugImplementation(libs.compose.uiTooling)
 }

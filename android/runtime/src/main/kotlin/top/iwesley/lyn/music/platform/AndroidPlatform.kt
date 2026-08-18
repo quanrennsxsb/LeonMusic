@@ -38,6 +38,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.room.Room
@@ -87,6 +88,7 @@ import top.iwesley.lyn.music.core.model.AudioTagPatch
 import top.iwesley.lyn.music.core.model.AudioTagSnapshot
 import top.iwesley.lyn.music.core.model.CompactPlayerLyricsPreferencesStore
 import top.iwesley.lyn.music.core.model.DEFAULT_ANDROID_EXTENSION_DECODER_ENABLED
+import top.iwesley.lyn.music.core.model.DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED
 import top.iwesley.lyn.music.core.model.DEFAULT_SAMBA_PORT
 import top.iwesley.lyn.music.core.model.DesktopLyricsPreferencesStore
 import top.iwesley.lyn.music.core.model.DiagnosticLogger
@@ -111,6 +113,7 @@ import top.iwesley.lyn.music.core.model.LyricsRequest
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
 import top.iwesley.lyn.music.core.model.NavidromeAudioQualityPreferencesStore
 import top.iwesley.lyn.music.core.model.NavidromeLibraryProbe
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheDirectoryPicker
 import top.iwesley.lyn.music.core.model.NavidromePlaybackCachePreferencesStore
 import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheSizePreset
 import top.iwesley.lyn.music.core.model.NavidromeSourceDraft
@@ -129,6 +132,8 @@ import top.iwesley.lyn.music.core.model.PlaybackPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
 import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.LyricsShareFontPreferencesStore
@@ -152,6 +157,7 @@ import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
 import top.iwesley.lyn.music.core.model.navidromePlaybackCacheSizePresetOrDefault
 import top.iwesley.lyn.music.core.model.playerArtworkStyleOrDefault
+import top.iwesley.lyn.music.core.model.playerLyricsColorPreferenceOrDefault
 import top.iwesley.lyn.music.core.model.playerVisualSizePresetOrDefault
 import top.iwesley.lyn.music.core.model.resolveNavidromeAudioQualityForCurrentNetwork
 import top.iwesley.lyn.music.core.model.stableArtworkBytesHash
@@ -398,8 +404,13 @@ private fun createAndroidRuntimeGraph(
                 autoOpenPlayerOnStartupPreferencesStore = appPreferencesStore,
                 navidromeAudioQualityPreferencesStore = appPreferencesStore,
                 navidromePlaybackCachePreferencesStore = appPreferencesStore,
+                navidromePlaybackCacheDirectoryPicker = AndroidNavidromePlaybackCacheDirectoryPicker(
+                    context = context,
+                    activityActions = activityActions,
+                ),
                 playbackDecoderPreferencesStore = appPreferencesStore,
                 playerArtworkStylePreferencesStore = appPreferencesStore,
+                playerLyricsColorPreferencesStore = appPreferencesStore,
                 playerLyricsFontSizePreferencesStore = appPreferencesStore,
                 playerArtworkSizePreferencesStore = appPreferencesStore,
                 networkConnectionTypeProvider = networkConnectionTypeProvider,
@@ -689,7 +700,7 @@ internal class AndroidAppPreferencesStore(
     CompactPlayerLyricsPreferencesStore, DesktopLyricsPreferencesStore, NavidromeAudioQualityPreferencesStore, LibrarySourceFilterPreferencesStore,
     LyricsShareFontPreferencesStore, PlaybackDecoderPreferencesStore, PlayerArtworkStylePreferencesStore,
     NavidromePlaybackCachePreferencesStore,
-    PlayerLyricsFontSizePreferencesStore, PlayerArtworkSizePreferencesStore,
+    PlayerLyricsColorPreferencesStore, PlayerLyricsFontSizePreferencesStore, PlayerArtworkSizePreferencesStore,
     AndroidEqualizerPreferencesStore, AutoOpenPlayerOnStartupPreferencesStore {
     private val preferences: SharedPreferences =
         context.getSharedPreferences("lynmusic.settings", Context.MODE_PRIVATE)
@@ -719,6 +730,8 @@ internal class AndroidAppPreferencesStore(
         ),
     )
     private val mutablePlayerArtworkStyle = MutableStateFlow(readPlayerArtworkStyle())
+    private val mutablePlayerLyricsColorPreference = MutableStateFlow(readPlayerLyricsColorPreference())
+    private val mutablePlayerActiveLyricsColorPreference = MutableStateFlow(readPlayerActiveLyricsColorPreference())
     private val mutablePlayerLyricsFontSizePreset = MutableStateFlow(readPlayerLyricsFontSizePreset())
     private val mutablePlayerArtworkSizePreset = MutableStateFlow(readPlayerArtworkSizePreset())
     private val mutableEqualizerEnabled = MutableStateFlow(
@@ -738,6 +751,12 @@ internal class AndroidAppPreferencesStore(
     )
     private val mutableNavidromeMobileAudioQuality = MutableStateFlow(
         readNavidromeAudioQuality(KEY_NAVIDROME_MOBILE_AUDIO_QUALITY, NavidromeAudioQuality.Kbps192),
+    )
+    private val mutableNavidromePlaybackCacheEnabled = MutableStateFlow(
+        preferences.getBoolean(KEY_NAVIDROME_PLAYBACK_CACHE_ENABLED, DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED),
+    )
+    private val mutableNavidromePlaybackCacheDirectory = MutableStateFlow(
+        readNavidromePlaybackCacheDirectory(),
     )
     private val mutableNavidromePlaybackCacheSizePreset = MutableStateFlow(
         readNavidromePlaybackCacheSizePreset(),
@@ -772,6 +791,14 @@ internal class AndroidAppPreferencesStore(
 
                 KEY_PLAYER_ARTWORK_STYLE -> {
                     mutablePlayerArtworkStyle.value = readPlayerArtworkStyle()
+                }
+
+                KEY_PLAYER_LYRICS_COLOR_PREFERENCE -> {
+                    mutablePlayerLyricsColorPreference.value = readPlayerLyricsColorPreference()
+                }
+
+                KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE -> {
+                    mutablePlayerActiveLyricsColorPreference.value = readPlayerActiveLyricsColorPreference()
                 }
 
                 KEY_PLAYER_LYRICS_FONT_SIZE_PRESET -> {
@@ -813,6 +840,18 @@ internal class AndroidAppPreferencesStore(
                 KEY_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET -> {
                     mutableNavidromePlaybackCacheSizePreset.value = readNavidromePlaybackCacheSizePreset()
                 }
+
+                KEY_NAVIDROME_PLAYBACK_CACHE_ENABLED -> {
+                    mutableNavidromePlaybackCacheEnabled.value = preferences.getBoolean(
+                        KEY_NAVIDROME_PLAYBACK_CACHE_ENABLED,
+                        DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED,
+                    )
+                }
+
+                KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL,
+                KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE -> {
+                    mutableNavidromePlaybackCacheDirectory.value = readNavidromePlaybackCacheDirectory()
+                }
             }
         }
 
@@ -836,6 +875,10 @@ internal class AndroidAppPreferencesStore(
     override val useAndroidExtensionDecoder: StateFlow<Boolean> =
         mutableUseAndroidExtensionDecoder.asStateFlow()
     override val playerArtworkStyle: StateFlow<PlayerArtworkStyle> = mutablePlayerArtworkStyle.asStateFlow()
+    override val playerLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerLyricsColorPreference.asStateFlow()
+    override val playerActiveLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerActiveLyricsColorPreference.asStateFlow()
     override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> =
         mutablePlayerLyricsFontSizePreset.asStateFlow()
     override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> =
@@ -848,6 +891,10 @@ internal class AndroidAppPreferencesStore(
         mutableNavidromeWifiAudioQuality.asStateFlow()
     override val navidromeMobileAudioQuality: StateFlow<NavidromeAudioQuality> =
         mutableNavidromeMobileAudioQuality.asStateFlow()
+    override val navidromePlaybackCacheEnabled: StateFlow<Boolean> =
+        mutableNavidromePlaybackCacheEnabled.asStateFlow()
+    override val navidromePlaybackCacheDirectory: StateFlow<LocalFolderSelection?> =
+        mutableNavidromePlaybackCacheDirectory.asStateFlow()
     override val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset> =
         mutableNavidromePlaybackCacheSizePreset.asStateFlow()
     override val selectedTheme: StateFlow<AppThemeId> = mutableSelectedTheme.asStateFlow()
@@ -909,6 +956,16 @@ internal class AndroidAppPreferencesStore(
         mutablePlayerArtworkStyle.value = style
     }
 
+    override suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        preferences.edit().putString(KEY_PLAYER_LYRICS_COLOR_PREFERENCE, preference.name).apply()
+        mutablePlayerLyricsColorPreference.value = preference
+    }
+
+    override suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        preferences.edit().putString(KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE, preference.name).apply()
+        mutablePlayerActiveLyricsColorPreference.value = preference
+    }
+
     override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {
         preferences.edit().putString(KEY_PLAYER_LYRICS_FONT_SIZE_PRESET, preset.name).apply()
         mutablePlayerLyricsFontSizePreset.value = preset
@@ -953,6 +1010,26 @@ internal class AndroidAppPreferencesStore(
     override suspend fun setNavidromeMobileAudioQuality(quality: NavidromeAudioQuality) {
         preferences.edit().putString(KEY_NAVIDROME_MOBILE_AUDIO_QUALITY, quality.name).apply()
         mutableNavidromeMobileAudioQuality.value = quality
+    }
+
+    override suspend fun setNavidromePlaybackCacheEnabled(enabled: Boolean) {
+        preferences.edit().putBoolean(KEY_NAVIDROME_PLAYBACK_CACHE_ENABLED, enabled).apply()
+        mutableNavidromePlaybackCacheEnabled.value = enabled
+    }
+
+    override suspend fun setNavidromePlaybackCacheDirectory(selection: LocalFolderSelection?) {
+        val editor = preferences.edit()
+        if (selection == null) {
+            editor
+                .remove(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL)
+                .remove(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE)
+        } else {
+            editor
+                .putString(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL, selection.label)
+                .putString(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE, selection.persistentReference)
+        }
+        editor.apply()
+        mutableNavidromePlaybackCacheDirectory.value = selection
     }
 
     override suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset) {
@@ -1070,6 +1147,19 @@ internal class AndroidAppPreferencesStore(
         return playerArtworkStyleOrDefault(preferences.getString(KEY_PLAYER_ARTWORK_STYLE, null))
     }
 
+    private fun readPlayerLyricsColorPreference(): PlayerLyricsColorPreference {
+        return playerLyricsColorPreferenceOrDefault(preferences.getString(KEY_PLAYER_LYRICS_COLOR_PREFERENCE, null))
+    }
+
+    private fun readPlayerActiveLyricsColorPreference(): PlayerLyricsColorPreference {
+        return playerLyricsColorPreferenceOrDefault(
+            preferences.getString(
+                KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE,
+                preferences.getString(KEY_PLAYER_LYRICS_COLOR_PREFERENCE, null),
+            ),
+        )
+    }
+
     private fun readPlayerLyricsFontSizePreset(): PlayerVisualSizePreset {
         return playerVisualSizePresetOrDefault(preferences.getString(KEY_PLAYER_LYRICS_FONT_SIZE_PRESET, null))
     }
@@ -1097,6 +1187,21 @@ internal class AndroidAppPreferencesStore(
     private fun readNavidromePlaybackCacheSizePreset(): NavidromePlaybackCacheSizePreset {
         return navidromePlaybackCacheSizePresetOrDefault(
             preferences.getString(KEY_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET, null),
+        )
+    }
+
+    private fun readNavidromePlaybackCacheDirectory(): LocalFolderSelection? {
+        val reference = preferences.getString(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE, null)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val label = preferences.getString(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL, null)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: File(reference).name.ifBlank { "自定义目录" }
+        return LocalFolderSelection(
+            label = label,
+            persistentReference = reference,
         )
     }
 
@@ -2356,6 +2461,23 @@ private class AndroidImportSourceGateway(
     }
 }
 
+private class AndroidNavidromePlaybackCacheDirectoryPicker(
+    context: Context,
+    private val activityActions: AndroidActivityActions,
+) : NavidromePlaybackCacheDirectoryPicker {
+    private val context = context.applicationContext
+
+    override suspend fun pickDirectory(): Result<LocalFolderSelection?> {
+        return runCatching {
+            val selection = activityActions.pickLocalFolder(LocalFolderPickerMode.Automatic)
+                ?: return@runCatching null
+            resolveAndroidNavidromePlaybackCacheRoot(context, selection)
+                ?: throw IllegalStateException("该目录无法用于边听边存，请选择可写入的本机目录。")
+            selection
+        }
+    }
+}
+
 private data class AndroidSambaTagReadTarget(
     val sourceId: String,
     val endpoint: String,
@@ -2784,6 +2906,7 @@ internal class AndroidPlaybackGateway(
             }
             val navidromePlaybackCacheKey = subsonicCompatible
                 ?.takeIf { it.sourceType == ImportSourceType.NAVIDROME }
+                ?.takeIf { navidromePlaybackCachePreferencesStore.navidromePlaybackCacheEnabled.value }
                 ?.let { locator ->
                     buildAndroidNavidromePlaybackCacheKey(
                         locator = locator,
@@ -2792,9 +2915,9 @@ internal class AndroidPlaybackGateway(
                 }
             if (
                 navidromePlaybackCacheKey != null &&
-                !hasAndroidNavidromePlaybackCacheData(navidromePlaybackCacheKey)
+                !hasAndroidNavidromePlayableCacheData(navidromePlaybackCacheKey)
             ) {
-                waitForAndroidNetworkAvailableOrThrow(playbackPreferencesStore.autoPlayOnStartupDelaySeconds.value)
+                waitForAndroidNetworkAvailableOrThrow(ANDROID_PLAYBACK_NETWORK_WAIT_TIMEOUT_SECONDS)
             }
             val remotePlaybackCandidates = if (offlineTarget == null && webDavTarget == null && sambaTarget == null) {
                 resolveLocatorCandidates(track.mediaLocator, navidromeAudioQuality)
@@ -3218,6 +3341,10 @@ internal class AndroidPlaybackGateway(
         val cache = AndroidNavidromePlaybackCacheHolder.get(
             context = context,
             maxBytes = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheSizePreset.value.sizeBytes,
+            directory = resolveAndroidNavidromePlaybackCacheDirectory(
+                context = context,
+                selection = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value,
+            ),
         )
         return CacheDataSource.Factory()
             .setCache(cache)
@@ -3225,17 +3352,28 @@ internal class AndroidPlaybackGateway(
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
-    private fun hasAndroidNavidromePlaybackCacheData(cacheKey: String): Boolean {
+    private fun hasAndroidNavidromePlayableCacheData(cacheKey: String): Boolean {
         return runCatching {
-            AndroidNavidromePlaybackCacheHolder.get(
+            val cache = AndroidNavidromePlaybackCacheHolder.get(
                 context = context,
                 maxBytes = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheSizePreset.value.sizeBytes,
-            ).getCachedSpans(cacheKey).isNotEmpty()
+                directory = resolveAndroidNavidromePlaybackCacheDirectory(
+                    context = context,
+                    selection = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value,
+                ),
+            )
+            val cachedFromStart = cache.getCachedLength(cacheKey, 0L, Long.MAX_VALUE)
+                .coerceAtLeast(0L)
+            val contentLength = ContentMetadata.getContentLength(cache.getContentMetadata(cacheKey))
+            hasPlayableAndroidNavidromePlaybackCache(
+                cachedFromStartBytes = cachedFromStart,
+                contentLengthBytes = contentLength,
+            )
         }.getOrDefault(false)
     }
 
     private suspend fun waitForAndroidNetworkAvailableOrThrow(timeoutSeconds: Int) {
-        val timeoutMs = timeoutSeconds.coerceIn(1, MAX_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS) * 1_000L
+        val timeoutMs = timeoutSeconds.coerceAtLeast(1) * 1_000L
         if (isAndroidNetworkAvailable()) return
         mutableState.update { it.copy(errorMessage = WAITING_FOR_NETWORK_MESSAGE) }
         try {
@@ -3263,23 +3401,32 @@ internal class AndroidPlaybackGateway(
 private object AndroidNavidromePlaybackCacheHolder {
     private var cache: SimpleCache? = null
     private var configuredMaxBytes: Long = -1L
+    private var configuredDirectoryPath: String? = null
 
     @Synchronized
-    fun get(context: Context, maxBytes: Long): SimpleCache {
+    fun get(context: Context, maxBytes: Long, directory: File): SimpleCache {
         val normalizedMaxBytes = maxBytes.coerceAtLeast(1L * 1024L * 1024L)
+        val normalizedDirectory = directory.absoluteFile
         val existing = cache
-        if (existing != null && configuredMaxBytes == normalizedMaxBytes) return existing
+        if (
+            existing != null &&
+            configuredMaxBytes == normalizedMaxBytes &&
+            configuredDirectoryPath == normalizedDirectory.absolutePath
+        ) {
+            return existing
+        }
         existing?.release()
-        val directory = File(context.applicationContext.cacheDir, "navidrome-playback-cache").apply {
+        normalizedDirectory.apply {
             mkdirs()
         }
         return SimpleCache(
-            directory,
+            normalizedDirectory,
             LeastRecentlyUsedCacheEvictor(normalizedMaxBytes),
             StandaloneDatabaseProvider(context.applicationContext),
         ).also {
             cache = it
             configuredMaxBytes = normalizedMaxBytes
+            configuredDirectoryPath = normalizedDirectory.absolutePath
         }
     }
 
@@ -3288,7 +3435,60 @@ private object AndroidNavidromePlaybackCacheHolder {
         cache?.release()
         cache = null
         configuredMaxBytes = -1L
+        configuredDirectoryPath = null
     }
+}
+
+internal fun resolveAndroidNavidromePlaybackCacheDirectory(
+    context: Context,
+    selection: LocalFolderSelection?,
+): File {
+    val root = resolveAndroidNavidromePlaybackCacheRoot(context, selection)
+        ?: return defaultAndroidNavidromePlaybackCacheDirectory(context)
+    return if (selection == null) {
+        root
+    } else {
+        File(root, NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME)
+    }
+}
+
+internal fun resolveAndroidNavidromePlaybackCacheRoot(
+    context: Context,
+    selection: LocalFolderSelection?,
+): File? {
+    val reference = selection?.persistentReference
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: return defaultAndroidNavidromePlaybackCacheDirectory(context)
+    val root = resolveAndroidLocalTrackFile(reference)
+        ?: runCatching { Uri.parse(reference) }
+            .getOrNull()
+            ?.takeIf { uri -> uri.scheme.equals("content", ignoreCase = true) }
+            ?.let { uri -> resolveTreeUriToDirectory(context, uri) }
+        ?: return null
+    return root
+        .takeIf { it.exists() || it.mkdirs() }
+        ?.takeIf { it.isDirectory && it.canWrite() }
+}
+
+internal fun defaultAndroidNavidromePlaybackCacheDirectory(context: Context): File {
+    return File(context.applicationContext.cacheDir, NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME)
+}
+
+internal fun readAndroidNavidromePlaybackCacheDirectorySelection(context: Context): LocalFolderSelection? {
+    val preferences = context.applicationContext.getSharedPreferences("lynmusic.settings", Context.MODE_PRIVATE)
+    val reference = preferences.getString(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE, null)
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: return null
+    val label = preferences.getString(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL, null)
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: File(reference).name.ifBlank { "自定义目录" }
+    return LocalFolderSelection(
+        label = label,
+        persistentReference = reference,
+    )
 }
 
 private fun buildAndroidNavidromePlaybackCacheKey(
@@ -3296,6 +3496,18 @@ private fun buildAndroidNavidromePlaybackCacheKey(
     audioQuality: NavidromeAudioQuality,
 ): String {
     return "navidrome:${locator.sourceId}:${locator.itemId}:${audioQuality.name}"
+}
+
+internal fun hasPlayableAndroidNavidromePlaybackCache(
+    cachedFromStartBytes: Long,
+    contentLengthBytes: Long,
+): Boolean {
+    val normalizedCachedBytes = cachedFromStartBytes.coerceAtLeast(0L)
+    return if (contentLengthBytes > 0L) {
+        normalizedCachedBytes >= contentLengthBytes
+    } else {
+        normalizedCachedBytes >= MIN_NAVIDROME_PLAYBACK_CACHE_BOOTSTRAP_BYTES
+    }
 }
 
 @OptIn(UnstableApi::class)
@@ -3482,12 +3694,19 @@ private const val KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS = "auto_play_on_startup
 private const val KEY_AUTO_OPEN_PLAYER_ON_STARTUP = "auto_open_player_on_startup"
 private const val KEY_ANDROID_EXTENSION_DECODER_ENABLED = "android_extension_decoder_enabled"
 private const val KEY_PLAYER_ARTWORK_STYLE = "player_artwork_style"
+private const val KEY_PLAYER_LYRICS_COLOR_PREFERENCE = "player_lyrics_color_preference"
+private const val KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE = "player_active_lyrics_color_preference"
 private const val KEY_PLAYER_LYRICS_FONT_SIZE_PRESET = "player_lyrics_font_size_preset"
 private const val KEY_PLAYER_ARTWORK_SIZE_PRESET = "player_artwork_size_preset"
 private const val KEY_APP_DISPLAY_SCALE_PRESET = "app_display_scale_preset"
 private const val KEY_NAVIDROME_WIFI_AUDIO_QUALITY = "navidrome_wifi_audio_quality"
 private const val KEY_NAVIDROME_MOBILE_AUDIO_QUALITY = "navidrome_mobile_audio_quality"
+private const val KEY_NAVIDROME_PLAYBACK_CACHE_ENABLED = "navidrome_playback_cache_enabled"
+private const val KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL = "navidrome_playback_cache_directory_label"
+private const val KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE = "navidrome_playback_cache_directory_reference"
 private const val KEY_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET = "navidrome_playback_cache_size_preset"
+internal const val NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME = "navidrome-playback-cache"
+private const val MIN_NAVIDROME_PLAYBACK_CACHE_BOOTSTRAP_BYTES = 1024L * 1024L
 private const val KEY_LYRICS_SHARE_FONT_KEY = "lyrics_share_font_key"
 private const val KEY_LIBRARY_SOURCE_FILTER = "library_source_filter"
 private const val KEY_FAVORITES_SOURCE_FILTER = "favorites_source_filter"
@@ -3496,7 +3715,8 @@ private const val KEY_ONLINE_FAVORITES_SOURCE_ID = "online_favorites_source_id"
 private const val KEY_ONLINE_PLAYLISTS_SOURCE_ID = "online_playlists_source_id"
 private const val KEY_LIBRARY_TRACK_SORT_MODE = "library_track_sort_mode"
 private const val KEY_FAVORITES_TRACK_SORT_MODE = "favorites_track_sort_mode"
-private const val WAITING_FOR_NETWORK_MESSAGE = "等待网络连接"
+private const val WAITING_FOR_NETWORK_MESSAGE = "等待网络连接，网络恢复后将继续播放"
+private const val ANDROID_PLAYBACK_NETWORK_WAIT_TIMEOUT_SECONDS = 60
 private const val ANDROID_KEYSTORE = "AndroidKeyStore"
 private const val CREDENTIAL_KEY_ALIAS = "lynmusic.credentials.master"
 private const val AES_TRANSFORMATION = "AES/GCM/NoPadding"

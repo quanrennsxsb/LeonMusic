@@ -54,6 +54,8 @@ import top.iwesley.lyn.music.core.model.PlaybackPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
 import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.RequestMethod
@@ -73,6 +75,7 @@ import top.iwesley.lyn.music.core.model.navidromeAudioQualityOrDefault
 import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
 import top.iwesley.lyn.music.core.model.playerArtworkStyleOrDefault
+import top.iwesley.lyn.music.core.model.playerLyricsColorPreferenceOrDefault
 import top.iwesley.lyn.music.core.model.playerVisualSizePresetOrDefault
 import top.iwesley.lyn.music.core.model.withThemePalette
 import top.iwesley.lyn.music.core.model.SambaSourceDraft
@@ -143,7 +146,7 @@ import platform.Security.kSecValueData
 import platform.darwin.dispatch_get_main_queue
 import platform.posix.memcpy
 
-fun createIosAppComponent(): top.iwesley.lyn.music.LynMusicAppComponent {
+fun createIosAppComponent(): top.iwesley.lyn.music.LeonMusicAppComponent {
     val database = openLynMusicDatabase(
         Room.databaseBuilder<LynMusicDatabase>(
             name = documentDirectory() + "/lynmusic.db",
@@ -181,6 +184,7 @@ fun createIosAppComponent(): top.iwesley.lyn.music.LynMusicAppComponent {
             autoOpenPlayerOnStartupPreferencesStore = appPreferencesStore,
             navidromeAudioQualityPreferencesStore = appPreferencesStore,
             playerArtworkStylePreferencesStore = appPreferencesStore,
+            playerLyricsColorPreferencesStore = appPreferencesStore,
             playerLyricsFontSizePreferencesStore = appPreferencesStore,
             playerArtworkSizePreferencesStore = appPreferencesStore,
             networkConnectionTypeProvider = networkConnectionTypeProvider,
@@ -378,7 +382,7 @@ private class IosKeychainCredentialStore : SecureCredentialStore {
 
 private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePreferencesStore, ThemePreferencesStore,
     CompactPlayerLyricsPreferencesStore, NavidromeAudioQualityPreferencesStore, LyricsShareFontPreferencesStore,
-    PlayerArtworkStylePreferencesStore, PlayerLyricsFontSizePreferencesStore,
+    PlayerArtworkStylePreferencesStore, PlayerLyricsColorPreferencesStore, PlayerLyricsFontSizePreferencesStore,
     PlayerArtworkSizePreferencesStore, LibrarySourceFilterPreferencesStore,
     AutoOpenPlayerOnStartupPreferencesStore {
     private val defaults = NSUserDefaults.standardUserDefaults
@@ -429,6 +433,8 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
     private val mutableCustomThemeTokens = MutableStateFlow(readCustomThemeTokens())
     private val mutableTextPalettePreferences = MutableStateFlow(readTextPalettePreferences())
     private val mutablePlayerArtworkStyle = MutableStateFlow(readPlayerArtworkStyle())
+    private val mutablePlayerLyricsColorPreference = MutableStateFlow(readPlayerLyricsColorPreference())
+    private val mutablePlayerActiveLyricsColorPreference = MutableStateFlow(readPlayerActiveLyricsColorPreference())
     private val mutablePlayerLyricsFontSizePreset = MutableStateFlow(readPlayerLyricsFontSizePreset())
     private val mutablePlayerArtworkSizePreset = MutableStateFlow(readPlayerArtworkSizePreset())
     private val mutableSelectedLyricsShareFontKey = MutableStateFlow(readSelectedLyricsShareFontKey())
@@ -449,6 +455,10 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
     override val customThemeTokens: StateFlow<AppThemeTokens> = mutableCustomThemeTokens.asStateFlow()
     override val textPalettePreferences: StateFlow<AppThemeTextPalettePreferences> = mutableTextPalettePreferences.asStateFlow()
     override val playerArtworkStyle: StateFlow<PlayerArtworkStyle> = mutablePlayerArtworkStyle.asStateFlow()
+    override val playerLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerLyricsColorPreference.asStateFlow()
+    override val playerActiveLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerActiveLyricsColorPreference.asStateFlow()
     override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> =
         mutablePlayerLyricsFontSizePreset.asStateFlow()
     override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> =
@@ -507,6 +517,16 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
     override suspend fun setPlayerArtworkStyle(style: PlayerArtworkStyle) {
         defaults.setObject(style.name, KEY_PLAYER_ARTWORK_STYLE)
         mutablePlayerArtworkStyle.value = style
+    }
+
+    override suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        defaults.setObject(preference.name, KEY_PLAYER_LYRICS_COLOR_PREFERENCE)
+        mutablePlayerLyricsColorPreference.value = preference
+    }
+
+    override suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        defaults.setObject(preference.name, KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE)
+        mutablePlayerActiveLyricsColorPreference.value = preference
     }
 
     override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {
@@ -610,6 +630,17 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
 
     private fun readPlayerArtworkStyle(): PlayerArtworkStyle {
         return playerArtworkStyleOrDefault(defaults.stringForKey(KEY_PLAYER_ARTWORK_STYLE))
+    }
+
+    private fun readPlayerLyricsColorPreference(): PlayerLyricsColorPreference {
+        return playerLyricsColorPreferenceOrDefault(defaults.stringForKey(KEY_PLAYER_LYRICS_COLOR_PREFERENCE))
+    }
+
+    private fun readPlayerActiveLyricsColorPreference(): PlayerLyricsColorPreference {
+        return playerLyricsColorPreferenceOrDefault(
+            defaults.stringForKey(KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE)
+                ?: defaults.stringForKey(KEY_PLAYER_LYRICS_COLOR_PREFERENCE),
+        )
     }
 
     private fun readPlayerLyricsFontSizePreset(): PlayerVisualSizePreset {
@@ -946,6 +977,8 @@ private const val KEY_AUTO_PLAY_ON_STARTUP = "auto_play_on_startup"
 private const val KEY_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS = "auto_play_on_startup_delay_seconds"
 private const val KEY_AUTO_OPEN_PLAYER_ON_STARTUP = "auto_open_player_on_startup"
 private const val KEY_PLAYER_ARTWORK_STYLE = "player_artwork_style"
+private const val KEY_PLAYER_LYRICS_COLOR_PREFERENCE = "player_lyrics_color_preference"
+private const val KEY_PLAYER_ACTIVE_LYRICS_COLOR_PREFERENCE = "player_active_lyrics_color_preference"
 private const val KEY_PLAYER_LYRICS_FONT_SIZE_PRESET = "player_lyrics_font_size_preset"
 private const val KEY_PLAYER_ARTWORK_SIZE_PRESET = "player_artwork_size_preset"
 private const val KEY_NAVIDROME_WIFI_AUDIO_QUALITY = "navidrome_wifi_audio_quality"

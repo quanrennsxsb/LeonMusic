@@ -88,7 +88,7 @@ class JvmLyricsShareDefaultCoverTest {
             service.buildPreview(
                 LyricsShareCardModel(
                     title = "默认封面测试",
-                    artistName = "LynMusic",
+                    artistName = "LeonMusic",
                     artworkLocator = artworkLocator,
                     artworkCacheKey = artworkCacheKey,
                     template = template,

@@ -37,6 +37,10 @@ import top.iwesley.lyn.music.core.model.AppThemeTokens
 import top.iwesley.lyn.music.core.model.DeviceInfoGateway
 import top.iwesley.lyn.music.core.model.DeviceInfoSnapshot
 import top.iwesley.lyn.music.core.model.DesktopLyricsPlatformService
+import top.iwesley.lyn.music.core.model.DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED
+import top.iwesley.lyn.music.core.model.DEFAULT_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET
+import top.iwesley.lyn.music.core.model.DEFAULT_PLAYER_ARTWORK_SIZE_PRESET
+import top.iwesley.lyn.music.core.model.DEFAULT_PLAYER_LYRICS_FONT_SIZE_PRESET
 import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.DEFAULT_MINIMIZE_WINDOW_ON_CLOSE
 import top.iwesley.lyn.music.core.model.LyricsShareFontLibraryPlatformService
@@ -46,9 +50,14 @@ import top.iwesley.lyn.music.core.model.LyricsShareFontPreferencesStore
 import top.iwesley.lyn.music.core.model.LyricsResponseFormat
 import top.iwesley.lyn.music.core.model.LyricsSourceConfig
 import top.iwesley.lyn.music.core.model.LyricsSourceDefinition
-import top.iwesley.lyn.music.core.model.LynMusicUpdateLinks
+import top.iwesley.lyn.music.core.model.LeonMusicUpdateLinks
+import top.iwesley.lyn.music.core.model.LocalFolderSelection
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheDirectoryPicker
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheSizePreset
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.RequestMethod
 import top.iwesley.lyn.music.core.model.VlcPathPickerPlatformService
 import top.iwesley.lyn.music.core.model.WorkflowLyricsConfig
@@ -759,6 +768,64 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun `store loads persisted player lyrics color preference`() = runTest {
+        val repository = FakeSettingsRepository(playerLyricsColorPreference = PlayerLyricsColorPreference.Blue)
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val store = SettingsStore(repository, scope)
+
+        advanceUntilIdle()
+
+        assertEquals(PlayerLyricsColorPreference.Blue, store.state.value.playerLyricsColorPreference)
+        scope.cancel()
+    }
+
+    @Test
+    fun `updating player lyrics color preference writes through immediately`() = runTest {
+        val repository = FakeSettingsRepository()
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val store = SettingsStore(repository, scope)
+
+        advanceUntilIdle()
+        assertEquals(PlayerLyricsColorPreference.Artwork, store.state.value.playerLyricsColorPreference)
+
+        store.dispatch(SettingsIntent.PlayerLyricsColorPreferenceChanged(PlayerLyricsColorPreference.Pink))
+        advanceUntilIdle()
+
+        assertEquals(PlayerLyricsColorPreference.Pink, store.state.value.playerLyricsColorPreference)
+        assertEquals(PlayerLyricsColorPreference.Pink, repository.currentPlayerLyricsColorPreference())
+        scope.cancel()
+    }
+
+    @Test
+    fun `store loads persisted player active lyrics color preference`() = runTest {
+        val repository = FakeSettingsRepository(playerActiveLyricsColorPreference = PlayerLyricsColorPreference.Green)
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val store = SettingsStore(repository, scope)
+
+        advanceUntilIdle()
+
+        assertEquals(PlayerLyricsColorPreference.Green, store.state.value.playerActiveLyricsColorPreference)
+        scope.cancel()
+    }
+
+    @Test
+    fun `updating player active lyrics color preference writes through immediately`() = runTest {
+        val repository = FakeSettingsRepository()
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val store = SettingsStore(repository, scope)
+
+        advanceUntilIdle()
+        assertEquals(PlayerLyricsColorPreference.Artwork, store.state.value.playerActiveLyricsColorPreference)
+
+        store.dispatch(SettingsIntent.PlayerActiveLyricsColorPreferenceChanged(PlayerLyricsColorPreference.Cyan))
+        advanceUntilIdle()
+
+        assertEquals(PlayerLyricsColorPreference.Cyan, store.state.value.playerActiveLyricsColorPreference)
+        assertEquals(PlayerLyricsColorPreference.Cyan, repository.currentPlayerActiveLyricsColorPreference())
+        scope.cancel()
+    }
+
+    @Test
     fun `store loads persisted app display scale preset`() = runTest {
         val repository = FakeSettingsRepository(appDisplayScalePreset = AppDisplayScalePreset.Large)
         val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
@@ -808,6 +875,12 @@ class SettingsStoreTest {
         val repository = FakeSettingsRepository(
             navidromeWifiAudioQuality = NavidromeAudioQuality.Kbps320,
             navidromeMobileAudioQuality = NavidromeAudioQuality.Kbps128,
+            navidromePlaybackCacheEnabled = false,
+            navidromePlaybackCacheDirectory = LocalFolderSelection(
+                label = "车机 U 盘",
+                persistentReference = "/storage/usb",
+            ),
+            navidromePlaybackCacheSizePreset = NavidromePlaybackCacheSizePreset.GB5,
         )
         val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
         val store = SettingsStore(repository, scope)
@@ -816,6 +889,10 @@ class SettingsStoreTest {
 
         assertEquals(NavidromeAudioQuality.Kbps320, store.state.value.navidromeWifiAudioQuality)
         assertEquals(NavidromeAudioQuality.Kbps128, store.state.value.navidromeMobileAudioQuality)
+        assertFalse(store.state.value.navidromePlaybackCacheEnabled)
+        assertEquals("车机 U 盘", store.state.value.navidromePlaybackCacheDirectory?.label)
+        assertEquals("/storage/usb", store.state.value.navidromePlaybackCacheDirectory?.persistentReference)
+        assertEquals(NavidromePlaybackCacheSizePreset.GB5, store.state.value.navidromePlaybackCacheSizePreset)
         scope.cancel()
     }
 
@@ -829,12 +906,61 @@ class SettingsStoreTest {
 
         store.dispatch(SettingsIntent.NavidromeWifiAudioQualityChanged(NavidromeAudioQuality.Kbps320))
         store.dispatch(SettingsIntent.NavidromeMobileAudioQualityChanged(NavidromeAudioQuality.Kbps128))
+        store.dispatch(SettingsIntent.NavidromePlaybackCacheEnabledChanged(false))
+        store.dispatch(SettingsIntent.NavidromePlaybackCacheSizePresetChanged(NavidromePlaybackCacheSizePreset.GB1))
         advanceUntilIdle()
 
         assertEquals(NavidromeAudioQuality.Kbps320, store.state.value.navidromeWifiAudioQuality)
         assertEquals(NavidromeAudioQuality.Kbps128, store.state.value.navidromeMobileAudioQuality)
+        assertFalse(store.state.value.navidromePlaybackCacheEnabled)
+        assertEquals(NavidromePlaybackCacheSizePreset.GB1, store.state.value.navidromePlaybackCacheSizePreset)
         assertEquals(NavidromeAudioQuality.Kbps320, repository.currentNavidromeWifiAudioQuality())
         assertEquals(NavidromeAudioQuality.Kbps128, repository.currentNavidromeMobileAudioQuality())
+        assertFalse(repository.currentNavidromePlaybackCacheEnabled())
+        assertEquals(NavidromePlaybackCacheSizePreset.GB1, repository.currentNavidromePlaybackCacheSizePreset())
+        scope.cancel()
+    }
+
+    @Test
+    fun `picking navidrome playback cache directory writes through immediately`() = runTest {
+        val repository = FakeSettingsRepository()
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val selection = LocalFolderSelection(
+            label = "下载缓存",
+            persistentReference = "/storage/download-cache",
+        )
+        val store = SettingsStore(
+            repository = repository,
+            scope = scope,
+            navidromePlaybackCacheDirectoryPicker = FakeNavidromePlaybackCacheDirectoryPicker(Result.success(selection)),
+        )
+
+        advanceUntilIdle()
+        store.dispatch(SettingsIntent.PickNavidromePlaybackCacheDirectory)
+        advanceUntilIdle()
+
+        assertEquals(selection, store.state.value.navidromePlaybackCacheDirectory)
+        assertEquals(selection, repository.currentNavidromePlaybackCacheDirectory())
+        scope.cancel()
+    }
+
+    @Test
+    fun `resetting navidrome playback cache directory restores default`() = runTest {
+        val repository = FakeSettingsRepository(
+            navidromePlaybackCacheDirectory = LocalFolderSelection(
+                label = "下载缓存",
+                persistentReference = "/storage/download-cache",
+            ),
+        )
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val store = SettingsStore(repository, scope)
+
+        advanceUntilIdle()
+        store.dispatch(SettingsIntent.ResetNavidromePlaybackCacheDirectory)
+        advanceUntilIdle()
+
+        assertEquals(null, store.state.value.navidromePlaybackCacheDirectory)
+        assertEquals(null, repository.currentNavidromePlaybackCacheDirectory())
         scope.cancel()
     }
 
@@ -1882,14 +2008,14 @@ class SettingsStoreTest {
         ).toAppUpdateUiModel()
         assertEquals(AppUpdateUiStatus.UpdateAvailable, update.status)
         assertEquals("v1.0.8.1", update.latestVersion)
-        assertEquals("发现可用更新，可以到公众号获取云盘链接或者 GitHub 下载。", update.message)
-        assertEquals("https://github.com/wesley666/LynMusic/releases/tag/v1.0.8.1", update.downloadUrl)
+        assertEquals("发现可用更新，可以到 GitHub 下载。", update.message)
+        assertEquals("https://github.com/leon0576/LeonMusic/releases/tag/v1.0.8.1", update.downloadUrl)
 
         val updateWithFallbackUrl = SettingsState(
             appUpdateLatestRelease = sampleAppRelease(tagName = "v1.0.8.1").copy(htmlUrl = ""),
             appUpdateHasNewVersion = true,
         ).toAppUpdateUiModel()
-        assertEquals(LynMusicUpdateLinks.RELEASES_URL, updateWithFallbackUrl.downloadUrl)
+        assertEquals(LeonMusicUpdateLinks.RELEASES_URL, updateWithFallbackUrl.downloadUrl)
 
         val updateWithError = SettingsState(
             appUpdateLatestRelease = sampleAppRelease(tagName = "v1.0.8.1"),
@@ -2103,9 +2229,17 @@ private class FakeSettingsRepository(
     minimizeWindowOnClose: Boolean = DEFAULT_MINIMIZE_WINDOW_ON_CLOSE,
     useAndroidExtensionDecoder: Boolean = false,
     playerArtworkStyle: PlayerArtworkStyle = PlayerArtworkStyle.VINYL,
+    playerLyricsColorPreference: PlayerLyricsColorPreference = PlayerLyricsColorPreference.Artwork,
+    playerActiveLyricsColorPreference: PlayerLyricsColorPreference = PlayerLyricsColorPreference.Artwork,
     appDisplayScalePreset: AppDisplayScalePreset = AppDisplayScalePreset.Default,
     navidromeWifiAudioQuality: NavidromeAudioQuality = NavidromeAudioQuality.Original,
     navidromeMobileAudioQuality: NavidromeAudioQuality = NavidromeAudioQuality.Kbps192,
+    navidromePlaybackCacheEnabled: Boolean = DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED,
+    navidromePlaybackCacheDirectory: LocalFolderSelection? = null,
+    navidromePlaybackCacheSizePreset: NavidromePlaybackCacheSizePreset =
+        DEFAULT_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET,
+    playerLyricsFontSizePreset: PlayerVisualSizePreset = DEFAULT_PLAYER_LYRICS_FONT_SIZE_PRESET,
+    playerArtworkSizePreset: PlayerVisualSizePreset = DEFAULT_PLAYER_ARTWORK_SIZE_PRESET,
     selectedTheme: AppThemeId = AppThemeId.Ocean,
     customThemeTokens: AppThemeTokens = defaultCustomThemeTokens(),
     textPalettePreferences: AppThemeTextPalettePreferences = defaultThemeTextPalettePreferences(),
@@ -2126,9 +2260,16 @@ private class FakeSettingsRepository(
     private val mutableMinimizeWindowOnClose = MutableStateFlow(minimizeWindowOnClose)
     private val mutableUseAndroidExtensionDecoder = MutableStateFlow(useAndroidExtensionDecoder)
     private val mutablePlayerArtworkStyle = MutableStateFlow(playerArtworkStyle)
+    private val mutablePlayerLyricsColorPreference = MutableStateFlow(playerLyricsColorPreference)
+    private val mutablePlayerActiveLyricsColorPreference = MutableStateFlow(playerActiveLyricsColorPreference)
     private val mutableAppDisplayScalePreset = MutableStateFlow(appDisplayScalePreset)
     private val mutableNavidromeWifiAudioQuality = MutableStateFlow(navidromeWifiAudioQuality)
     private val mutableNavidromeMobileAudioQuality = MutableStateFlow(navidromeMobileAudioQuality)
+    private val mutableNavidromePlaybackCacheEnabled = MutableStateFlow(navidromePlaybackCacheEnabled)
+    private val mutableNavidromePlaybackCacheDirectory = MutableStateFlow(navidromePlaybackCacheDirectory)
+    private val mutableNavidromePlaybackCacheSizePreset = MutableStateFlow(navidromePlaybackCacheSizePreset)
+    private val mutablePlayerLyricsFontSizePreset = MutableStateFlow(playerLyricsFontSizePreset)
+    private val mutablePlayerArtworkSizePreset = MutableStateFlow(playerArtworkSizePreset)
     private val mutableSelectedTheme = MutableStateFlow(selectedTheme)
     private val mutableCustomThemeTokens = MutableStateFlow(customThemeTokens)
     private val mutableTextPalettePreferences = MutableStateFlow(textPalettePreferences)
@@ -2153,11 +2294,25 @@ private class FakeSettingsRepository(
     override val useAndroidExtensionDecoder: StateFlow<Boolean> =
         mutableUseAndroidExtensionDecoder.asStateFlow()
     override val playerArtworkStyle: StateFlow<PlayerArtworkStyle> = mutablePlayerArtworkStyle.asStateFlow()
+    override val playerLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerLyricsColorPreference.asStateFlow()
+    override val playerActiveLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerActiveLyricsColorPreference.asStateFlow()
     override val appDisplayScalePreset: StateFlow<AppDisplayScalePreset> = mutableAppDisplayScalePreset.asStateFlow()
     override val navidromeWifiAudioQuality: StateFlow<NavidromeAudioQuality> =
         mutableNavidromeWifiAudioQuality.asStateFlow()
     override val navidromeMobileAudioQuality: StateFlow<NavidromeAudioQuality> =
         mutableNavidromeMobileAudioQuality.asStateFlow()
+    override val navidromePlaybackCacheEnabled: StateFlow<Boolean> =
+        mutableNavidromePlaybackCacheEnabled.asStateFlow()
+    override val navidromePlaybackCacheDirectory: StateFlow<LocalFolderSelection?> =
+        mutableNavidromePlaybackCacheDirectory.asStateFlow()
+    override val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset> =
+        mutableNavidromePlaybackCacheSizePreset.asStateFlow()
+    override val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset> =
+        mutablePlayerLyricsFontSizePreset.asStateFlow()
+    override val playerArtworkSizePreset: StateFlow<PlayerVisualSizePreset> =
+        mutablePlayerArtworkSizePreset.asStateFlow()
     override val selectedTheme: StateFlow<AppThemeId> = mutableSelectedTheme.asStateFlow()
     override val customThemeTokens: StateFlow<AppThemeTokens> = mutableCustomThemeTokens.asStateFlow()
     override val textPalettePreferences: StateFlow<AppThemeTextPalettePreferences> = mutableTextPalettePreferences.asStateFlow()
@@ -2178,9 +2333,18 @@ private class FakeSettingsRepository(
     fun currentMinimizeWindowOnClose(): Boolean = mutableMinimizeWindowOnClose.value
     fun currentUseAndroidExtensionDecoder(): Boolean = mutableUseAndroidExtensionDecoder.value
     fun currentPlayerArtworkStyle(): PlayerArtworkStyle = mutablePlayerArtworkStyle.value
+    fun currentPlayerLyricsColorPreference(): PlayerLyricsColorPreference = mutablePlayerLyricsColorPreference.value
+    fun currentPlayerActiveLyricsColorPreference(): PlayerLyricsColorPreference =
+        mutablePlayerActiveLyricsColorPreference.value
     fun currentAppDisplayScalePreset(): AppDisplayScalePreset = mutableAppDisplayScalePreset.value
     fun currentNavidromeWifiAudioQuality(): NavidromeAudioQuality = mutableNavidromeWifiAudioQuality.value
     fun currentNavidromeMobileAudioQuality(): NavidromeAudioQuality = mutableNavidromeMobileAudioQuality.value
+    fun currentNavidromePlaybackCacheEnabled(): Boolean = mutableNavidromePlaybackCacheEnabled.value
+    fun currentNavidromePlaybackCacheDirectory(): LocalFolderSelection? = mutableNavidromePlaybackCacheDirectory.value
+    fun currentNavidromePlaybackCacheSizePreset(): NavidromePlaybackCacheSizePreset =
+        mutableNavidromePlaybackCacheSizePreset.value
+    fun currentPlayerLyricsFontSizePreset(): PlayerVisualSizePreset = mutablePlayerLyricsFontSizePreset.value
+    fun currentPlayerArtworkSizePreset(): PlayerVisualSizePreset = mutablePlayerArtworkSizePreset.value
     fun currentSelectedTheme(): AppThemeId = mutableSelectedTheme.value
     fun currentCustomThemeTokens(): AppThemeTokens = mutableCustomThemeTokens.value
     fun currentTextPalettePreferences(): AppThemeTextPalettePreferences = mutableTextPalettePreferences.value
@@ -2229,6 +2393,14 @@ private class FakeSettingsRepository(
         mutablePlayerArtworkStyle.value = style
     }
 
+    override suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        mutablePlayerLyricsColorPreference.value = preference
+    }
+
+    override suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        mutablePlayerActiveLyricsColorPreference.value = preference
+    }
+
     override suspend fun setAppDisplayScalePreset(preset: AppDisplayScalePreset) {
         mutableAppDisplayScalePreset.value = preset
     }
@@ -2239,6 +2411,26 @@ private class FakeSettingsRepository(
 
     override suspend fun setNavidromeMobileAudioQuality(quality: NavidromeAudioQuality) {
         mutableNavidromeMobileAudioQuality.value = quality
+    }
+
+    override suspend fun setNavidromePlaybackCacheEnabled(enabled: Boolean) {
+        mutableNavidromePlaybackCacheEnabled.value = enabled
+    }
+
+    override suspend fun setNavidromePlaybackCacheDirectory(selection: LocalFolderSelection?) {
+        mutableNavidromePlaybackCacheDirectory.value = selection
+    }
+
+    override suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset) {
+        mutableNavidromePlaybackCacheSizePreset.value = preset
+    }
+
+    override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {
+        mutablePlayerLyricsFontSizePreset.value = preset
+    }
+
+    override suspend fun setPlayerArtworkSizePreset(preset: PlayerVisualSizePreset) {
+        mutablePlayerArtworkSizePreset.value = preset
     }
 
     override suspend fun setSelectedTheme(themeId: AppThemeId) {
@@ -2293,6 +2485,12 @@ private class FakeSettingsRepository(
     override suspend fun deleteLyricsSource(configId: String) {
         mutableSources.value = mutableSources.value.filterNot { it.id == configId }
     }
+}
+
+private class FakeNavidromePlaybackCacheDirectoryPicker(
+    private val result: Result<LocalFolderSelection?>,
+) : NavidromePlaybackCacheDirectoryPicker {
+    override suspend fun pickDirectory(): Result<LocalFolderSelection?> = result
 }
 
 private class FakeAppUpdateRepository(
@@ -2570,7 +2768,7 @@ private fun sampleAppRelease(
         tagName = tagName,
         name = "$tagName Release",
         body = "Release body",
-        htmlUrl = "https://github.com/wesley666/LynMusic/releases/tag/$tagName",
+        htmlUrl = "https://github.com/leon0576/LeonMusic/releases/tag/$tagName",
         publishedAt = "2026-05-17T10:45:00Z",
     )
 }

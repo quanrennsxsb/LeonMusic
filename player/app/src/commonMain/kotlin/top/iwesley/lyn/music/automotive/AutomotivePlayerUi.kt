@@ -73,6 +73,7 @@ import top.iwesley.lyn.music.PlayerLyricsPane
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.trackArtworkCacheKey
 import top.iwesley.lyn.music.deriveOnlinePlaybackLibraryNavigationTargets
@@ -90,6 +91,10 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
     appDisplayScalePreset: AppDisplayScalePreset,
     isPureMode: Boolean,
     playerArtworkStyle: PlayerArtworkStyle,
+    lyricsFontSizePreset: PlayerVisualSizePreset,
+    lyricsPrimaryTextColor: Color,
+    lyricsActiveTextColor: Color,
+    lyricsSecondaryTextColor: Color,
     isFavorite: Boolean,
     canToggleFavorite: Boolean = true,
     onToggleFavorite: () -> Unit,
@@ -154,6 +159,10 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
                 state = state,
                 track = track,
                 onPlayerIntent = onPlayerIntent,
+                lyricsFontSizePreset = lyricsFontSizePreset,
+                lyricsPrimaryTextColor = lyricsPrimaryTextColor,
+                lyricsActiveTextColor = lyricsActiveTextColor,
+                lyricsSecondaryTextColor = lyricsSecondaryTextColor,
                 modifier = Modifier
                     .weight(AutomotiveLyricsPaneWeight)
                     .fillMaxHeight(),
@@ -734,6 +743,10 @@ private fun AutomotiveLyricsPane(
     state: PlayerState,
     track: Track,
     onPlayerIntent: (PlayerIntent) -> Unit,
+    lyricsFontSizePreset: PlayerVisualSizePreset,
+    lyricsPrimaryTextColor: Color,
+    lyricsActiveTextColor: Color,
+    lyricsSecondaryTextColor: Color,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -745,6 +758,10 @@ private fun AutomotiveLyricsPane(
             track = track,
             onPlayerIntent = onPlayerIntent,
             pure = true,
+            lyricsFontSizePreset = lyricsFontSizePreset,
+            lyricsPrimaryTextColor = lyricsPrimaryTextColor,
+            lyricsActiveTextColor = lyricsActiveTextColor,
+            lyricsSecondaryTextColor = lyricsSecondaryTextColor,
             modifier = Modifier.fillMaxSize(),
         )
     }

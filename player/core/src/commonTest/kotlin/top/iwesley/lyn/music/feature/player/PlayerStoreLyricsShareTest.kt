@@ -1183,6 +1183,8 @@ private class FakeLyricsSharePlaybackRepository(
 
     override suspend fun playQueueIndex(index: Int) = Unit
 
+    override suspend fun resumeCurrentTrackPlayback() = Unit
+
     override suspend fun togglePlayPause() = Unit
 
     override suspend fun pause() = Unit

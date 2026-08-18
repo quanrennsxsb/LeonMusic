@@ -1,4 +1,4 @@
-rootProject.name = "LynMusic"
+rootProject.name = "LeonMusic"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {

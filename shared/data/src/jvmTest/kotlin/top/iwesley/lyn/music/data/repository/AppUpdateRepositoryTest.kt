@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 import top.iwesley.lyn.music.core.model.LyricsHttpClient
 import top.iwesley.lyn.music.core.model.LyricsHttpResponse
 import top.iwesley.lyn.music.core.model.LyricsRequest
-import top.iwesley.lyn.music.core.model.LynMusicUpdateLinks
+import top.iwesley.lyn.music.core.model.LeonMusicUpdateLinks
 import top.iwesley.lyn.music.core.model.RequestMethod
 
 class AppUpdateRepositoryTest {
@@ -23,7 +23,7 @@ class AppUpdateRepositoryTest {
                           "tag_name": "v1.0.8.1",
                           "name": "v1.0.8.1 Release",
                           "body": "支持悬浮窗歌词",
-                          "html_url": "https://github.com/wesley666/LynMusic/releases/tag/v1.0.8.1",
+                          "html_url": "https://github.com/leon0576/LeonMusic/releases/tag/v1.0.8.1",
                           "published_at": "2026-05-17T10:45:00Z"
                         }
                     """.trimIndent(),
@@ -37,11 +37,11 @@ class AppUpdateRepositoryTest {
         assertEquals("v1.0.8.1", release.tagName)
         assertEquals("v1.0.8.1 Release", release.name)
         assertEquals("支持悬浮窗歌词", release.body)
-        assertEquals("https://github.com/wesley666/LynMusic/releases/tag/v1.0.8.1", release.htmlUrl)
+        assertEquals("https://github.com/leon0576/LeonMusic/releases/tag/v1.0.8.1", release.htmlUrl)
         assertEquals("2026-05-17T10:45:00Z", release.publishedAt)
         val request = httpClient.requests.single()
         assertEquals(RequestMethod.GET, request.method)
-        assertEquals(LynMusicUpdateLinks.LATEST_RELEASE_API_URL, request.url)
+        assertEquals(LeonMusicUpdateLinks.LATEST_RELEASE_API_URL, request.url)
         assertEquals("application/vnd.github+json", request.headers["Accept"])
     }
 
@@ -59,7 +59,7 @@ class AppUpdateRepositoryTest {
         val release = assertNotNull(DefaultAppUpdateRepository(httpClient).latestRelease().getOrNull())
 
         assertEquals("v1.0.8.1", release.name)
-        assertEquals(LynMusicUpdateLinks.RELEASES_URL, release.htmlUrl)
+        assertEquals(LeonMusicUpdateLinks.RELEASES_URL, release.htmlUrl)
     }
 
     @Test

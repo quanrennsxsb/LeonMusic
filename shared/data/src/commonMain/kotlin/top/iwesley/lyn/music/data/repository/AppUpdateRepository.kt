@@ -8,7 +8,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import top.iwesley.lyn.music.core.model.AppReleaseInfo
 import top.iwesley.lyn.music.core.model.LyricsHttpClient
 import top.iwesley.lyn.music.core.model.LyricsRequest
-import top.iwesley.lyn.music.core.model.LynMusicUpdateLinks
+import top.iwesley.lyn.music.core.model.LeonMusicUpdateLinks
 import top.iwesley.lyn.music.core.model.RequestMethod
 
 interface AppUpdateRepository {
@@ -17,8 +17,8 @@ interface AppUpdateRepository {
 
 class DefaultAppUpdateRepository(
     private val httpClient: LyricsHttpClient,
-    private val latestReleaseUrl: String = LynMusicUpdateLinks.LATEST_RELEASE_API_URL,
-    private val releasesUrl: String = LynMusicUpdateLinks.RELEASES_URL,
+    private val latestReleaseUrl: String = LeonMusicUpdateLinks.LATEST_RELEASE_API_URL,
+    private val releasesUrl: String = LeonMusicUpdateLinks.RELEASES_URL,
 ) : AppUpdateRepository {
     override suspend fun latestRelease(): Result<AppReleaseInfo> {
         return httpClient.request(
@@ -27,7 +27,7 @@ class DefaultAppUpdateRepository(
                 url = latestReleaseUrl,
                 headers = mapOf(
                     "Accept" to "application/vnd.github+json",
-                    "User-Agent" to "LynMusic",
+                    "User-Agent" to "LeonMusic",
                 ),
                 timeoutMillis = APP_UPDATE_REQUEST_TIMEOUT_MILLIS,
             ),

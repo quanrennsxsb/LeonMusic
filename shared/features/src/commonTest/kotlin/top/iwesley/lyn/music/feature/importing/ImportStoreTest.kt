@@ -100,6 +100,45 @@ class ImportStoreTest {
         harness.close()
     }
 
+    @Test
+    fun `sync all sources rescans enabled sources and skips disabled sources`() = runTest {
+        val repository = FakeImportSourceRepository(
+            sources = listOf(
+                source(
+                    sourceId = "local-1",
+                    type = ImportSourceType.LOCAL_FOLDER,
+                    label = "本地音乐",
+                    rootReference = "local-ref",
+                ),
+                source(
+                    sourceId = "smb-1",
+                    type = ImportSourceType.SAMBA,
+                    label = "NAS",
+                    rootReference = "Music",
+                    server = "nas.local",
+                    path = "Music",
+                ),
+                source(
+                    sourceId = "dav-1",
+                    type = ImportSourceType.WEBDAV,
+                    label = "禁用云盘",
+                    rootReference = "https://dav.example.com/music",
+                    enabled = false,
+                ),
+            ),
+        )
+        val harness = createStore(repository)
+
+        harness.store.dispatch(ImportIntent.SyncAllSources)
+        advanceUntilIdle()
+
+        assertEquals(listOf("local-1", "smb-1"), repository.rescannedSourceIds)
+        assertEquals(testScanSummary("local-1"), harness.store.state.value.latestScanSummariesBySourceId["local-1"])
+        assertEquals(testScanSummary("smb-1"), harness.store.state.value.latestScanSummariesBySourceId["smb-1"])
+        assertEquals("同步完成：成功 2 个来源。", harness.store.state.value.message)
+        harness.close()
+    }
+
     private suspend fun TestScope.assertLocalFolderImportUsesRequestedPickerMode(mode: LocalFolderPickerMode) {
         val repository = FakeImportSourceRepository()
         val harness = createStore(repository)
@@ -1017,6 +1056,7 @@ private class FakeImportSourceRepository(
     var existingNavidromeProbeResult: Result<NavidromeLibraryProbe> =
         Result.success(NavidromeLibraryProbe(totalTrackCount = null))
     var progressToEmit: ImportScanProgress? = null
+    val rescannedSourceIds = mutableListOf<String>()
 
     override fun observeSources(): Flow<List<SourceWithStatus>> = mutableSources.asStateFlow()
 
@@ -1198,6 +1238,7 @@ private class FakeImportSourceRepository(
     }
 
     override suspend fun rescanSource(sourceId: String): Result<ImportScanSummary?> {
+        rescannedSourceIds += sourceId
         return pendingResult?.await()?.map { testScanSummary(sourceId) } ?: when (sourceId) {
             "nav-1" -> navidromeResult.map { it }
             "sub-1" -> subsonicResult.map { it }

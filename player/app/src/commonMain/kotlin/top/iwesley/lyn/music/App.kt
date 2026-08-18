@@ -82,12 +82,12 @@ import top.iwesley.lyn.music.feature.settings.SettingsEffect
 import top.iwesley.lyn.music.feature.settings.SettingsIntent
 import top.iwesley.lyn.music.feature.settings.SettingsStore
 import top.iwesley.lyn.music.feature.tags.MusicTagsStore
-import top.iwesley.lyn.music.ui.LynMusicTheme
+import top.iwesley.lyn.music.ui.LeonMusicTheme
 import top.iwesley.lyn.music.ui.mainShellColors
 
 internal val defaultSelectedAppTab: AppTab = AppTab.Library
 
-class LynMusicAppComponent(
+class LeonMusicAppComponent(
     val platform: PlatformDescriptor,
     val logger: DiagnosticLogger,
     val myStore: MyStore,
@@ -167,7 +167,7 @@ internal suspend fun stopAppScope(
 fun buildPlayerAppComponent(
     sharedGraph: SharedGraph,
     playerRuntimeServices: PlayerRuntimeServices,
-): LynMusicAppComponent {
+): LeonMusicAppComponent {
     val systemPlaybackControlsPlatformService = CompositeSystemPlaybackControlsPlatformService(
         listOf(
             playerRuntimeServices.systemPlaybackControlsPlatformService,
@@ -209,7 +209,7 @@ fun buildPlayerAppComponent(
         playerStore = playerStore,
         menuBarLyricsControlsPlatformService = playerRuntimeServices.menuBarLyricsControlsPlatformService,
     )
-    return LynMusicAppComponent(
+    return LeonMusicAppComponent(
         platform = sharedGraph.platform,
         logger = sharedGraph.logger,
         myStore = sharedGraph.myStore,
@@ -382,13 +382,13 @@ private fun CoroutineScope.launchMenuBarLyricsControlsSync(
 
 private fun resolveMenuBarLyricsFallbackText(player: PlayerState): String? {
     return player.snapshot.currentTrack?.let {
-        player.snapshot.currentDisplayTitle.trim().ifBlank { it.title.trim() }.ifBlank { "LynMusic" }
+        player.snapshot.currentDisplayTitle.trim().ifBlank { it.title.trim() }.ifBlank { "LeonMusic" }
     }
 }
 
 @Composable
 fun App(
-    component: LynMusicAppComponent,
+    component: LeonMusicAppComponent,
     startupAutoOpenGate: StartupAutoOpenGate,
     desktopWindowChrome: DesktopWindowChrome = DesktopWindowChrome(),
     onExitApplicationRequest: () -> Unit = {},
@@ -639,7 +639,7 @@ fun App(
                 }
             }
         }
-        LynMusicTheme(
+        LeonMusicTheme(
             themeTokens = shellThemeTokens,
             textPalette = shellTextPalette,
         ) {
@@ -801,7 +801,7 @@ fun App(
                         )
                     }
 
-                    LynMusicTheme(
+                    LeonMusicTheme(
                         themeTokens = shellThemeTokens,
                         textPalette = shellTextPalette,
                     ) {
@@ -813,6 +813,8 @@ fun App(
                             appDisplayScalePreset = settingsState.appDisplayScalePreset,
                             showCompactPlayerLyrics = settingsState.showCompactPlayerLyrics,
                             playerArtworkStyle = settingsState.playerArtworkStyle,
+                            playerLyricsColorPreference = settingsState.playerLyricsColorPreference,
+                            playerActiveLyricsColorPreference = settingsState.playerActiveLyricsColorPreference,
                             playerLyricsFontSizePreset = settingsState.playerLyricsFontSizePreset,
                             playerArtworkSizePreset = settingsState.playerArtworkSizePreset,
                             showEqualizerEntry = component.platform.capabilities.supportsEqualizer &&
@@ -1138,7 +1140,7 @@ internal fun OnlinePlaylistsIntent.shouldStartOnlinePlaylistsStore(): Boolean {
 }
 
 private fun activateStartupStores(
-    component: LynMusicAppComponent,
+    component: LeonMusicAppComponent,
     selectedTab: AppTab,
     pendingPlaylistTrack: Track?,
 ) {

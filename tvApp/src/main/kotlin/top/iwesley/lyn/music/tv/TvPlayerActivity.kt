@@ -106,7 +106,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
-import top.iwesley.lyn.music.LynMusicAppComponent
+import top.iwesley.lyn.music.LeonMusicAppComponent
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
 import top.iwesley.lyn.music.core.model.ArtworkCacheStore
 import top.iwesley.lyn.music.core.model.LyricsDocument
@@ -183,7 +183,7 @@ class TvPlayerActivity : TvComponentActivity() {
 
 @Composable
 private fun TvPlayerApp(
-    component: LynMusicAppComponent,
+    component: LeonMusicAppComponent,
     onBack: () -> Unit,
 ) {
     ConfigureTvImageLoader()
@@ -1300,4 +1300,4 @@ private const val TV_PLAYER_SEEK_STEP_MS = 10_000L
 private const val TV_PLAYER_TOAST_DURATION_MS = 3_000L
 private const val TV_PLAYER_TOAST_DETAIL_LIMIT = 96
 private const val TV_PLAYER_LOG_MESSAGE_LIMIT = 240
-private const val TV_PLAYER_LOG_TAG = "LynMusic"
+private const val TV_PLAYER_LOG_TAG = "LeonMusic"

@@ -1,6 +1,7 @@
 package top.iwesley.lyn.music.automotive
 
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
@@ -10,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -17,21 +19,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import top.iwesley.lyn.music.ANDROID_AUTOMOTIVE_PLATFORM_NAME
 import kotlin.math.min
 import top.iwesley.lyn.music.App
-import top.iwesley.lyn.music.LynMusicAppComponent
+import top.iwesley.lyn.music.LeonMusicAppComponent
 import top.iwesley.lyn.music.StartupAutoOpenGate
 import top.iwesley.lyn.music.StartupDatabaseErrorScreen
 import top.iwesley.lyn.music.buildPlayerAppComponent
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
+import top.iwesley.lyn.music.feature.player.PlayerState
 import top.iwesley.lyn.music.core.model.effectiveAppDisplayDensity
 import top.iwesley.lyn.music.feature.player.PlayerIntent
 import top.iwesley.lyn.music.feature.settings.SettingsIntent
@@ -41,16 +47,38 @@ import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private val startupAutoOpenViewModel by viewModels<StartupAutoOpenViewModel>()
+    private val wakeResumeViewModel by viewModels<AutomotiveWakeResumeViewModel>()
     private val externalAudioOpenScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var appComponent: LynMusicAppComponent? = null
+    private var appComponent: LeonMusicAppComponent? = null
     private var pendingExternalAudioOpenIntent: Intent? = null
     private var externalAudioOpenJob: Job? = null
     private var externalAudioOpenRequestId = 0L
+    private var wakeResumeJob: Job? = null
+    private val screenStateReceiver = AutomotiveWakeScreenStateReceiver(
+        onScreenTurnedOff = { rememberPlaybackForWake() },
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         //enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+        lifecycle.addObserver(
+            object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    ContextCompat.registerReceiver(
+                        this@MainActivity,
+                        screenStateReceiver,
+                        IntentFilter(Intent.ACTION_SCREEN_OFF),
+                        ContextCompat.RECEIVER_NOT_EXPORTED,
+                    )
+                }
+
+                override fun onStop(owner: LifecycleOwner) {
+                    rememberPlaybackForWake()
+                    runCatching { unregisterReceiver(screenStateReceiver) }
+                }
+            },
+        )
         val appComponentResult = runCatching {
             val runtimeGraph = createAndroidRuntimeGraph(this, platformName = ANDROID_AUTOMOTIVE_PLATFORM_NAME)
             try {
@@ -96,10 +124,18 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         appComponent?.settingsStore?.dispatch(SettingsIntent.RecheckDesktopLyricsPermission)
+        resumePlaybackAfterWakeIfNeeded()
+        observeWakeResumeUntilSettled()
+    }
+
+    override fun onPause() {
+        rememberPlaybackForWake()
+        super.onPause()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        wakeResumeJob?.cancel()
         externalAudioOpenScope.cancel()
     }
 
@@ -128,11 +164,154 @@ class MainActivity : ComponentActivity() {
             component.playerStore.dispatch(PlayerIntent.PlayTransientTracks(tracks, 0))
         }
     }
+
+    private fun resumePlaybackAfterWakeIfNeeded() {
+        val component = appComponent ?: return
+        val state = component.playerStore.state.value
+        if (!wakeResumeViewModel.shouldResume(state)) return
+        wakeResumeViewModel.markResumeDispatched()
+        wakeResumeJob?.cancel()
+        wakeResumeJob = null
+        component.playerStore.dispatch(PlayerIntent.ResumeCurrentTrackPlayback)
+    }
+
+    private fun observeWakeResumeUntilSettled() {
+        if (!wakeResumeViewModel.hasPending()) return
+        val component = appComponent ?: return
+        if (wakeResumeJob?.isActive == true) return
+        wakeResumeJob = externalAudioOpenScope.launch {
+            component.playerStore.state.collect { state ->
+                when {
+                    wakeResumeViewModel.shouldResume(state) -> {
+                        wakeResumeViewModel.markResumeDispatched()
+                        component.playerStore.dispatch(PlayerIntent.ResumeCurrentTrackPlayback)
+                    }
+                    !wakeResumeViewModel.shouldKeepPending(state) -> {
+                        wakeResumeViewModel.consume()
+                        wakeResumeJob?.cancel()
+                        wakeResumeJob = null
+                    }
+                }
+            }
+        }
+    }
+
+    private fun rememberPlaybackForWake() {
+        wakeResumeViewModel.rememberForWake(appComponent?.playerStore?.state?.value)
+    }
 }
 
 internal class StartupAutoOpenViewModel : ViewModel() {
     val gate = StartupAutoOpenGate()
 }
+
+internal class AutomotiveWakeResumeViewModel : ViewModel() {
+    private var pendingTrackId: String? = null
+    private var resumeDispatched: Boolean = false
+
+    fun rememberForWake(state: PlayerState?) {
+        val nextTrackId = wakeResumeTrackIdOrNull(state)
+        if (nextTrackId != null) {
+            pendingTrackId = nextTrackId
+            resumeDispatched = false
+        }
+    }
+
+    fun shouldResume(state: PlayerState): Boolean {
+        return shouldResumePlaybackAfterWake(
+            pendingTrackId = pendingTrackId,
+            resumeDispatched = resumeDispatched,
+            state = state,
+        )
+    }
+
+    fun shouldKeepPending(state: PlayerState): Boolean {
+        return shouldKeepWakeResumePending(
+            pendingTrackId = pendingTrackId,
+            resumeDispatched = resumeDispatched,
+            state = state,
+        )
+    }
+
+    fun hasPending(): Boolean {
+        return pendingTrackId != null
+    }
+
+    fun markResumeDispatched() {
+        resumeDispatched = true
+    }
+
+    fun consume() {
+        pendingTrackId = null
+        resumeDispatched = false
+    }
+}
+
+private class AutomotiveWakeScreenStateReceiver(
+    private val onScreenTurnedOff: () -> Unit,
+) : android.content.BroadcastReceiver() {
+    override fun onReceive(context: android.content.Context?, intent: Intent?) {
+        if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+            onScreenTurnedOff()
+        }
+    }
+}
+
+internal fun wakeResumeTrackIdOrNull(state: PlayerState?): String? {
+    val snapshot = state?.effectiveSnapshot ?: return null
+    return snapshot.currentTrack
+        ?.takeIf { snapshot.isPlaying }
+        ?.id
+}
+
+internal fun shouldResumePlaybackAfterWake(
+    pendingTrackId: String?,
+    resumeDispatched: Boolean = false,
+    state: PlayerState,
+): Boolean {
+    val snapshot = state.effectiveSnapshot
+    val currentTrackId = snapshot.currentTrack?.id ?: return false
+    if (
+        pendingTrackId == null ||
+        pendingTrackId != currentTrackId ||
+        snapshot.isPlaying ||
+        snapshot.isHydratingPlayback
+    ) {
+        return false
+    }
+    return !isWakeResumeDispatchInFlight(resumeDispatched, state) ||
+        isWakeResumeWaitingForNetwork(state)
+}
+
+internal fun shouldKeepWakeResumePending(
+    pendingTrackId: String?,
+    resumeDispatched: Boolean = false,
+    state: PlayerState,
+): Boolean {
+    val snapshot = state.effectiveSnapshot
+    val currentTrackId = snapshot.currentTrack?.id ?: return false
+    return pendingTrackId != null &&
+        pendingTrackId == currentTrackId &&
+        !snapshot.isPlaying &&
+        (
+            snapshot.isHydratingPlayback ||
+                isWakeResumeDispatchInFlight(resumeDispatched, state) ||
+                isWakeResumeWaitingForNetwork(state)
+            )
+}
+
+private fun isWakeResumeDispatchInFlight(
+    resumeDispatched: Boolean,
+    state: PlayerState,
+): Boolean {
+    return resumeDispatched && state.effectiveSnapshot.errorMessage == null
+}
+
+private fun isWakeResumeWaitingForNetwork(state: PlayerState): Boolean {
+    return state.effectiveSnapshot.errorMessage?.contains(WAKE_RESUME_WAITING_NETWORK_KEYWORD) == true
+}
+
+private const val WAKE_RESUME_WAITING_NETWORK_KEYWORD = "等待网络连接"
 
 @Composable
 private fun ProvideFixedAndroidComposeDensity(

@@ -111,7 +111,7 @@ import top.iwesley.lyn.music.feature.settings.SettingsState
 import top.iwesley.lyn.music.feature.tags.MusicTagsEffect
 import top.iwesley.lyn.music.feature.tags.MusicTagsIntent
 import top.iwesley.lyn.music.feature.tags.MusicTagsState
-import top.iwesley.lyn.music.ui.LynMusicTheme
+import top.iwesley.lyn.music.ui.LeonMusicTheme
 import top.iwesley.lyn.music.ui.mainShellColors
 
 internal val mobilePrimaryNavigationTabs: List<AppTab> = listOf(AppTab.Library, AppTab.My)
@@ -321,7 +321,7 @@ internal fun MobileShell(
                 modifier = Modifier.navigationBarsPadding(),
             ) {
                 OfflineBatchDownloadStatusBar()
-                LynMusicTheme(
+                LeonMusicTheme(
                     themeTokens = CLASSIC_APP_THEME_TOKENS,
                     textPalette = AppThemeTextPalette.White,
                 ) {
@@ -660,7 +660,7 @@ internal fun DesktopShell(
                 modifier = Modifier.weight(1f),
             )
             OfflineBatchDownloadStatusBar()
-            LynMusicTheme(
+            LeonMusicTheme(
                 themeTokens = CLASSIC_APP_THEME_TOKENS,
                 textPalette = AppThemeTextPalette.White,
             ) {
@@ -769,7 +769,7 @@ private fun HeroHeader() {
         if (desktopWindowChrome.immersiveTitleBarEnabled) desktopWindowChrome.topInset + 48.dp
         else 56.dp
     Text(
-        text = "LynMusic",
+        text = "LeonMusic",
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.ExtraBold,
         color = MaterialTheme.colorScheme.onSurface,
@@ -838,6 +838,7 @@ private fun TabContent(
             onOnlinePlaylistsIntent = onOnlinePlaylistsIntent,
             onFavoritesIntent = onFavoritesIntent,
             onOnlineFavoritesIntent = onOnlineFavoritesIntent,
+            onImportIntent = onImportIntent,
             onPlayerIntent = onPlayerIntent,
             libraryNavigationTarget = libraryNavigationTarget,
             onLibraryNavigationHandled = onLibraryNavigationHandled,
@@ -868,6 +869,7 @@ private fun TabContent(
             onLibraryIntent = onLibraryIntent,
             onFavoritesIntent = onFavoritesIntent,
             onOnlineIntent = onOnlineLibraryIntent,
+            onImportIntent = onImportIntent,
             onPlayerIntent = onPlayerIntent,
             showDuration = !platform.isMobilePlatform(),
             navigationTarget = libraryNavigationTarget,
@@ -948,6 +950,7 @@ private fun MobileLibraryHubTab(
     onOnlinePlaylistsIntent: (OnlinePlaylistsIntent) -> Unit,
     onFavoritesIntent: (FavoritesIntent) -> Unit,
     onOnlineFavoritesIntent: (OnlineFavoritesIntent) -> Unit,
+    onImportIntent: (ImportIntent) -> Unit,
     onPlayerIntent: (PlayerIntent) -> Unit,
     libraryNavigationTarget: LibraryNavigationTarget?,
     onLibraryNavigationHandled: () -> Unit,
@@ -1248,6 +1251,7 @@ private fun MobileLibraryHubTab(
                     onLibraryIntent = onLibraryIntent,
                     onFavoritesIntent = onFavoritesIntent,
                     onOnlineIntent = onOnlineLibraryIntent,
+                    onImportIntent = onImportIntent,
                     onPlayerIntent = onPlayerIntent,
                     showDuration = false,
                     showSearchField = false,

@@ -34,7 +34,7 @@ private class AndroidAppStorageGateway(
                 ),
                 AppStorageCategoryUsage(
                     category = AppStorageCategory.NavidromePlaybackCache,
-                    sizeBytes = directorySizeBytes(File(context.cacheDir, "navidrome-playback-cache")),
+                    sizeBytes = directorySizeBytes(currentNavidromePlaybackCacheDirectory()),
                 ),
                 AppStorageCategoryUsage(
                     category = AppStorageCategory.OfflineDownloads,
@@ -78,7 +78,7 @@ private class AndroidAppStorageGateway(
 
                 AppStorageCategory.NavidromePlaybackCache -> {
                     releaseAndroidNavidromePlaybackCache()
-                    val directory = File(context.cacheDir, "navidrome-playback-cache")
+                    val directory = currentNavidromePlaybackCacheDirectory()
                     clearDirectory(directory)
                     directory.mkdirs()
                     Unit
@@ -119,6 +119,13 @@ private class AndroidAppStorageGateway(
         return listOf(
             File(context.cacheDir, "artwork-cache"),
             File(context.cacheDir, "artwork"),
+        )
+    }
+
+    private fun currentNavidromePlaybackCacheDirectory(): File {
+        return resolveAndroidNavidromePlaybackCacheDirectory(
+            context = context,
+            selection = readAndroidNavidromePlaybackCacheDirectorySelection(context),
         )
     }
 }

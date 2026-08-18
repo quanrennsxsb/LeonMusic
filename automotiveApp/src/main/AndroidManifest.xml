@@ -11,7 +11,7 @@
         android:required="false" />
 
     <application
-        android:name=".LynMusicApplication"
+        android:name=".LeonMusicApplication"
         android:allowBackup="true"
         android:appCategory="audio"
         android:dataExtractionRules="@xml/data_extraction_rules"

@@ -267,7 +267,7 @@ class JvmDataLocationManager(
                     requireRootIdentity(
                         target,
                         pending.requireTargetRootId(),
-                        "源目录不存在，且目标目录不是可恢复的 LynMusic 数据目录。",
+                        "源目录不存在，且目标目录不是可恢复的 LeonMusic 数据目录。",
                     )
                     requireOperationMarker(target, pending, setOf(JvmDataOperationRole.Target))
                 }
@@ -592,7 +592,7 @@ class JvmDataLocationManager(
         validateTargetParentAvailability(source, target, strategy)
         if (target.existsNoFollow()) {
             rejectRootLink(target)
-            require(target.isDirectory && target.listFiles().orEmpty().isEmpty()) { "目标 LynMusic 目录必须为空。" }
+            require(target.isDirectory && target.listFiles().orEmpty().isEmpty()) { "目标 LeonMusic 目录必须为空。" }
         }
     }
 
@@ -625,7 +625,7 @@ class JvmDataLocationManager(
         rejectRootLink(source)
         require(source.existsNoFollow() && source.isDirectory) { "当前数据目录不存在。" }
         require(source == defaultRoot || source.isOwnedDirectory()) {
-            "当前自定义数据目录不可用或缺少 LynMusic 所有权标记。"
+            "当前自定义数据目录不可用或缺少 LeonMusic 所有权标记。"
         }
     }
 
@@ -652,7 +652,7 @@ class JvmDataLocationManager(
     private fun validateConfiguredRootIdentity(active: ConfiguredActiveRoot) {
         val configuredRootId = active.rootId ?: return
         val marker = readRootMarker(active.directory)
-            ?: error("当前数据目录缺少 LynMusic 所有权标记。")
+            ?: error("当前数据目录缺少 LeonMusic 所有权标记。")
         require(marker.rootId == configuredRootId) {
             "当前数据目录身份与位置配置不一致。"
         }
@@ -685,7 +685,7 @@ class JvmDataLocationManager(
     private fun removeEmptyTarget(target: File) {
         if (!target.existsNoFollow()) return
         rejectRootLink(target)
-        require(target.listFiles().orEmpty().isEmpty()) { "目标 LynMusic 目录必须为空。" }
+        require(target.listFiles().orEmpty().isEmpty()) { "目标 LeonMusic 目录必须为空。" }
         Files.delete(target.toPath())
     }
 
@@ -1034,7 +1034,7 @@ class JvmDataLocationManager(
             "拒绝删除不是普通目录的迁移残留。"
         }
         require(directory.listFiles()?.isEmpty() == true) {
-            "迁移残留缺少 LynMusic 所有权标记且目录非空，拒绝自动删除。"
+            "迁移残留缺少 LeonMusic 所有权标记且目录非空，拒绝自动删除。"
         }
         Files.delete(directory.toPath())
     }
@@ -1057,7 +1057,7 @@ class JvmDataLocationManager(
     private fun ensureRootMarker(directory: File, rootId: String) {
         val existing = readRootMarker(directory)
         require(existing?.rootId == null || existing.rootId == rootId) {
-            "LynMusic 数据目录身份不匹配：${directory.absolutePath}"
+            "LeonMusic 数据目录身份不匹配：${directory.absolutePath}"
         }
         writeRootMarker(directory, rootId)
     }
@@ -1068,7 +1068,7 @@ class JvmDataLocationManager(
         require(
             Files.isRegularFile(marker, NOFOLLOW_LINKS) &&
                 !isJvmLinkOrReparsePoint(marker),
-        ) { "LynMusic 所有权标记不是普通文件。" }
+        ) { "LeonMusic 所有权标记不是普通文件。" }
         val properties = Properties().apply { Files.newInputStream(marker).use(::load) }
         return RootMarker(properties.getProperty(MARKER_ROOT_ID)?.let(::parseIdentity))
     }
@@ -1083,7 +1083,7 @@ class JvmDataLocationManager(
         persistPropertiesFile(
             target = File(directory, OWNERSHIP_MARKER_NAME),
             properties = properties,
-            comment = "LynMusic application data root",
+            comment = "LeonMusic application data root",
         )
     }
 
@@ -1101,7 +1101,7 @@ class JvmDataLocationManager(
         persistPropertiesFile(
             target = File(directory, OPERATION_MARKER_NAME),
             properties = properties,
-            comment = "LynMusic data location operation",
+            comment = "LeonMusic data location operation",
         )
     }
 
@@ -1243,7 +1243,7 @@ class JvmDataLocationManager(
         properties.remove(KEY_CLEANUP_OPERATION_ID)
     }
 
-    private fun requireOwnedDirectory(directory: File, message: String = "拒绝操作没有 LynMusic 所有权标记的目录。") {
+    private fun requireOwnedDirectory(directory: File, message: String = "拒绝操作没有 LeonMusic 所有权标记的目录。") {
         rejectRootLink(directory)
         require(directory.isOwnedDirectory()) { message }
     }
@@ -1333,7 +1333,7 @@ class JvmDataLocationManager(
         configFile.parentFile?.mkdirs()
         val temporary = File.createTempFile("${configFile.name}.", ".tmp", configFile.parentFile)
         try {
-            temporary.outputStream().use { properties.store(it, "LynMusic data location") }
+            temporary.outputStream().use { properties.store(it, "LeonMusic data location") }
             moveFileReplacing(temporary.toPath(), configFile.toPath())
         } finally {
             temporary.delete()
@@ -1411,7 +1411,7 @@ internal class JvmAppDataLocationPlatformService(
         get() = manager.pendingCleanupRootPath()
 
     override suspend fun pickTargetDataRoot(): Result<String?> = runCatching {
-        val parent = JvmNativeFilePicker.pickDirectory("选择 LynMusic 数据位置") ?: return@runCatching null
+        val parent = JvmNativeFilePicker.pickDirectory("选择 LeonMusic 数据位置") ?: return@runCatching null
         parent.resolve(TARGET_DIRECTORY_NAME).toAbsolutePath().normalize().toString()
     }
 
@@ -1585,11 +1585,11 @@ internal fun safeDeleteOwnedTree(
     if (!Files.exists(root, NOFOLLOW_LINKS)) return
     val rootAttributes = Files.readAttributes(root, BasicFileAttributes::class.java, NOFOLLOW_LINKS)
     require(rootAttributes.isDirectory && !isJvmLinkOrReparsePoint(root, rootAttributes)) {
-        "拒绝删除不是普通目录的 LynMusic 数据目录。"
+        "拒绝删除不是普通目录的 LeonMusic 数据目录。"
     }
     val marker = root.resolve(OWNERSHIP_MARKER_NAME)
     require(Files.isRegularFile(marker, NOFOLLOW_LINKS) && !isJvmLinkOrReparsePoint(marker)) {
-        "拒绝删除没有 LynMusic 所有权标记的目录。"
+        "拒绝删除没有 LeonMusic 所有权标记的目录。"
     }
     Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
         override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
@@ -1625,7 +1625,7 @@ private fun safeDeleteOperationTree(root: Path) {
     val rootMarker = root.resolve(OWNERSHIP_MARKER_NAME)
     val operationMarker = root.resolve(OPERATION_MARKER_NAME)
     require(Files.isRegularFile(rootMarker, NOFOLLOW_LINKS) && !isJvmLinkOrReparsePoint(rootMarker)) {
-        "拒绝删除没有 LynMusic 根目录标记的迁移目录。"
+        "拒绝删除没有 LeonMusic 根目录标记的迁移目录。"
     }
     require(Files.isRegularFile(operationMarker, NOFOLLOW_LINKS) && !isJvmLinkOrReparsePoint(operationMarker)) {
         "拒绝删除没有 operation 标记的迁移目录。"
@@ -1789,7 +1789,7 @@ private fun SQLiteStatement.bindValue(index: Int, value: Any?) {
     }
 }
 
-private const val TARGET_DIRECTORY_NAME = "LynMusic"
+private const val TARGET_DIRECTORY_NAME = "LeonMusic"
 private const val OWNERSHIP_MARKER_NAME = ".lynmusic-data-root"
 private const val OPERATION_MARKER_NAME = ".lynmusic-data-operation"
 private const val MARKER_FORMAT = "format"

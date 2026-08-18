@@ -9,7 +9,7 @@ abstract class TvComponentActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        activityActionHost = (application as LynMusicApplication).createActivityActionHost(this)
+        activityActionHost = (application as LeonMusicApplication).createActivityActionHost(this)
     }
 
     override fun onStart() {
@@ -34,4 +34,4 @@ abstract class TvComponentActivity : ComponentActivity() {
 }
 
 internal fun ComponentActivity.tvAppComponentResult() =
-    (application as LynMusicApplication).getOrCreateAppComponent()
+    (application as LeonMusicApplication).getOrCreateAppComponent()

@@ -6,11 +6,47 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D27E4B90C2104E08988941F8 /* LeonMusicWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FB627435E8124B018BB6A74C /* LeonMusicWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E4918B337E404C5EA1638F04 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7B032B542733F70DC07101C8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4AD2DB0A94F74FA48F929208;
+			remoteInfo = LeonMusicWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AB631DA98D8646C69C462C77 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D27E4B90C2104E08988941F8 /* LeonMusicWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		6C04A2EB204B9C1C7EEF2244 /* LynMusicMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LynMusicMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C04A2EB204B9C1C7EEF2244 /* LeonMusicMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LeonMusicMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB627435E8124B018BB6A74C /* LeonMusicWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LeonMusicWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4AB481E6AEFC422E927A6F1A /* Exceptions for "LeonMusicWidget" folder in "LeonMusicWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4AD2DB0A94F74FA48F929208 /* LeonMusicWidget */;
+		};
 		542F6503493DBD3F93C5A578 /* Exceptions for "macosApp" folder in "macosApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -21,6 +57,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		346B3B30F69D41A6AD5FE662 /* LeonMusicWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4AB481E6AEFC422E927A6F1A /* Exceptions for "LeonMusicWidget" folder in "LeonMusicWidget" target */,
+			);
+			path = LeonMusicWidget;
+			sourceTree = "<group>";
+		};
 		93965B8D0AAF5F6829CFD8B6 /* macosApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -37,6 +81,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		311074A8E8914DE08A7B4BE4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		98B1D0FA12A4A50A2BA5A4E7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -47,21 +98,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1424A8AD89B842D6CCDBF75C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6C04A2EB204B9C1C7EEF2244 /* LeonMusicMac.app */,
+				FB627435E8124B018BB6A74C /* LeonMusicWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		8D2C64CA3B38FECE94062E6B = {
 			isa = PBXGroup;
 			children = (
 				C2DA8C14E8697FF793509F06 /* Configuration */,
+				346B3B30F69D41A6AD5FE662 /* LeonMusicWidget */,
 				93965B8D0AAF5F6829CFD8B6 /* macosApp */,
 				1424A8AD89B842D6CCDBF75C /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		1424A8AD89B842D6CCDBF75C /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				6C04A2EB204B9C1C7EEF2244 /* LynMusicMac.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -75,10 +128,13 @@
 				16063A127374F550E25891B1 /* Sources */,
 				98B1D0FA12A4A50A2BA5A4E7 /* Frameworks */,
 				9E9539E526BBE26101D21D4A /* Resources */,
+				AB631DA98D8646C69C462C77 /* Embed Foundation Extensions */,
+				C862B5D922E74C439BA4E7E9 /* Register Widget Extension */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				28191C0387F249AFBBBB187B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				93965B8D0AAF5F6829CFD8B6 /* macosApp */,
@@ -87,8 +143,30 @@
 			packageProductDependencies = (
 			);
 			productName = macosApp;
-			productReference = 6C04A2EB204B9C1C7EEF2244 /* LynMusicMac.app */;
+			productReference = 6C04A2EB204B9C1C7EEF2244 /* LeonMusicMac.app */;
 			productType = "com.apple.product-type.application";
+		};
+		4AD2DB0A94F74FA48F929208 /* LeonMusicWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E516ADF5127441D59F6C0827 /* Build configuration list for PBXNativeTarget "LeonMusicWidget" */;
+			buildPhases = (
+				3B7AAFCAB3EB4AB7B26D08B6 /* Sources */,
+				311074A8E8914DE08A7B4BE4 /* Frameworks */,
+				65C3C96813184119838394BE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				346B3B30F69D41A6AD5FE662 /* LeonMusicWidget */,
+			);
+			name = LeonMusicWidget;
+			packageProductDependencies = (
+			);
+			productName = LeonMusicWidget;
+			productReference = FB627435E8124B018BB6A74C /* LeonMusicWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -98,7 +176,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1620;
-				LastUpgradeCheck = 1620;
+				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					45FD58BAFA8848084698B0E5 = {
 						CreatedOnToolsVersion = 16.2;
@@ -120,11 +198,19 @@
 			projectRoot = "";
 			targets = (
 				45FD58BAFA8848084698B0E5 /* macosApp */,
+				4AD2DB0A94F74FA48F929208 /* LeonMusicWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		65C3C96813184119838394BE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9E9539E526BBE26101D21D4A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -135,6 +221,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		C862B5D922E74C439BA4E7E9 /* Register Widget Extension */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Register Widget Extension";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  exit 0\nfi\nWIDGET_EXTENSION=\"$CODESIGNING_FOLDER_PATH/Contents/PlugIns/LeonMusicWidget.appex\"\nif [ -d \"$WIDGET_EXTENSION\" ]; then\n  /usr/bin/pluginkit -a \"$WIDGET_EXTENSION\" || true\n  /usr/bin/pluginkit -e use -p com.apple.widgetkit-extension -i \"$PRODUCT_BUNDLE_IDENTIFIER.LeonMusicWidget\" || true\nfi\n";
+		};
 		CD965B81930CAC202C90C384 /* Compile Kotlin Framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -152,7 +257,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\nJAVA_21_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || true)\nif [ -n \"$JAVA_21_HOME\" ]; then\n  export JAVA_HOME=\"$JAVA_21_HOME\"\n  export PATH=\"$JAVA_HOME/bin:$PATH\"\nfi\nGRADLE_BIN=$(find \"$HOME/.gradle/wrapper/dists\" -path \"*gradle-8.14.3/bin/gradle\" | head -n 1)\ncd \"$SRCROOT/..\"\nif [ -x \"$GRADLE_BIN\" ]; then\n  \"$GRADLE_BIN\" :composeApp:embedAndSignAppleFrameworkForXcode\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\nfi\nFRAMEWORK_SOURCE=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME/ComposeApp.framework\"\nif [ ! -d \"$FRAMEWORK_SOURCE\" ]; then\n  FRAMEWORK_SOURCE=$(find \"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION\" -maxdepth 2 -name ComposeApp.framework | head -n 1)\nfi\nif [ ! -d \"$FRAMEWORK_SOURCE\" ]; then\n  echo \"ComposeApp.framework not found after Gradle build\"\n  exit 1\nfi\nFRAMEWORK_DESTINATION=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/ComposeApp.framework\"\nmkdir -p \"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\nrm -rf \"$FRAMEWORK_DESTINATION\"\n/usr/bin/ditto \"$FRAMEWORK_SOURCE\" \"$FRAMEWORK_DESTINATION\"\nif [ \"$CODE_SIGNING_ALLOWED\" = \"YES\" ] && [ -n \"$EXPANDED_CODE_SIGN_IDENTITY\" ] && [ \"$EXPANDED_CODE_SIGN_IDENTITY\" != \"-\" ]; then\n  /usr/bin/codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --preserve-metadata=identifier,entitlements \"$FRAMEWORK_DESTINATION\"\nfi\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\nJAVA_21_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || true)\nif [ -z \"$JAVA_21_HOME\" ] && [ -x \"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java\" ]; then\n  JAVA_21_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\"\nfi\nif [ -n \"$JAVA_21_HOME\" ]; then\n  export JAVA_HOME=\"$JAVA_21_HOME\"\n  export PATH=\"$JAVA_HOME/bin:$PATH\"\nfi\nGRADLE_BIN=$(find \"$HOME/.gradle/wrapper/dists\" -path \"*gradle-8.14.3/bin/gradle\" | head -n 1)\ncd \"$SRCROOT/..\"\nif [ -x \"$GRADLE_BIN\" ]; then\n  \"$GRADLE_BIN\" :composeApp:embedAndSignAppleFrameworkForXcode\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\nfi\nFRAMEWORK_SOURCE=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME/ComposeApp.framework\"\nif [ ! -d \"$FRAMEWORK_SOURCE\" ]; then\n  FRAMEWORK_SOURCE=$(find \"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION\" -maxdepth 2 -name ComposeApp.framework | head -n 1)\nfi\nif [ ! -d \"$FRAMEWORK_SOURCE\" ]; then\n  echo \"ComposeApp.framework not found after Gradle build\"\n  exit 1\nfi\nFRAMEWORK_DESTINATION=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/ComposeApp.framework\"\nmkdir -p \"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\nrm -rf \"$FRAMEWORK_DESTINATION\"\n/usr/bin/ditto \"$FRAMEWORK_SOURCE\" \"$FRAMEWORK_DESTINATION\"\nif [ \"$CODE_SIGNING_ALLOWED\" = \"YES\" ] && [ -n \"$EXPANDED_CODE_SIGN_IDENTITY\" ] && [ \"$EXPANDED_CODE_SIGN_IDENTITY\" != \"-\" ]; then\n  /usr/bin/codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --preserve-metadata=identifier,entitlements \"$FRAMEWORK_DESTINATION\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -164,71 +269,57 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3B7AAFCAB3EB4AB7B26D08B6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		28191C0387F249AFBBBB187B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4AD2DB0A94F74FA48F929208 /* LeonMusicWidget */;
+			targetProxy = E4918B337E404C5EA1638F04 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
-		556BC257E5206778F8C68A7B /* Debug */ = {
+		003C7BBDE7959AE399780C6F /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = C2DA8C14E8697FF793509F06 /* Configuration */;
-			baseConfigurationReferenceRelativePath = Config.xcconfig;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_ENTITLEMENTS = macosApp/macosApp.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_ASSET_PATHS = "\"macosApp/Preview Content\"";
+				DEVELOPMENT_TEAM = T8Y5Q3KB5M;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = macosApp/Info.plist;
+				INFOPLIST_KEY_NSHighResolutionCapable = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
 				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lsqlite3",
+				);
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -268,7 +359,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = FX4M9L4556;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -280,42 +373,82 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
-		003C7BBDE7959AE399780C6F /* Debug */ = {
+		556BC257E5206778F8C68A7B /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = C2DA8C14E8697FF793509F06 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Config.xcconfig;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
-				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_ASSET_PATHS = "\"macosApp/Preview Content\"";
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = macosApp/Info.plist;
-				INFOPLIST_KEY_NSHighResolutionCapable = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = FX4M9L4556;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
 					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@loader_path/../Frameworks",
 				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lsqlite3",
-				);
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
 		};
@@ -324,10 +457,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_ENTITLEMENTS = macosApp/macosApp.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"macosApp/Preview Content\"";
+				DEVELOPMENT_TEAM = T8Y5Q3KB5M;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = macosApp/Info.plist;
@@ -342,15 +480,93 @@
 					"$(inherited)",
 					"-lsqlite3",
 				);
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
+		B3398396B4E94C9BB7C6BAAF /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = C2DA8C14E8697FF793509F06 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Config.xcconfig;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_ENTITLEMENTS = LeonMusicWidget/LeonMusicWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = T8Y5Q3KB5M;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LeonMusicWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = top.iwesley.lyn.music.LeonMusicMac.LeonMusicWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DEBE914611E84A029A04650A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = C2DA8C14E8697FF793509F06 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Config.xcconfig;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_ENTITLEMENTS = LeonMusicWidget/LeonMusicWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = T8Y5Q3KB5M;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LeonMusicWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = top.iwesley.lyn.music.LeonMusicMac.LeonMusicWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		431DE9D83A67E346504FAF68 /* Build configuration list for PBXNativeTarget "macosApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				003C7BBDE7959AE399780C6F /* Debug */,
+				670433DE0AA0FC0CCACBA27D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A2A08977B1AE65D9232F1E06 /* Build configuration list for PBXProject "macosApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -360,11 +576,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		431DE9D83A67E346504FAF68 /* Build configuration list for PBXNativeTarget "macosApp" */ = {
+		E516ADF5127441D59F6C0827 /* Build configuration list for PBXNativeTarget "LeonMusicWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				003C7BBDE7959AE399780C6F /* Debug */,
-				670433DE0AA0FC0CCACBA27D /* Release */,
+				DEBE914611E84A029A04650A /* Debug */,
+				B3398396B4E94C9BB7C6BAAF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

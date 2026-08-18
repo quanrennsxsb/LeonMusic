@@ -146,6 +146,91 @@ class PlaybackRepositoriesTest {
     }
 
     @Test
+    fun `toggle play reloads current track from last position after gateway error`() = runTest {
+        val database = createTestDatabase()
+        val gateway = FakePlaybackGateway()
+        val playbackPreferencesStore = FakePlaybackPreferencesStore()
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val repository = DefaultPlaybackRepository(
+            database = database,
+            gateway = gateway,
+            playbackPreferencesStore = playbackPreferencesStore,
+            scope = scope,
+            hydrateImmediately = false,
+        )
+
+        try {
+            val track = sampleNavidromeTrack()
+            repository.playTracks(listOf(track), startIndex = 0)
+            advanceUntilIdle()
+            gateway.updateState {
+                it.copy(
+                    isPlaying = false,
+                    positionMs = 42_000L,
+                    errorMessage = "等待网络连接",
+                    errorRevision = it.errorRevision + 1,
+                )
+            }
+            advanceUntilIdle()
+
+            repository.togglePlayPause()
+            advanceUntilIdle()
+
+            assertEquals(2, gateway.loadCalls.size)
+            assertEquals(track.id, gateway.loadCalls.last().track.id)
+            assertEquals(true, gateway.loadCalls.last().playWhenReady)
+            assertEquals(42_000L, gateway.loadCalls.last().startPositionMs)
+        } finally {
+            repository.close()
+            scope.cancel()
+            database.close()
+        }
+    }
+
+    @Test
+    fun `toggle play reloads current track when paused snapshot has media but gateway is not seekable`() = runTest {
+        val database = createTestDatabase()
+        val gateway = FakePlaybackGateway()
+        val playbackPreferencesStore = FakePlaybackPreferencesStore()
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val repository = DefaultPlaybackRepository(
+            database = database,
+            gateway = gateway,
+            playbackPreferencesStore = playbackPreferencesStore,
+            scope = scope,
+            hydrateImmediately = false,
+        )
+
+        try {
+            val track = sampleNavidromeTrack()
+            repository.playTracks(listOf(track), startIndex = 0)
+            advanceUntilIdle()
+            gateway.updateState {
+                it.copy(
+                    isPlaying = false,
+                    positionMs = 17_000L,
+                    durationMs = track.durationMs,
+                    canSeek = false,
+                    errorMessage = null,
+                )
+            }
+            advanceUntilIdle()
+
+            repository.togglePlayPause()
+            advanceUntilIdle()
+
+            assertEquals(2, gateway.loadCalls.size)
+            assertEquals(track.id, gateway.loadCalls.last().track.id)
+            assertEquals(true, gateway.loadCalls.last().playWhenReady)
+            assertEquals(17_000L, gateway.loadCalls.last().startPositionMs)
+        } finally {
+            repository.close()
+            scope.cancel()
+            database.close()
+        }
+    }
+
+    @Test
     fun `playback stats reports now playing once when navidrome playback starts`() = runTest {
         val database = createTestDatabase()
         val gateway = FakePlaybackGateway()

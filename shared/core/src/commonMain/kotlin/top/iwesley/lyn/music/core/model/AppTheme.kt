@@ -16,6 +16,27 @@ enum class AppThemeTextPalette {
     Black,
 }
 
+enum class PlayerLyricsColorPreference(
+    val argb: Int?,
+) {
+    Artwork(null),
+    White(0xFFFFFFFF.toInt()),
+    Black(0xFF111111.toInt()),
+    Red(0xFFFF4D4F.toInt()),
+    Orange(0xFFFF922B.toInt()),
+    Yellow(0xFFFFD43B.toInt()),
+    Green(0xFF51CF66.toInt()),
+    Cyan(0xFF22B8CF.toInt()),
+    Blue(0xFF4DABF7.toInt()),
+    Purple(0xFF9775FA.toInt()),
+    Pink(0xFFF06595.toInt()),
+}
+
+fun playerLyricsColorPreferenceOrDefault(name: String?): PlayerLyricsColorPreference {
+    return PlayerLyricsColorPreference.entries.firstOrNull { it.name == name }
+        ?: PlayerLyricsColorPreference.Artwork
+}
+
 data class AppThemeTokens(
     val backgroundArgb: Int,
     val accentArgb: Int,

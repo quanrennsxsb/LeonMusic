@@ -149,7 +149,7 @@ private fun shouldResolveLyricsShareArtworkThroughCache(normalizedLocator: Strin
 }
 
 private fun writeTempPng(pngBytes: ByteArray): String {
-    val path = NSTemporaryDirectory() + "lynmusic-lyrics-share.png"
+    val path = NSTemporaryDirectory() + "leonmusic-lyrics-share.png"
     if (!writeIosFileBytes(path, pngBytes)) {
         error("无法创建临时图片文件。")
     }

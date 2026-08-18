@@ -43,7 +43,7 @@ val mainShellColors: MainShellColors
     get() = LocalMainShellColors.current
 
 @Composable
-fun LynMusicTheme(
+fun LeonMusicTheme(
     themeTokens: AppThemeTokens = CLASSIC_APP_THEME_TOKENS,
     textPalette: AppThemeTextPalette = AppThemeTextPalette.White,
     content: @Composable () -> Unit,

@@ -2142,7 +2142,7 @@ private fun HalfOutRecordDisc(
         modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
-        val label = "LynMusic"
+        val label = "LeonMusic"
         val labelFontSize = if (maxWidth < 260.dp) 10.sp else 13.sp
         val labelTextStyle = MaterialTheme.typography.labelSmall.copy(
             fontSize = labelFontSize,

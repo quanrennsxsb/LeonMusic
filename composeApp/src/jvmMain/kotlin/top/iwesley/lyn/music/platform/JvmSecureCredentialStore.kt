@@ -154,4 +154,4 @@ private data class CommandResult(
 
 private const val MAC_KEYCHAIN_SERVICE = "top.iwesley.lyn.music.credentials"
 private const val CREDENTIALS_LOG_TAG = "Credentials"
-private val DPAPI_ENTROPY = "LynMusic Desktop Credential Store".toByteArray(UTF_8)
+private val DPAPI_ENTROPY = "LeonMusic Desktop Credential Store".toByteArray(UTF_8)

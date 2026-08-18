@@ -1,5 +1,6 @@
 package top.iwesley.lyn.music.feature.importing
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.iwesley.lyn.music.core.model.EmbySourceDraft
@@ -122,6 +123,7 @@ sealed interface ImportIntent {
     data object DismissRemoteSourceEditor : ImportIntent
     data object TestRemoteSource : ImportIntent
     data object SaveRemoteSource : ImportIntent
+    data object SyncAllSources : ImportIntent
     data class RescanSource(val sourceId: String) : ImportIntent
     data class ReauthorizeLocalFolder(val sourceId: String) : ImportIntent
     data class ToggleSourceEnabled(val sourceId: String, val enabled: Boolean) : ImportIntent
@@ -683,6 +685,8 @@ class ImportStore(
                 }
             }
 
+            ImportIntent.SyncAllSources -> syncAllSources()
+
             is ImportIntent.RescanSource -> rescanSourceWithLargeNavidromeCheck(intent.sourceId)
 
             is ImportIntent.ReauthorizeLocalFolder -> {
@@ -882,6 +886,48 @@ class ImportStore(
                 }
                 .onFailure { setMessage("重新扫描失败: ${it.message}") }
         }
+    }
+
+    private suspend fun syncAllSources() {
+        if (state.value.isWorking) return
+        val sources = state.value.sources
+            .map { it.source }
+            .filter { it.enabled }
+        if (sources.isEmpty()) {
+            setMessage("没有可同步的音乐源。")
+            return
+        }
+        var successCount = 0
+        val failureMessages = mutableListOf<String>()
+        val progressSink = ThrottledImportScanProgressSink(emit = { progress ->
+            updateState { state -> state.copy(scanProgress = progress) }
+        })
+        updateState { it.copy(isWorking = true, scanProgress = null) }
+        try {
+            sources.forEach { source ->
+                updateState {
+                    it.copy(
+                        activeScanOperation = ImportScanOperation.RescanSource(source.id),
+                        scanProgress = null,
+                    )
+                }
+                repository.rescanSource(source.id, progressSink)
+                    .onSuccess { summary ->
+                        successCount += 1
+                        summary?.let(::recordScanSummary)
+                    }
+                    .onFailure { error ->
+                        failureMessages += "${source.label.ifBlank { source.id }}: ${error.message.orEmpty().ifBlank { "未知错误" }}"
+                    }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            failureMessages += error.message.orEmpty().ifBlank { "同步任务异常" }
+        } finally {
+            updateState { it.copy(isWorking = false, activeScanOperation = null, scanProgress = null) }
+        }
+        setMessage(syncAllSourcesMessage(successCount = successCount, failureMessages = failureMessages))
     }
 
     private suspend fun switchNavidromeRescanToOnline(
@@ -1278,4 +1324,25 @@ const val LARGE_NAVIDROME_LIBRARY_TRACK_THRESHOLD: Int = 100_000
 
 private fun scanSuccessMessage(prefix: String, summary: ImportScanSummary?): String {
     return summary?.let { "$prefix${formatImportScanSummary(it)}。" } ?: prefix
+}
+
+private fun syncAllSourcesMessage(successCount: Int, failureMessages: List<String>): String {
+    return buildString {
+        append("同步完成：成功 ")
+        append(successCount)
+        append(" 个来源")
+        if (failureMessages.isNotEmpty()) {
+            append("，失败 ")
+            append(failureMessages.size)
+            append(" 个。")
+            append(failureMessages.take(3).joinToString(prefix = " ", separator = "；"))
+            if (failureMessages.size > 3) {
+                append("；另有 ")
+                append(failureMessages.size - 3)
+                append(" 个失败")
+            }
+        } else {
+            append("。")
+        }
+    }
 }

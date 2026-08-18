@@ -67,7 +67,7 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.OutlinedButton as TvOutlinedButton
 import coil3.compose.rememberAsyncImagePainter
 import kotlin.math.roundToInt
-import top.iwesley.lyn.music.LynMusicAppComponent
+import top.iwesley.lyn.music.LeonMusicAppComponent
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
 import top.iwesley.lyn.music.core.model.ArtworkCacheStore
 import top.iwesley.lyn.music.core.model.Track
@@ -156,7 +156,7 @@ class TvMediaDetailActivity : TvComponentActivity() {
 
 @Composable
 private fun TvMediaDetailApp(
-    component: LynMusicAppComponent,
+    component: LeonMusicAppComponent,
     args: TvMediaDetailArgs,
     onBack: () -> Unit,
     onOpenPlayer: () -> Unit,

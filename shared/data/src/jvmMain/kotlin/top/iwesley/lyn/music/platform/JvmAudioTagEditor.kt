@@ -76,7 +76,7 @@ object JvmAudioTagEditor {
     }
 
     private fun replaceArtwork(tag: Tag, bytes: ByteArray) {
-        val tempFile = Files.createTempFile("lynmusic-artwork-", inferArtworkFileExtension(bytes = bytes))
+        val tempFile = Files.createTempFile("leonmusic-artwork-", inferArtworkFileExtension(bytes = bytes))
         try {
             Files.write(tempFile, bytes)
             runCatching { tag.deleteArtworkField() }

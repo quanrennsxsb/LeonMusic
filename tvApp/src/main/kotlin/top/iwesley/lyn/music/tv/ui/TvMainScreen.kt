@@ -257,7 +257,7 @@ private fun NavigationDrawerScope.TvNavigationRail(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = "LynMusic",
+                    text = "LeonMusic",
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.headlineMedium,

@@ -83,7 +83,7 @@ internal fun buildJvmNowPlayingPayload(
     val positionMs = snapshot.positionMs.coerceAtLeast(0L)
     val hasQueueNavigation = snapshot.queue.size > 1
     return JvmNowPlayingPayload(
-        title = snapshot.currentDisplayTitle.ifBlank { track.title }.ifBlank { "LynMusic" },
+        title = snapshot.currentDisplayTitle.ifBlank { track.title }.ifBlank { "LeonMusic" },
         artist = snapshot.currentDisplayArtistName?.trim()?.takeIf { it.isNotBlank() },
         album = snapshot.currentDisplayAlbumTitle?.trim()?.takeIf { it.isNotBlank() },
         artworkPath = artworkPath?.trim()?.takeIf { it.isNotBlank() },
@@ -129,16 +129,23 @@ internal class JvmSystemPlaybackControlsPlatformService(
             latestArtworkLocator = null
             latestArtworkCacheKey = null
             latestArtworkPath = null
+            JvmMacOsWidgetNowPlayingStore.clear()
             bridge.clear()
             return
         }
         val artworkPath = resolveArtworkPath(snapshot)
-        buildJvmNowPlayingPayload(snapshot, artworkPath)
-            ?.let(bridge::update)
-            ?: bridge.clear()
+        val payload = buildJvmNowPlayingPayload(snapshot, artworkPath)
+        if (payload == null) {
+            JvmMacOsWidgetNowPlayingStore.clear()
+            bridge.clear()
+            return
+        }
+        JvmMacOsWidgetNowPlayingStore.update(payload)
+        bridge.update(payload)
     }
 
     override suspend fun close() {
+        JvmMacOsWidgetNowPlayingStore.clear()
         bridge.clear()
         bridge.dispose()
         scope.cancel()
@@ -181,10 +188,10 @@ internal interface MacOsNowPlayingBridge {
 }
 
 private class JnaMacOsNowPlayingBridge private constructor(
-    private val nativeLibrary: LynMusicNowPlayingNativeLibrary,
+    private val nativeLibrary: LeonMusicNowPlayingNativeLibrary,
     private val handle: Pointer,
     @Suppress("unused")
-    private val nativeCallback: LynMusicNowPlayingCommandCallback,
+    private val nativeCallback: LeonMusicNowPlayingCommandCallback,
     private val commandHandlerRef: AtomicReference<(MacOsNowPlayingCommand) -> Unit>,
 ) : MacOsNowPlayingBridge {
     private var isDisposed = false
@@ -225,11 +232,11 @@ private class JnaMacOsNowPlayingBridge private constructor(
         fun load(): JnaMacOsNowPlayingBridge {
             val nativeLibrary = Native.load(
                 extractMacOsNowPlayingBridgeLibrary().toAbsolutePath().toString(),
-                LynMusicNowPlayingNativeLibrary::class.java,
+                LeonMusicNowPlayingNativeLibrary::class.java,
                 mapOf(Library.OPTION_STRING_ENCODING to Charsets.UTF_8.name()),
             )
             val commandHandlerRef = AtomicReference<(MacOsNowPlayingCommand) -> Unit>({})
-            val callback = LynMusicNowPlayingCommandCallback { command, value ->
+            val callback = LeonMusicNowPlayingCommandCallback { command, value ->
                 decodeMacOsNowPlayingCommand(command, value)?.let { decoded ->
                     commandHandlerRef.get().invoke(decoded)
                 }
@@ -253,8 +260,8 @@ private fun decodeMacOsNowPlayingCommand(command: Int, value: Double): MacOsNowP
     }
 }
 
-private interface LynMusicNowPlayingNativeLibrary : Library {
-    fun lyn_music_now_playing_create(callback: LynMusicNowPlayingCommandCallback): Pointer?
+private interface LeonMusicNowPlayingNativeLibrary : Library {
+    fun lyn_music_now_playing_create(callback: LeonMusicNowPlayingCommandCallback): Pointer?
 
     fun lyn_music_now_playing_update(
         handle: Pointer,
@@ -275,17 +282,17 @@ private interface LynMusicNowPlayingNativeLibrary : Library {
     fun lyn_music_now_playing_dispose(handle: Pointer): Int
 }
 
-private fun interface LynMusicNowPlayingCommandCallback : Callback {
+private fun interface LeonMusicNowPlayingCommandCallback : Callback {
     fun invoke(command: Int, value: Double)
 }
 
 @OptIn(ExperimentalPathApi::class)
 private fun extractMacOsNowPlayingBridgeLibrary(): java.nio.file.Path {
-    val resourceName = "/native/macos/libLynMusicNowPlayingBridge.dylib"
+    val resourceName = "/native/macos/libLeonMusicNowPlayingBridge.dylib"
     val resource = JnaMacOsNowPlayingBridge::class.java.getResourceAsStream(resourceName)
         ?: error("Missing resource $resourceName")
     val directory = Files.createTempDirectory("lynmusic-nowplaying-")
-    val target = directory.resolve("libLynMusicNowPlayingBridge.dylib")
+    val target = directory.resolve("libLeonMusicNowPlayingBridge.dylib")
     target.deleteIfExists()
     resource.use { input ->
         target.outputStream().use { output -> input.copyTo(output) }

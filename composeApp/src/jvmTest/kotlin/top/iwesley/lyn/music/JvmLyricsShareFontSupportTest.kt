@@ -283,7 +283,7 @@ class JvmLyricsShareFontSupportTest {
             service.buildPreview(
                 LyricsShareCardModel(
                     title = "字体测试",
-                    artistName = "LynMusic",
+                    artistName = "LeonMusic",
                     artworkLocator = null,
                     template = template,
                     artworkBackgroundPalette = artworkBackgroundPalette,

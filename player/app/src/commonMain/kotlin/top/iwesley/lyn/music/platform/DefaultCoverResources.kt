@@ -4,8 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import lynmusic.player.app.generated.resources.Res
-import lynmusic.player.app.generated.resources.default_cover
+import leonmusic.player.app.generated.resources.Res
+import leonmusic.player.app.generated.resources.default_cover
 import org.jetbrains.compose.resources.getDrawableResourceBytes
 import org.jetbrains.compose.resources.getSystemResourceEnvironment
 import org.jetbrains.compose.resources.imageResource

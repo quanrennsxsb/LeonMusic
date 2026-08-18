@@ -48,6 +48,7 @@ val DEFAULT_NAVIDROME_WIFI_AUDIO_QUALITY: NavidromeAudioQuality = NavidromeAudio
 val DEFAULT_NAVIDROME_MOBILE_AUDIO_QUALITY: NavidromeAudioQuality = NavidromeAudioQuality.Kbps192
 val DEFAULT_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET: NavidromePlaybackCacheSizePreset =
     NavidromePlaybackCacheSizePreset.GB2
+const val DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED: Boolean = true
 const val DEFAULT_ANDROID_EXTENSION_DECODER_ENABLED: Boolean = false
 const val DEFAULT_MINIMIZE_WINDOW_ON_CLOSE: Boolean = true
 val DEFAULT_PLAYER_ARTWORK_STYLE: PlayerArtworkStyle = PlayerArtworkStyle.VINYL
@@ -165,8 +166,12 @@ interface NavidromeAudioQualityPreferencesStore {
 }
 
 interface NavidromePlaybackCachePreferencesStore {
+    val navidromePlaybackCacheEnabled: StateFlow<Boolean>
+    val navidromePlaybackCacheDirectory: StateFlow<LocalFolderSelection?>
     val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset>
 
+    suspend fun setNavidromePlaybackCacheEnabled(enabled: Boolean)
+    suspend fun setNavidromePlaybackCacheDirectory(selection: LocalFolderSelection?)
     suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset)
 }
 
@@ -186,6 +191,14 @@ interface PlayerLyricsFontSizePreferencesStore {
     val playerLyricsFontSizePreset: StateFlow<PlayerVisualSizePreset>
 
     suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset)
+}
+
+interface PlayerLyricsColorPreferencesStore {
+    val playerLyricsColorPreference: StateFlow<PlayerLyricsColorPreference>
+    val playerActiveLyricsColorPreference: StateFlow<PlayerLyricsColorPreference>
+
+    suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference)
+    suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference)
 }
 
 interface PlayerArtworkSizePreferencesStore {
@@ -293,11 +306,27 @@ object UnsupportedNavidromeAudioQualityPreferencesStore : NavidromeAudioQualityP
 }
 
 object UnsupportedNavidromePlaybackCachePreferencesStore : NavidromePlaybackCachePreferencesStore {
+    private val mutableNavidromePlaybackCacheEnabled =
+        MutableStateFlow(DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED)
+    private val mutableNavidromePlaybackCacheDirectory =
+        MutableStateFlow<LocalFolderSelection?>(null)
     private val mutableNavidromePlaybackCacheSizePreset =
         MutableStateFlow(DEFAULT_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET)
 
+    override val navidromePlaybackCacheEnabled: StateFlow<Boolean> =
+        mutableNavidromePlaybackCacheEnabled
+    override val navidromePlaybackCacheDirectory: StateFlow<LocalFolderSelection?> =
+        mutableNavidromePlaybackCacheDirectory
     override val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset> =
         mutableNavidromePlaybackCacheSizePreset
+
+    override suspend fun setNavidromePlaybackCacheEnabled(enabled: Boolean) {
+        mutableNavidromePlaybackCacheEnabled.value = enabled
+    }
+
+    override suspend fun setNavidromePlaybackCacheDirectory(selection: LocalFolderSelection?) {
+        mutableNavidromePlaybackCacheDirectory.value = selection
+    }
 
     override suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset) {
         mutableNavidromePlaybackCacheSizePreset.value = preset
@@ -332,6 +361,24 @@ object UnsupportedPlayerLyricsFontSizePreferencesStore : PlayerLyricsFontSizePre
 
     override suspend fun setPlayerLyricsFontSizePreset(preset: PlayerVisualSizePreset) {
         mutablePlayerLyricsFontSizePreset.value = preset
+    }
+}
+
+object UnsupportedPlayerLyricsColorPreferencesStore : PlayerLyricsColorPreferencesStore {
+    private val mutablePlayerLyricsColorPreference = MutableStateFlow(PlayerLyricsColorPreference.Artwork)
+    private val mutablePlayerActiveLyricsColorPreference = MutableStateFlow(PlayerLyricsColorPreference.Artwork)
+
+    override val playerLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerLyricsColorPreference
+    override val playerActiveLyricsColorPreference: StateFlow<PlayerLyricsColorPreference> =
+        mutablePlayerActiveLyricsColorPreference
+
+    override suspend fun setPlayerLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        mutablePlayerLyricsColorPreference.value = preference
+    }
+
+    override suspend fun setPlayerActiveLyricsColorPreference(preference: PlayerLyricsColorPreference) {
+        mutablePlayerActiveLyricsColorPreference.value = preference
     }
 }
 

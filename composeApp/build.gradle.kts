@@ -8,7 +8,7 @@ val appVersionCode = sharedVersionConfig.getValue("APP_VERSION_CODE").toInt()
 val appVersionName = sharedVersionConfig.getValue("APP_VERSION_NAME")
 val desktopPackageVersion = sharedVersionConfig
     .getValue("APP_DESKTOP_PACKAGE_VERSION")
-val androidArtifactBaseName = "LynMusic-$appVersionName"
+val androidArtifactBaseName = "LeonMusic-$appVersionName"
 val desktopConsoleEnabled: Boolean? = providers.gradleProperty("desktopConsole")
     .map(String::toBoolean)
     .orElse(false)
@@ -177,7 +177,7 @@ val compileJvmMacOsNowPlayingBridge by tasks.registering(Exec::class) {
     val swiftSources = fileTree(layout.projectDirectory.dir("src/jvmMacosMain/swift")) {
         include("*.swift")
     }
-    val outputFile = jvmMacOsNowPlayingBridgeOutput.map { it.file("libLynMusicNowPlayingBridge.dylib") }
+    val outputFile = jvmMacOsNowPlayingBridgeOutput.map { it.file("libLeonMusicNowPlayingBridge.dylib") }
     val outputDirectoryPath = jvmMacOsNowPlayingBridgeOutput.get().asFile.absolutePath
     val moduleCachePath = jvmMacOsNowPlayingBridgeModuleCache.get().asFile.absolutePath
     val outputFilePath = outputFile.get().asFile.absolutePath
@@ -199,7 +199,7 @@ val compileJvmMacOsNowPlayingBridge by tasks.registering(Exec::class) {
                 "swiftc",
                 "-emit-library",
                 "-module-name",
-                "LynMusicNowPlayingBridge",
+                "LeonMusicNowPlayingBridge",
                 "-module-cache-path",
                 moduleCachePath.shellQuote(),
                 "-framework",
@@ -208,6 +208,8 @@ val compileJvmMacOsNowPlayingBridge by tasks.registering(Exec::class) {
                 "AppKit",
                 "-framework",
                 "MediaPlayer",
+                "-framework",
+                "WidgetKit",
                 "-o",
                 outputFilePath.shellQuote(),
                 swiftSourcePaths,
@@ -254,7 +256,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Pkg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "LynMusic"
+            packageName = "LeonMusic"
             packageVersion = desktopPackageVersion
             //includeAllModules = true
             modules("java.management", "java.security.jgss", "jdk.management")
@@ -266,7 +268,7 @@ compose.desktop {
                 iconFile.set(project.file("src/jvmMain/resources/desktop-icon.ico"))
                 shortcut = true
                 menu = true
-                menuGroup = "LynMusic"
+                menuGroup = "LeonMusic"
                 upgradeUuid = "f70eff91-c266-4763-920a-64ec7eb7958d"
                 console = desktopConsoleEnabled == true
             }

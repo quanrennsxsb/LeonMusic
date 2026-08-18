@@ -6,7 +6,7 @@ directories where applicable.
 
 ## Project distribution
 
-LynMusic is distributed under the GNU General Public License version 3
+LeonMusic is distributed under the GNU General Public License version 3
 or later (GPL-3.0-or-later). See [LICENSE](./LICENSE).
 
 ## DLNA / UPnP

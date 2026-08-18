@@ -28,15 +28,19 @@ import top.iwesley.lyn.music.core.model.DeviceInfoGateway
 import top.iwesley.lyn.music.core.model.DeviceInfoSnapshot
 import top.iwesley.lyn.music.core.model.DesktopLyricsPlatformService
 import top.iwesley.lyn.music.core.model.DEFAULT_MINIMIZE_WINDOW_ON_CLOSE
+import top.iwesley.lyn.music.core.model.DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED
 import top.iwesley.lyn.music.core.model.LyricsShareFontLibraryPlatformService
 import top.iwesley.lyn.music.core.model.LyricsShareFontOption
 import top.iwesley.lyn.music.core.model.LyricsShareFontPreferencesStore
 import top.iwesley.lyn.music.core.model.LyricsResponseFormat
 import top.iwesley.lyn.music.core.model.LyricsSourceDefinition
 import top.iwesley.lyn.music.core.model.LyricsSourceConfig
+import top.iwesley.lyn.music.core.model.LocalFolderSelection
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheDirectoryPicker
 import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheSizePreset
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
 import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.RequestMethod
 import top.iwesley.lyn.music.core.model.UnsupportedAppStorageGateway
@@ -45,6 +49,7 @@ import top.iwesley.lyn.music.core.model.UnsupportedDeviceInfoGateway
 import top.iwesley.lyn.music.core.model.UnsupportedDesktopLyricsPlatformService
 import top.iwesley.lyn.music.core.model.UnsupportedLyricsShareFontLibraryPlatformService
 import top.iwesley.lyn.music.core.model.UnsupportedLyricsShareFontPreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedNavidromePlaybackCacheDirectoryPicker
 import top.iwesley.lyn.music.core.model.UnsupportedVlcPathPickerPlatformService
 import top.iwesley.lyn.music.core.model.VlcPathPickerPlatformService
 import top.iwesley.lyn.music.core.model.WorkflowLyricsSourceConfig
@@ -89,10 +94,14 @@ data class SettingsState(
     val appDisplayScalePreset: AppDisplayScalePreset = AppDisplayScalePreset.Default,
     val navidromeWifiAudioQuality: NavidromeAudioQuality = NavidromeAudioQuality.Original,
     val navidromeMobileAudioQuality: NavidromeAudioQuality = NavidromeAudioQuality.Kbps192,
+    val navidromePlaybackCacheEnabled: Boolean = DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED,
+    val navidromePlaybackCacheDirectory: LocalFolderSelection? = null,
     val navidromePlaybackCacheSizePreset: NavidromePlaybackCacheSizePreset =
         NavidromePlaybackCacheSizePreset.GB2,
     val useAndroidExtensionDecoder: Boolean = false,
     val playerArtworkStyle: PlayerArtworkStyle = PlayerArtworkStyle.VINYL,
+    val playerLyricsColorPreference: PlayerLyricsColorPreference = PlayerLyricsColorPreference.Artwork,
+    val playerActiveLyricsColorPreference: PlayerLyricsColorPreference = PlayerLyricsColorPreference.Artwork,
     val playerLyricsFontSizePreset: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard,
     val playerArtworkSizePreset: PlayerVisualSizePreset = PlayerVisualSizePreset.Standard,
     val supportsLyricsShareFontImport: Boolean = false,
@@ -159,11 +168,16 @@ sealed interface SettingsIntent {
     data class AppDisplayScalePresetChanged(val value: AppDisplayScalePreset) : SettingsIntent
     data class NavidromeWifiAudioQualityChanged(val value: NavidromeAudioQuality) : SettingsIntent
     data class NavidromeMobileAudioQualityChanged(val value: NavidromeAudioQuality) : SettingsIntent
+    data class NavidromePlaybackCacheEnabledChanged(val value: Boolean) : SettingsIntent
+    data object PickNavidromePlaybackCacheDirectory : SettingsIntent
+    data object ResetNavidromePlaybackCacheDirectory : SettingsIntent
     data class NavidromePlaybackCacheSizePresetChanged(
         val value: NavidromePlaybackCacheSizePreset,
     ) : SettingsIntent
     data class AndroidExtensionDecoderChanged(val value: Boolean) : SettingsIntent
     data class PlayerArtworkStyleChanged(val value: PlayerArtworkStyle) : SettingsIntent
+    data class PlayerLyricsColorPreferenceChanged(val value: PlayerLyricsColorPreference) : SettingsIntent
+    data class PlayerActiveLyricsColorPreferenceChanged(val value: PlayerLyricsColorPreference) : SettingsIntent
     data class PlayerLyricsFontSizePresetChanged(val value: PlayerVisualSizePreset) : SettingsIntent
     data class PlayerArtworkSizePresetChanged(val value: PlayerVisualSizePreset) : SettingsIntent
     data class ThemeSelected(val value: AppThemeId) : SettingsIntent
@@ -254,10 +268,17 @@ class SettingsStore(
     private val currentAppVersionName: String = BuildMetadata.appVersionName,
     private val desktopLyricsPlatformService: DesktopLyricsPlatformService =
         UnsupportedDesktopLyricsPlatformService,
+    private val navidromePlaybackCacheDirectoryPicker: NavidromePlaybackCacheDirectoryPicker =
+        UnsupportedNavidromePlaybackCacheDirectoryPicker,
 ) : BaseStore<SettingsState, SettingsIntent, SettingsEffect>(
     initialState = SettingsState(
         autoOpenPlayerOnStartup = repository.autoOpenPlayerOnStartup.value,
         minimizeWindowOnClose = repository.minimizeWindowOnClose.value,
+        navidromePlaybackCacheEnabled = repository.navidromePlaybackCacheEnabled.value,
+        navidromePlaybackCacheDirectory = repository.navidromePlaybackCacheDirectory.value,
+        navidromePlaybackCacheSizePreset = repository.navidromePlaybackCacheSizePreset.value,
+        playerLyricsColorPreference = repository.playerLyricsColorPreference.value,
+        playerActiveLyricsColorPreference = repository.playerActiveLyricsColorPreference.value,
         currentDataRootPath = appDataLocationPlatformService.currentDataRootPath,
         pendingDataCleanupRootPath = appDataLocationPlatformService.pendingCleanupRootPath,
         supportsLyricsShareFontImport =
@@ -371,6 +392,16 @@ class SettingsStore(
             }
         }
         scope.launch {
+            repository.navidromePlaybackCacheEnabled.collect { enabled ->
+                updateState { state -> state.copy(navidromePlaybackCacheEnabled = enabled) }
+            }
+        }
+        scope.launch {
+            repository.navidromePlaybackCacheDirectory.collect { selection ->
+                updateState { state -> state.copy(navidromePlaybackCacheDirectory = selection) }
+            }
+        }
+        scope.launch {
             repository.navidromePlaybackCacheSizePreset.collect { preset ->
                 updateState { state -> state.copy(navidromePlaybackCacheSizePreset = preset) }
             }
@@ -383,6 +414,16 @@ class SettingsStore(
         scope.launch {
             repository.playerArtworkStyle.collect { style ->
                 updateState { state -> state.copy(playerArtworkStyle = style) }
+            }
+        }
+        scope.launch {
+            repository.playerLyricsColorPreference.collect { preference ->
+                updateState { state -> state.copy(playerLyricsColorPreference = preference) }
+            }
+        }
+        scope.launch {
+            repository.playerActiveLyricsColorPreference.collect { preference ->
+                updateState { state -> state.copy(playerActiveLyricsColorPreference = preference) }
             }
         }
         scope.launch {
@@ -632,6 +673,23 @@ class SettingsStore(
                 updateState { it.copy(navidromeMobileAudioQuality = intent.value) }
             }
 
+            is SettingsIntent.NavidromePlaybackCacheEnabledChanged -> {
+                repository.setNavidromePlaybackCacheEnabled(intent.value)
+                updateState { it.copy(navidromePlaybackCacheEnabled = intent.value) }
+            }
+
+            SettingsIntent.PickNavidromePlaybackCacheDirectory -> pickNavidromePlaybackCacheDirectory()
+
+            SettingsIntent.ResetNavidromePlaybackCacheDirectory -> {
+                repository.setNavidromePlaybackCacheDirectory(null)
+                updateState {
+                    it.copy(
+                        navidromePlaybackCacheDirectory = null,
+                        message = "已恢复默认边听边存目录。",
+                    )
+                }
+            }
+
             is SettingsIntent.NavidromePlaybackCacheSizePresetChanged -> {
                 repository.setNavidromePlaybackCacheSizePreset(intent.value)
                 updateState { it.copy(navidromePlaybackCacheSizePreset = intent.value) }
@@ -645,6 +703,16 @@ class SettingsStore(
             is SettingsIntent.PlayerArtworkStyleChanged -> {
                 repository.setPlayerArtworkStyle(intent.value)
                 updateState { it.copy(playerArtworkStyle = intent.value) }
+            }
+
+            is SettingsIntent.PlayerLyricsColorPreferenceChanged -> {
+                repository.setPlayerLyricsColorPreference(intent.value)
+                updateState { it.copy(playerLyricsColorPreference = intent.value) }
+            }
+
+            is SettingsIntent.PlayerActiveLyricsColorPreferenceChanged -> {
+                repository.setPlayerActiveLyricsColorPreference(intent.value)
+                updateState { it.copy(playerActiveLyricsColorPreference = intent.value) }
             }
 
             is SettingsIntent.PlayerLyricsFontSizePresetChanged -> {
@@ -1241,6 +1309,28 @@ class SettingsStore(
                 },
             )
         }
+    }
+
+    private suspend fun pickNavidromePlaybackCacheDirectory() {
+        val result = navidromePlaybackCacheDirectoryPicker.pickDirectory()
+        result.fold(
+            onSuccess = { selection ->
+                if (selection != null) {
+                    repository.setNavidromePlaybackCacheDirectory(selection)
+                    updateState {
+                        it.copy(
+                            navidromePlaybackCacheDirectory = selection,
+                            message = "边听边存目录已更新。",
+                        )
+                    }
+                }
+            },
+            onFailure = { error ->
+                updateState {
+                    it.copy(message = error.message ?: "边听边存目录选择失败。")
+                }
+            },
+        )
     }
 
     private suspend fun pickDataLocation() {

@@ -51,7 +51,7 @@ import top.iwesley.lyn.music.data.db.LynMusicDatabase
 const val NAVIDROME_LYRICS_SOURCE_ID = "navidrome-lyrics"
 const val SUBSONIC_LYRICS_SOURCE_ID = "subsonic-lyrics"
 
-private const val SUBSONIC_CLIENT_NAME = "LynMusic"
+private const val SUBSONIC_CLIENT_NAME = "LeonMusic"
 private const val SUBSONIC_API_VERSION = "1.16.1"
 private const val NAVIDROME_NATIVE_IMPORT_PAGE_SIZE = 1_000
 private val MIN_NAVIDROME_NATIVE_API_VERSION = NavidromeServerVersion(0, 44, 0)

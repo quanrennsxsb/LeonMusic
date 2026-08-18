@@ -37,6 +37,8 @@ import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Favorite
@@ -170,6 +172,7 @@ internal fun LibraryTab(
     onLibraryIntent: (LibraryIntent) -> Unit,
     onFavoritesIntent: (FavoritesIntent) -> Unit,
     onOnlineIntent: (OnlineLibraryIntent) -> Unit,
+    onImportIntent: (ImportIntent) -> Unit,
     onPlayerIntent: (PlayerIntent) -> Unit,
     showFavoriteButton: Boolean = true,
     showDuration: Boolean = true,
@@ -281,6 +284,24 @@ internal fun LibraryTab(
         showTrackSortActionButton = showSearchField && !isOnlineMode,
         showFolderBrowser = !isOnlineMode,
         rootSelectorStyle = rootSelectorStyle,
+        actionButton = {
+            Button(
+                onClick = { onImportIntent(ImportIntent.SyncAllSources) },
+                enabled = !importState.isWorking && importState.sources.any { it.source.enabled },
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                if (importState.isWorking) {
+                    ButtonLoadingIndicator()
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.Sync,
+                        contentDescription = null,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(if (importState.isWorking) "同步中" else "同步")
+            }
+        },
         navigationTarget = navigationTarget,
         onNavigationHandled = onNavigationHandled,
         onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
@@ -897,6 +918,31 @@ private fun LibraryBrowserTab(
     val selectedFolder = selectedFolderKey?.let { folderTree.nodesByKey[it] }
     val selectedFolderChildren = selectedFolderKey?.let { folderTree.childFoldersByKey[it].orEmpty() }.orEmpty()
     val selectedFolderTracks = selectedFolderKey?.let { folderTree.directTracksByKey[it].orEmpty() }.orEmpty()
+    var tracksPage by rememberSaveable { mutableStateOf(1) }
+    var albumsPage by rememberSaveable { mutableStateOf(1) }
+    var artistsPage by rememberSaveable { mutableStateOf(1) }
+    var foldersPage by rememberSaveable { mutableStateOf(1) }
+    LaunchedEffect(state.query, state.selectedSourceFilter, state.sourceId) {
+        tracksPage = 1
+        albumsPage = 1
+        artistsPage = 1
+        foldersPage = 1
+    }
+    val trackPagination = remember(state.tracks, tracksPage) {
+        paginateLibraryItems(state.tracks, tracksPage)
+    }
+    val albumPagination = remember(state.albums, albumsPage) {
+        paginateLibraryItems(state.albums, albumsPage)
+    }
+    val artistPagination = remember(state.artists, artistsPage) {
+        paginateLibraryItems(state.artists, artistsPage)
+    }
+    val folderPagination = remember(folderTree.rootFolders, foldersPage) {
+        paginateLibraryItems(folderTree.rootFolders, foldersPage)
+    }
+    val pagedVisibleTracks = remember(trackPagination.items) {
+        trackPagination.items.map(LibraryTrackUiItem::track)
+    }
     val selectedFolderDetailItemCount = if (selectedFolder == null) {
         0
     } else {
@@ -933,7 +979,7 @@ private fun LibraryBrowserTab(
         selectedArtistId == null &&
         selectedAlbumId == null
     ) {
-        visibleTracks
+        pagedVisibleTracks
     } else {
         emptyList()
     }
@@ -1683,8 +1729,9 @@ private fun LibraryBrowserTab(
                         when (rootView) {
                             LibraryBrowserRootView.Tracks -> {
                                 itemsIndexed(
-                                    state.tracks,
-                                    key = { _, item -> item.id }) { index, trackItem ->
+                                    trackPagination.items,
+                                    key = { _, item -> item.id }) { pageIndex, trackItem ->
+                                    val index = trackPagination.startIndex + pageIndex
                                     val track = trackItem.track
                                     val navigationTargets = trackRowNavigationTargets(track)
                                     TrackRow(
@@ -1706,6 +1753,17 @@ private fun LibraryBrowserTab(
                                         },
                                     )
                                 }
+                                if (trackPagination.totalPages > 1) {
+                                    item {
+                                        LibraryPaginationRow(
+                                            currentPage = trackPagination.currentPage,
+                                            totalPages = trackPagination.totalPages,
+                                            totalItems = trackPagination.totalItems,
+                                            onPrevious = { tracksPage = trackPagination.currentPage - 1 },
+                                            onNext = { tracksPage = trackPagination.currentPage + 1 },
+                                        )
+                                    }
+                                }
                                 if (state.capabilities.canLoadMoreTracks) {
                                     item {
                                         LibraryLoadMoreRow(
@@ -1718,7 +1776,7 @@ private fun LibraryBrowserTab(
                             }
 
                             LibraryBrowserRootView.Albums -> {
-                                items(state.albums, key = { it.id }) { albumItem ->
+                                items(albumPagination.items, key = { it.id }) { albumItem ->
                                     val album = albumItem.album
                                     val fallbackArtworkTrack = tracksByAlbumId[album.id].orEmpty().firstOrNull()
                                     AlbumRow(
@@ -1735,6 +1793,17 @@ private fun LibraryBrowserTab(
                                         },
                                     )
                                 }
+                                if (albumPagination.totalPages > 1) {
+                                    item {
+                                        LibraryPaginationRow(
+                                            currentPage = albumPagination.currentPage,
+                                            totalPages = albumPagination.totalPages,
+                                            totalItems = albumPagination.totalItems,
+                                            onPrevious = { albumsPage = albumPagination.currentPage - 1 },
+                                            onNext = { albumsPage = albumPagination.currentPage + 1 },
+                                        )
+                                    }
+                                }
                                 if (state.capabilities.canLoadMoreAlbums) {
                                     item {
                                         LibraryLoadMoreRow(
@@ -1747,7 +1816,7 @@ private fun LibraryBrowserTab(
                             }
 
                             LibraryBrowserRootView.Artists -> {
-                                items(state.artists, key = { it.id }) { artistItem ->
+                                items(artistPagination.items, key = { it.id }) { artistItem ->
                                     val artist = artistItem.artist
                                     ArtistRow(
                                         artist = artist,
@@ -1761,6 +1830,17 @@ private fun LibraryBrowserTab(
                                         },
                                     )
                                 }
+                                if (artistPagination.totalPages > 1) {
+                                    item {
+                                        LibraryPaginationRow(
+                                            currentPage = artistPagination.currentPage,
+                                            totalPages = artistPagination.totalPages,
+                                            totalItems = artistPagination.totalItems,
+                                            onPrevious = { artistsPage = artistPagination.currentPage - 1 },
+                                            onNext = { artistsPage = artistPagination.currentPage + 1 },
+                                        )
+                                    }
+                                }
                                 if (state.capabilities.canLoadMoreArtists) {
                                     item {
                                         LibraryLoadMoreRow(
@@ -1773,11 +1853,22 @@ private fun LibraryBrowserTab(
                             }
 
                             LibraryBrowserRootView.Folders -> {
-                                items(folderTree.rootFolders, key = { it.key.stableId }) { folder ->
+                                items(folderPagination.items, key = { it.key.stableId }) { folder ->
                                     FolderRow(
                                         folder = folder,
                                         onClick = { selectFolder(folder) },
                                     )
+                                }
+                                if (folderPagination.totalPages > 1) {
+                                    item {
+                                        LibraryPaginationRow(
+                                            currentPage = folderPagination.currentPage,
+                                            totalPages = folderPagination.totalPages,
+                                            totalItems = folderPagination.totalItems,
+                                            onPrevious = { foldersPage = folderPagination.currentPage - 1 },
+                                            onNext = { foldersPage = folderPagination.currentPage + 1 },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1851,6 +1942,97 @@ internal fun libraryLoadMoreStatusLabel(count: LibraryBrowserCount): String {
         "已显示 $loaded"
     }
 }
+
+@Composable
+private fun LibraryPaginationRow(
+    currentPage: Int,
+    totalPages: Int,
+    totalItems: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedButton(
+            onClick = onPrevious,
+            enabled = currentPage > 1,
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronLeft,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text("上一页")
+        }
+        Text(
+            text = "第 $currentPage / $totalPages 页 · 共 $totalItems 条",
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        OutlinedButton(
+            onClick = onNext,
+            enabled = currentPage < totalPages,
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Text("下一页")
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+private data class LibraryPagination<T>(
+    val items: List<T>,
+    val currentPage: Int,
+    val totalPages: Int,
+    val totalItems: Int,
+    val startIndex: Int,
+)
+
+private fun <T> paginateLibraryItems(
+    items: List<T>,
+    requestedPage: Int,
+    pageSize: Int = LIBRARY_PAGE_SIZE,
+): LibraryPagination<T> {
+    if (items.isEmpty()) {
+        return LibraryPagination(
+            items = emptyList(),
+            currentPage = 1,
+            totalPages = 1,
+            totalItems = 0,
+            startIndex = 0,
+        )
+    }
+    val totalPages = ((items.size - 1) / pageSize) + 1
+    val currentPage = requestedPage.coerceIn(1, totalPages)
+    val startIndex = (currentPage - 1) * pageSize
+    val endIndex = (startIndex + pageSize).coerceAtMost(items.size)
+    return LibraryPagination(
+        items = items.subList(startIndex, endIndex),
+        currentPage = currentPage,
+        totalPages = totalPages,
+        totalItems = items.size,
+        startIndex = startIndex,
+    )
+}
+
+private const val LIBRARY_PAGE_SIZE = 20
 
 @Composable
 private fun LibraryRootSelector(

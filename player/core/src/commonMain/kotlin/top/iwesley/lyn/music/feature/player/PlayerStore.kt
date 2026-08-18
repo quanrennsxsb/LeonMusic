@@ -183,6 +183,7 @@ sealed interface PlayerIntent {
     data class PlayTracks(val tracks: List<Track>, val startIndex: Int) : PlayerIntent
     data class PlayTransientTracks(val tracks: List<Track>, val startIndex: Int) : PlayerIntent
     data class PlayQueueIndex(val index: Int) : PlayerIntent
+    data object ResumeCurrentTrackPlayback : PlayerIntent
     data object TogglePlayPause : PlayerIntent
     data object SkipNext : PlayerIntent
     data object SkipPrevious : PlayerIntent
@@ -329,6 +330,7 @@ class PlayerStore(
             is PlayerIntent.PlayTracks -> playTracks(intent.tracks, intent.startIndex)
             is PlayerIntent.PlayTransientTracks -> playTransientTracks(intent.tracks, intent.startIndex)
             is PlayerIntent.PlayQueueIndex -> playQueueIndex(intent.index)
+            PlayerIntent.ResumeCurrentTrackPlayback -> resumeCurrentTrackPlayback()
             PlayerIntent.TogglePlayPause -> togglePlayPause()
             PlayerIntent.SkipNext -> skipNext()
             PlayerIntent.SkipPrevious -> skipPrevious()
@@ -521,6 +523,18 @@ class PlayerStore(
         } else {
             castGateway.playCast()
         }
+    }
+
+    private suspend fun resumeCurrentTrackPlayback() {
+        logger.warn(PLAYER_LOG_TAG) {
+            "store-resume-current-track-playback snapshotPlaying=${state.value.snapshot.isPlaying} " +
+                "castStatus=${state.value.castState.status}"
+        }
+        if (!isRemoteCastActive()) {
+            playbackRepository.resumeCurrentTrackPlayback()
+            return
+        }
+        castGateway.playCast()
     }
 
     private suspend fun skipNext() {

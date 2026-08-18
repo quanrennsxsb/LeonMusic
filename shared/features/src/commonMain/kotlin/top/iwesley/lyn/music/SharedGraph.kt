@@ -28,6 +28,7 @@ import top.iwesley.lyn.music.core.model.MenuBarLyricsControlsPreferencesStore
 import top.iwesley.lyn.music.core.model.MobileNetworkConnectionTypeProvider
 import top.iwesley.lyn.music.core.model.NavidromeAudioQualityPreferencesStore
 import top.iwesley.lyn.music.core.model.NavidromePlaybackCachePreferencesStore
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheDirectoryPicker
 import top.iwesley.lyn.music.core.model.NoopDiagnosticLogger
 import top.iwesley.lyn.music.core.model.NetworkConnectionTypeProvider
 import top.iwesley.lyn.music.core.model.OfflineDownloadGateway
@@ -35,6 +36,7 @@ import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlaybackDecoderPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreferencesStore
 import top.iwesley.lyn.music.core.model.PlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.PlaybackStatsReporter
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
@@ -59,10 +61,12 @@ import top.iwesley.lyn.music.core.model.UnsupportedLyricsShareFontPreferencesSto
 import top.iwesley.lyn.music.core.model.UnsupportedMenuBarLyricsControlsPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedNavidromeAudioQualityPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedNavidromePlaybackCachePreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedNavidromePlaybackCacheDirectoryPicker
 import top.iwesley.lyn.music.core.model.UnsupportedOfflineDownloadGateway
 import top.iwesley.lyn.music.core.model.UnsupportedPlaybackDecoderPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedPlayerArtworkSizePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedPlayerArtworkStylePreferencesStore
+import top.iwesley.lyn.music.core.model.UnsupportedPlayerLyricsColorPreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedPlayerLyricsFontSizePreferencesStore
 import top.iwesley.lyn.music.core.model.UnsupportedSameNameLyricsFileGateway
 import top.iwesley.lyn.music.core.model.UnsupportedWindowClosePreferencesStore
@@ -137,10 +141,14 @@ data class SharedRuntimeServices(
         UnsupportedNavidromeAudioQualityPreferencesStore,
     val navidromePlaybackCachePreferencesStore: NavidromePlaybackCachePreferencesStore =
         UnsupportedNavidromePlaybackCachePreferencesStore,
+    val navidromePlaybackCacheDirectoryPicker: NavidromePlaybackCacheDirectoryPicker =
+        UnsupportedNavidromePlaybackCacheDirectoryPicker,
     val playbackDecoderPreferencesStore: PlaybackDecoderPreferencesStore =
         UnsupportedPlaybackDecoderPreferencesStore,
     val playerArtworkStylePreferencesStore: PlayerArtworkStylePreferencesStore =
         UnsupportedPlayerArtworkStylePreferencesStore,
+    val playerLyricsColorPreferencesStore: PlayerLyricsColorPreferencesStore =
+        UnsupportedPlayerLyricsColorPreferencesStore,
     val playerLyricsFontSizePreferencesStore: PlayerLyricsFontSizePreferencesStore =
         UnsupportedPlayerLyricsFontSizePreferencesStore,
     val playerArtworkSizePreferencesStore: PlayerArtworkSizePreferencesStore =
@@ -244,6 +252,7 @@ fun buildSharedGraph(
         navidromePlaybackCachePreferencesStore = runtimeServices.navidromePlaybackCachePreferencesStore,
         playbackDecoderPreferencesStore = runtimeServices.playbackDecoderPreferencesStore,
         playerArtworkStylePreferencesStore = runtimeServices.playerArtworkStylePreferencesStore,
+        playerLyricsColorPreferencesStore = runtimeServices.playerLyricsColorPreferencesStore,
         playerLyricsFontSizePreferencesStore = runtimeServices.playerLyricsFontSizePreferencesStore,
         playerArtworkSizePreferencesStore = runtimeServices.playerArtworkSizePreferencesStore,
     )
@@ -470,6 +479,7 @@ fun buildSharedGraph(
             vlcPathPickerPlatformService = runtimeServices.vlcPathPickerPlatformService,
             appUpdateRepository = appUpdateRepository,
             desktopLyricsPlatformService = runtimeServices.desktopLyricsPlatformService,
+            navidromePlaybackCacheDirectoryPicker = runtimeServices.navidromePlaybackCacheDirectoryPicker,
         ),
         lyricsRepository = lyricsRepository,
         artworkCacheStore = runtimeServices.artworkCacheStore,

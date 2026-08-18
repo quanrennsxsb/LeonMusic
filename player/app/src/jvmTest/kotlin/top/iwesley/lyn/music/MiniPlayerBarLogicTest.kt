@@ -112,14 +112,14 @@ class MiniPlayerBarLogicTest {
     }
 
     @Test
-    fun `compact player lyrics prefers highlighted line`() {
+    fun `compact player lyrics includes highlighted line with nearby context`() {
         val lyrics = lyricsDocument(
             LyricsLine(timestampMs = 1_000L, text = "第一句"),
             LyricsLine(timestampMs = 2_000L, text = "第二句"),
         )
 
         assertEquals(
-            "第二句",
+            "第一句\n第二句",
             resolveCompactPlayerLyricsText(
                 lyrics = lyrics,
                 highlightedLineIndex = 1,
@@ -136,10 +136,28 @@ class MiniPlayerBarLogicTest {
         )
 
         assertEquals(
-            "第一句",
+            "第一句\n第二句",
             resolveCompactPlayerLyricsText(
                 lyrics = lyrics,
                 highlightedLineIndex = -1,
+            ),
+        )
+    }
+
+    @Test
+    fun `compact player lyrics returns three lines around middle highlight`() {
+        val lyrics = lyricsDocument(
+            LyricsLine(timestampMs = 1_000L, text = "第一句"),
+            LyricsLine(timestampMs = 2_000L, text = "第二句"),
+            LyricsLine(timestampMs = 3_000L, text = "第三句"),
+            LyricsLine(timestampMs = 4_000L, text = "第四句"),
+        )
+
+        assertEquals(
+            "第二句\n第三句\n第四句",
+            resolveCompactPlayerLyricsText(
+                lyrics = lyrics,
+                highlightedLineIndex = 2,
             ),
         )
     }
@@ -407,21 +425,21 @@ class MiniPlayerBarLogicTest {
     }
 
     @Test
-    fun `player info vinyl size keeps compact sizing identical with or without lyrics`() {
+    fun `player info vinyl size reserves compact space for lyrics`() {
         val withoutLyrics = resolvePlayerInfoVinylSize(
-            maxWidth = 390.dp,
-            maxHeight = 520.dp,
+            maxWidth = 500.dp,
+            maxHeight = 380.dp,
             compact = true,
             hasCompactLyrics = false,
         )
         val withLyrics = resolvePlayerInfoVinylSize(
-            maxWidth = 390.dp,
-            maxHeight = 520.dp,
+            maxWidth = 500.dp,
+            maxHeight = 380.dp,
             compact = true,
             hasCompactLyrics = true,
         )
 
-        assertEquals(withoutLyrics, withLyrics)
+        assertTrue(withLyrics < withoutLyrics)
     }
 
     @Test

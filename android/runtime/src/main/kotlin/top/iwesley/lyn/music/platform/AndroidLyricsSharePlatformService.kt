@@ -230,7 +230,7 @@ class AndroidLyricsSharePlatformService(
     private fun saveImageLegacy(pngBytes: ByteArray, suggestedName: String) {
         val directory = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-            "LynMusic",
+            "LeonMusic",
         ).apply { mkdirs() }
         val output = File(directory, ensurePngFileName(suggestedName))
         output.writeBytes(pngBytes)
@@ -791,6 +791,6 @@ private fun createTextLayout(
 }
 
 private fun ensurePngFileName(name: String): String {
-    val normalized = name.trim().ifBlank { "lynmusic-lyrics-share.png" }
+    val normalized = name.trim().ifBlank { "leonmusic-lyrics-share.png" }
     return if (normalized.endsWith(".png", ignoreCase = true)) normalized else "$normalized.png"
 }

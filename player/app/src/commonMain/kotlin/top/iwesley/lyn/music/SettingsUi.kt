@@ -1,7 +1,6 @@
 package top.iwesley.lyn.music
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -65,7 +63,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
@@ -74,9 +71,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import lynmusic.player.app.generated.resources.Res
-import lynmusic.player.app.generated.resources.about_app_wechat_qr
-import org.jetbrains.compose.resources.imageResource
 import top.iwesley.lyn.music.core.model.AppStorageCategory
 import top.iwesley.lyn.music.core.model.AppDataLocationChangeMode
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
@@ -87,11 +81,13 @@ import top.iwesley.lyn.music.core.model.BuildMetadata
 import top.iwesley.lyn.music.core.model.MAX_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.core.model.LyricsShareFontOption
 import top.iwesley.lyn.music.core.model.LyricsSourceConfig
-import top.iwesley.lyn.music.core.model.LynMusicUpdateLinks
+import top.iwesley.lyn.music.core.model.LeonMusicUpdateLinks
+import top.iwesley.lyn.music.core.model.LocalFolderSelection
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
 import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheSizePreset
 import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
+import top.iwesley.lyn.music.core.model.PlayerLyricsColorPreference
 import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
 import top.iwesley.lyn.music.core.model.deriveAppThemePalette
 import top.iwesley.lyn.music.core.model.formatThemeHexColor
@@ -1082,6 +1078,20 @@ private fun GeneralSettingsPane(
                         onSettingsIntent(SettingsIntent.PlayerLyricsFontSizePresetChanged(preset))
                     },
                 )
+                PlayerLyricsColorPreferenceRow(
+                    title = "普通歌词颜色",
+                    selected = state.playerLyricsColorPreference,
+                    onSelected = { preference ->
+                        onSettingsIntent(SettingsIntent.PlayerLyricsColorPreferenceChanged(preference))
+                    },
+                )
+                PlayerLyricsColorPreferenceRow(
+                    title = "当前歌词颜色",
+                    selected = state.playerActiveLyricsColorPreference,
+                    onSelected = { preference ->
+                        onSettingsIntent(SettingsIntent.PlayerActiveLyricsColorPreferenceChanged(preference))
+                    },
+                )
             }
         }
         MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
@@ -1141,10 +1151,48 @@ private fun GeneralSettingsPane(
                             onSettingsIntent(SettingsIntent.NavidromeMobileAudioQualityChanged(quality))
                         },
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = "边听边存",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "播放 Navidrome 曲目时写入播放缓存，弱网或重复播放时可减少重新加载。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = shellColors.secondaryText,
+                            )
+                        }
+                        Switch(
+                            checked = state.navidromePlaybackCacheEnabled,
+                            onCheckedChange = { enabled ->
+                                onSettingsIntent(SettingsIntent.NavidromePlaybackCacheEnabledChanged(enabled))
+                            },
+                            colors = SwitchDefaults.colors(),
+                        )
+                    }
                     NavidromePlaybackCacheSizeSettingRow(
                         selected = state.navidromePlaybackCacheSizePreset,
                         onSelected = { preset ->
                             onSettingsIntent(SettingsIntent.NavidromePlaybackCacheSizePresetChanged(preset))
+                        },
+                    )
+                    NavidromePlaybackCacheDirectorySettingRow(
+                        selection = state.navidromePlaybackCacheDirectory,
+                        onPick = {
+                            onSettingsIntent(SettingsIntent.PickNavidromePlaybackCacheDirectory)
+                        },
+                        onReset = {
+                            onSettingsIntent(SettingsIntent.ResetNavidromePlaybackCacheDirectory)
                         },
                     )
                 }
@@ -1280,6 +1328,72 @@ private fun PlayerVisualSizePresetRow(
 }
 
 @Composable
+private fun PlayerLyricsColorPreferenceRow(
+    title: String,
+    selected: PlayerLyricsColorPreference,
+    onSelected: (PlayerLyricsColorPreference) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        OutlinedButton(
+            onClick = { onSelected(PlayerLyricsColorPreference.Artwork) },
+            modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(
+                width = if (selected == PlayerLyricsColorPreference.Artwork) 2.dp else 1.dp,
+                color = if (selected == PlayerLyricsColorPreference.Artwork) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    mainShellColors.cardBorder
+                },
+            ),
+        ) {
+            Text(
+                text = "根据歌曲封面颜色",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        val fixedColors = PlayerLyricsColorPreference.entries.filter { it.argb != null }
+        fixedColors.chunked(5).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                row.forEach { preference ->
+                    val isSelected = selected == preference
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(requireNotNull(preference.argb)))
+                            .border(
+                                width = if (isSelected) 3.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else mainShellColors.cardBorder,
+                                shape = RoundedCornerShape(12.dp),
+                            )
+                            .clickable { onSelected(preference) },
+                    )
+                }
+            }
+        }
+        Text(
+            text = playerLyricsColorPreferenceLabel(selected),
+            style = MaterialTheme.typography.bodySmall,
+            color = mainShellColors.secondaryText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
 private fun NavidromeAudioQualitySettingRow(
     title: String,
     selected: NavidromeAudioQuality,
@@ -1325,6 +1439,64 @@ private fun NavidromeAudioQualitySettingRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavidromePlaybackCacheDirectorySettingRow(
+    selection: LocalFolderSelection?,
+    onPick: () -> Unit,
+    onReset: () -> Unit,
+) {
+    val shellColors = mainShellColors
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "存放目录",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = selection?.label ?: "默认应用缓存目录",
+                style = MaterialTheme.typography.bodySmall,
+                color = shellColors.secondaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(
+                onClick = onPick,
+                modifier = Modifier.weight(1f),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+            ) {
+                Text(
+                    text = "选择目录",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (selection != null) {
+                TextButton(
+                    onClick = onReset,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+                ) {
+                    Text(
+                        text = "恢复默认",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -2026,7 +2198,7 @@ private fun settingsSectionSubtitle(section: SettingsSection): String {
         SettingsSection.Lyrics -> "配置歌词 API、搜索源和播放缓存。"
         SettingsSection.Storage -> "查看并清理缓存占用。"
         SettingsSection.AboutDevice -> "查看系统、屏幕和硬件信息。"
-        SettingsSection.AboutApp -> "查看开发者、项目地址和公众号信息。"
+        SettingsSection.AboutApp -> "查看开发者和项目地址。"
         SettingsSection.Help -> "查看投屏和后台运行常见问题。"
     }
 }
@@ -2228,7 +2400,7 @@ private fun AboutAppSettingsPane(
         if (showHeading) {
             SectionTitle(
                 title = "关于应用",
-                subtitle = "查看开发者、项目地址和公众号信息。",
+                subtitle = "查看开发者和项目地址。",
             )
         }
         MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
@@ -2357,31 +2529,8 @@ private fun AboutAppSettingsPane(
         AboutDeviceInfoCard(title = "项目地址") {
             AboutAppLinkFieldRow(
                 label = "地址",
-                value = LynMusicUpdateLinks.PROJECT_URL,
-                url = LynMusicUpdateLinks.PROJECT_URL,
-            )
-        }
-        AboutDeviceInfoCard(title = "微信公众号") {
-            AboutAppFieldRow(
-                label = "账号",
-                value = ABOUT_APP_WECHAT_ACCOUNT,
-            )
-            Text(
-                text = "公众号二维码",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            AboutAppQrImage(
-                modifier = Modifier
-                    .fillMaxWidth(0.58f)
-                    .widthIn(max = 220.dp)
-                    .aspectRatio(1f)
-                    .align(Alignment.CenterHorizontally),
-            )
-            Text(
-                text = "扫码关注公众号，获取更新和交流信息。",
-                style = MaterialTheme.typography.bodySmall,
-                color = shellColors.secondaryText,
+                value = LeonMusicUpdateLinks.PROJECT_URL,
+                url = LeonMusicUpdateLinks.PROJECT_URL,
             )
         }
     }
@@ -2831,27 +2980,6 @@ private fun AboutAppLinkFieldRow(
     }
 }
 
-@Composable
-private fun AboutAppQrImage(
-    modifier: Modifier = Modifier,
-) {
-    val shellColors = mainShellColors
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
-            .border(1.dp, shellColors.cardBorder, RoundedCornerShape(22.dp))
-            .padding(12.dp),
-    ) {
-        Image(
-            bitmap = imageResource(Res.drawable.about_app_wechat_qr),
-            contentDescription = "公众号二维码",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
-        )
-    }
-}
-
 private fun storageCategoryTitle(category: AppStorageCategory): String {
     return when (category) {
         AppStorageCategory.Artwork -> "封面缓存"
@@ -2897,6 +3025,22 @@ private fun playerVisualSizePresetLabel(preset: PlayerVisualSizePreset): String 
         PlayerVisualSizePreset.Large -> "大"
         PlayerVisualSizePreset.VeryLarge -> "很大"
         PlayerVisualSizePreset.Maximum -> "最大"
+    }
+}
+
+private fun playerLyricsColorPreferenceLabel(preference: PlayerLyricsColorPreference): String {
+    return when (preference) {
+        PlayerLyricsColorPreference.Artwork -> "当前：根据歌曲封面颜色"
+        PlayerLyricsColorPreference.White -> "当前：白色"
+        PlayerLyricsColorPreference.Black -> "当前：黑色"
+        PlayerLyricsColorPreference.Red -> "当前：红色"
+        PlayerLyricsColorPreference.Orange -> "当前：橙色"
+        PlayerLyricsColorPreference.Yellow -> "当前：黄色"
+        PlayerLyricsColorPreference.Green -> "当前：绿色"
+        PlayerLyricsColorPreference.Cyan -> "当前：青色"
+        PlayerLyricsColorPreference.Blue -> "当前：蓝色"
+        PlayerLyricsColorPreference.Purple -> "当前：紫色"
+        PlayerLyricsColorPreference.Pink -> "当前：粉色"
     }
 }
 
@@ -2998,11 +3142,10 @@ private fun deviceInfoMemoryValue(totalMemoryBytes: Long?, loading: Boolean): St
         ?: if (loading) "正在读取..." else "不可用"
 }
 
-private const val ABOUT_APP_NAME = "LynMusic"
+private const val ABOUT_APP_NAME = "LeonMusic"
 private const val ABOUT_APP_SUMMARY =
-    "以下为开发者、项目地址和公众号信息。"
-private const val ABOUT_APP_DEVELOPER = "锋风"
-private const val ABOUT_APP_WECHAT_ACCOUNT = "锋风"
+    "以下为开发者和项目地址信息。"
+private const val ABOUT_APP_DEVELOPER = "斯文扫地"
 
 @Composable
 private fun ThemePresetCard(
