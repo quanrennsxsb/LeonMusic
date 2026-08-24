@@ -1,110 +1,110 @@
-LeonMusic is a cross-platform local music player for Windows, Linux, macOS, Android and iOS , built with Kotlin Multiplatform.
+# LeonMusic
 
-LeonMusic是基于 Kotlin Multiplatform 的跨平台本地音乐播放器项目，目标平台包括 Android、iOS 和桌面端（JVM），支持 Windows 、 macOS 和 Linux。
+LeonMusic 是一款使用 Kotlin Multiplatform 构建的跨平台音乐播放器，面向本地音乐收藏、NAS 与自建音乐服务场景。它将桌面、手机、电视和车机上的听歌体验放在同一套应用与曲库工作流中。
 
 ![LeonMusic](./doc/LeonMusic.png)
-## 为什么做这个播放器
 
-第一，很多本地播放器搜索歌词太难用了，有些歌还不一定能搜到，比如 Bobby Chen、Mr Li；第二，想学习一下 KMP；第三，因为有了 codex 这样的编程工具，实现难度大大下降；第四，可以自主决策功能和界面。
+## 下载
 
-## 先看 UI
-### 电脑或者平板
-![pc_main_ui](./doc/pc_main_ui.png)
-![pc_player_ui](./doc/pc_player_ui.png)
-![pc_player_full_ui](./doc/pc_player_full_ui.png)
-![pc_recommend_ui](./doc/pc_recommend_ui.png)
-![pc_lrc_apply](./doc/pc_lrc_apply.png)
-![pc_lrc_search](./doc/pc_lrc_search.png)
-![pc_lrc_share_cover_color](./doc/pc_lrc_share_cover_color.png)
-![pc_lrc_share_note](./doc/pc_lrc_share_note.png)
-![pc_music_tag_editor](./doc/pc_music_tag_editor.png)
-![lyrics-note_share](./doc/lyrics-note_share.png)
-![lyrics-share_cover2](./doc/lyrics-share_cover2.png)
-![lyrics-share_note2](./doc/lyrics-share_note2.png)
-![lyrics-share](./doc/lyrics-share.png)
-![lyrics-share2](./doc/lyrics-share2.png)
+最新版本与安装包请前往 [GitHub Releases](https://github.com/leon0576/LeonMusic/releases)。当前提供：
+
+- macOS：DMG 安装包与 ZIP 压缩包
+- Android 车机：通用 APK
+- Android TV：通用 APK
+
+Android 安装包为侧载版本；请在设备的安全设置中允许相应的安装来源。iOS、Windows 与 Linux 可从源码构建或直接运行开发版本。
+
+## 核心功能
+
+- 本地文件夹曲库：扫描、浏览与播放个人音乐收藏
+- 多种音乐来源：支持本地目录、Samba、WebDAV、Navidrome 等来源
+- 曲库管理：歌曲、专辑、艺人、喜欢、歌单与播放队列
+- 歌词体验：歌词搜索、回填、分享与显示样式定制
+- 音乐资料维护：编辑标题、歌手、专辑、歌词与封面等标签信息
+- 多端适配：针对桌面、手机、Android TV、车机提供对应的交互体验
+- 主题与界面：支持个性化主题设置
+
+> 服务器地址、用户名、密码和 API Key 由应用在设备本地保存，不会随本项目源码或 GitHub Release 一起上传。建议优先使用 Navidrome 作为跨设备音乐库的统一服务。
+
+## 支持的平台
+
+| 平台 | 状态 |
+| --- | --- |
+| macOS | 提供 Release 安装包 |
+| Android 车机 | 提供 Release APK |
+| Android TV | 提供 Release APK |
+| Android 手机/平板 | 支持构建与运行 |
+| Windows / Linux | 支持 JVM 桌面端构建与运行 |
+| iOS | 支持通过 Xcode 构建与运行 |
+
+## 界面预览
+
+### 电脑与平板
+
+![主界面](./doc/pc_main_ui.png)
+![播放界面](./doc/pc_player_ui.png)
+![全屏播放](./doc/pc_player_full_ui.png)
+![推荐](./doc/pc_recommend_ui.png)
+![歌词编辑](./doc/pc_lrc_apply.png)
+![歌词搜索](./doc/pc_lrc_search.png)
+![歌词分享](./doc/lyrics-share.png)
+![标签编辑](./doc/pc_music_tag_editor.png)
 
 ### 手机
-![phone_main_ui](./doc/phone_main_ui.jpg)
-![phone_player_ui](./doc/phone_player_ui.png)
-![phone_player_lrc_ui](./doc/phone_player_lrc_ui.png)
-![phone_player_lrc_share_ui](./doc/phone_player_lrc_share_ui.png)
-![phone_player_pop_ui](./doc/phone_player_pop_ui.png)
-![phone_player_recommend_ui](./doc/phone_player_recommend_ui.png)
-![phone_player_setting_ui2](./doc/phone_player_setting_ui2.png)
-![phone_setting_ui](./doc/phone_setting_ui.png)
 
-### TV
-![tv_main_ui](./doc/tv_main_ui.png)
-![tv_main_ui2](./doc/tv_main_ui2.png)
-![tv_main_like_ui](./doc/tv_main_like_ui.png)
-![tv_cast_paler_ui](./doc/tv_cast_paler_ui.png)
-![tv_player_ui](./doc/tv_player_ui.png)
+![手机主界面](./doc/phone_main_ui.jpg)
+![手机播放界面](./doc/phone_player_ui.png)
+![手机歌词](./doc/phone_player_lrc_ui.png)
+![手机设置](./doc/phone_setting_ui.png)
 
-### 车机
-![car_main_ui](./doc/car_main_ui.png)
-![car_my_ui](./doc/car_my_ui.png)
-![car_player_ui](./doc/car_player_ui.png)
+### TV 与车机
 
+![TV 主界面](./doc/tv_main_ui.png)
+![TV 播放界面](./doc/tv_player_ui.png)
+![车机主界面](./doc/car_main_ui.png)
+![车机播放界面](./doc/car_player_ui.png)
 
-## 介绍
+## 从源码构建
 
-LeonMusic 是一款面向个人音乐收藏场景打造的跨平台本地音乐播放器，基于 Kotlin Multiplatform 开发，可运行在 Android、iOS、Windows、macOS 和 Linux。
+### Android
 
-在功能上，LeonMusic 支持本地文件夹导入，也可接入 Samba、WebDAV、Navidrome 等私有音乐来源，帮助用户把分散在硬盘、NAS 和自建音乐服务中的内容汇总到同一套曲库中。应用提供歌曲、专辑、艺人等多维度浏览方式，并支持喜欢、歌单、播放队列等常用管理能力，方便日常收听与整理。当然，为了多端统一数据，推荐使用Navidrome。
+```shell
+# Android 手机/平板
+./gradlew :composeApp:assembleDebug
+./gradlew :composeApp:assembleRelease
 
-除了基础播放控制外，LeonMusic 还提供歌词搜索、歌词分享、在线结果回填等增强功能。对于注重资料维护的用户，应用还支持音乐标签编辑，可修改标题、歌手、专辑、歌词和封面等信息，让曲库更加整洁统一。另外，还支持自定义界面主题等。
-
-## 编译
-
-### 编译安卓 APP
-
-- macOS/Linux
-  ```shell
-  #编译debug版本
-  ./gradlew :composeApp:assembleDebug
-  #编译release版本
-  ./gradlew :composeApp:assembleRelease
-  ```
-- Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  .\gradlew.bat :composeApp:assembleRelease
-  ```
-
-### 直接运行Desktop (JVM)应用
-
-- macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
-
-**打包当前系统的独立安装包**（比如在 Mac 上运行就会打出 Mac 的包）：
-
+# 车机与 TV
+./gradlew :automotiveApp:assembleRelease :tvApp:assembleRelease
 ```
+
+Windows 请将 `./gradlew` 替换为 `./gradlew.bat`。
+
+### 桌面端
+
+```shell
+# 直接运行 JVM 桌面应用
+./gradlew :composeApp:run
+
+# 为当前系统构建独立安装包
 ./gradlew :composeApp:packageDistributionForCurrentOS
 ```
 
-*或者简写为*：`./gradlew :composeApp:package`
+桌面端产物位于 `composeApp/build/compose/binaries/main/`。macOS 的统一应用包可使用：
 
-*产物路径*：`composeApp/build/compose/binaries/main/`
+```shell
+./macosApp/package-unified-leonmusic.sh
+```
 
-### 运行IOS应用
+### iOS
 
-要构建并运行 iOS 应用的开发版，可以使用 IDE 工具栏运行控件中的运行配置；或者直接在 Xcode 中打开 [/iosApp](./iosApp)  目录并从那里启动。
+在 Xcode 中打开 [`iosApp`](./iosApp) 目录，然后选择目标设备或模拟器运行。
 
 ## 许可证
 
-LeonMusic 以 GNU General Public License version 3 or later（GPL-3.0-or-later）分发，完整许可证文本见 [LICENSE](./LICENSE)。
+LeonMusic 以 [GNU General Public License v3.0 or later](./LICENSE)（GPL-3.0-or-later）发布。
 
-项目包含第三方 DLNA/UPnP 组件 Platinum UPnP SDK，该组件使用 GPL-2.0-or-later / commercial 双许可。由于完整应用包含该 GPL 组件，发布 LeonMusic 的完整源码或二进制产物时需要遵守 GPL-3.0-or-later 的条款。第三方组件许可证说明见 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)。
-
-## 公众号
- ![/锋风](./doc/weixin.jpeg) 
+项目包含第三方 DLNA/UPnP 组件 Platinum UPnP SDK；完整应用的源码或二进制发布需要遵守 GPL-3.0-or-later 条款。详情见 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)。
 
 ## Star History
+
 [![Star History Chart](https://api.star-history.com/svg?repos=leon0576/LeonMusic&type=Date)](https://star-history.com/#leon0576/LeonMusic&Date)
