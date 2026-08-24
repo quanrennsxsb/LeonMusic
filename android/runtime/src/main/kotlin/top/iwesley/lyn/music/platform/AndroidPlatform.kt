@@ -31,16 +31,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DecoderReuseEvaluation
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.ContentMetadata
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
-import androidx.media3.datasource.cache.SimpleCache
 import androidx.room.Room
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -124,6 +119,7 @@ import top.iwesley.lyn.music.core.model.NonNavidromeAudioScanResult
 import top.iwesley.lyn.music.core.model.PlatformCapabilities
 import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlaybackAudioFormat
+import top.iwesley.lyn.music.core.model.PlaybackCacheState
 import top.iwesley.lyn.music.core.model.PlaybackDecoderPreferencesStore
 import top.iwesley.lyn.music.core.model.PlaybackGateway
 import top.iwesley.lyn.music.core.model.PlaybackGatewayState
@@ -189,6 +185,7 @@ import top.iwesley.lyn.music.data.repository.DailyRecommendationDateChangeNotifi
 import top.iwesley.lyn.music.data.repository.DailyRecommendationDateKeyProvider
 import top.iwesley.lyn.music.data.repository.PlayerRuntimeServices
 import top.iwesley.lyn.music.domain.RemoteSourceResolvedUrl
+import top.iwesley.lyn.music.domain.resolveNavidromeDownloadUrlCandidates
 import top.iwesley.lyn.music.domain.resolveNavidromeStreamUrl
 import top.iwesley.lyn.music.domain.resolveEmbyStreamUrl
 import top.iwesley.lyn.music.domain.RemoteSourceAddressSelector
@@ -215,6 +212,8 @@ import com.hierynomus.smbj.auth.AuthenticationContext
 import com.hierynomus.smbj.share.DiskShare
 import com.hierynomus.smbj.share.File as SmbRemoteFile
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import java.security.KeyStore
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -2476,6 +2475,23 @@ private class AndroidNavidromePlaybackCacheDirectoryPicker(
             selection
         }
     }
+
+    override suspend fun openDirectory(selection: LocalFolderSelection?): Result<Unit> {
+        return runCatching {
+            val directory = resolveAndroidNavidromePlaybackCacheDirectory(context, selection)
+            if ((!directory.exists() && !directory.mkdirs()) || !directory.isDirectory) {
+                error("Navidrome 播放缓存目录创建失败。")
+            }
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(Uri.fromFile(directory), "resource/folder")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            if (intent.resolveActivity(context.packageManager) == null) {
+                error("当前设备没有可打开目录的文件管理器。")
+            }
+            context.startActivity(intent)
+        }
+    }
 }
 
 private data class AndroidSambaTagReadTarget(
@@ -2626,10 +2642,15 @@ private suspend fun resolveAndroidSambaTagReadTarget(
 private data class AndroidRemotePlaybackFallback(
     val candidates: List<RemoteSourceResolvedUrl>,
     val selectedIndex: Int,
-    val navidromePlaybackCacheKey: String? = null,
 ) {
     fun currentCandidate(): RemoteSourceResolvedUrl? = candidates.getOrNull(selectedIndex)
 }
+
+private data class AndroidNavidromePlaybackCacheTarget(
+    val playbackUri: Uri,
+    val cacheHit: Boolean,
+    val cacheKey: String,
+)
 
 @UnstableApi
 internal class AndroidPlaybackGateway(
@@ -2661,6 +2682,11 @@ internal class AndroidPlaybackGateway(
     private var currentRemotePlaybackFallback: AndroidRemotePlaybackFallback? = null
     private var pendingLoadPlayWhenReady = false
     private var lastPublishedPlaybackLogKey: String? = null
+    private var prematureRemoteEndRecoveryCount = 0
+    private val navidromePlaybackCacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val navidromePlaybackCacheDownloads = mutableSetOf<String>()
+    @Volatile
+    private var currentNavidromePlaybackCacheKey: String? = null
 
     internal val currentPlayer: ExoPlayer
         get() = player
@@ -2711,6 +2737,9 @@ internal class AndroidPlaybackGateway(
                 "player-playback-state-changed playbackState=$playbackState ${playerDebugSummary()}"
             }
             if (playbackState == Player.STATE_ENDED) {
+                if (tryRecoverPrematureRemoteEnd()) {
+                    return
+                }
                 pendingLoadPlayWhenReady = false
                 mutableState.update {
                     it.copy(
@@ -2812,17 +2841,17 @@ internal class AndroidPlaybackGateway(
         if (!isRemoteSourceAddressFallbackAllowed(error)) return false
         val nextIndex = fallback.selectedIndex + 1
         val nextCandidate = fallback.candidates.getOrNull(nextIndex) ?: return false
-        val retryPositionMs = player.currentPosition.takeIf { it >= 0L } ?: 0L
+        val retryPositionMs = maxOf(
+            player.currentPosition.takeIf { it >= 0L } ?: 0L,
+            mutableState.value.positionMs.coerceAtLeast(0L),
+        )
         val retryPlayWhenReady = player.playWhenReady || pendingLoadPlayWhenReady
         currentRemotePlaybackFallback = fallback.copy(selectedIndex = nextIndex)
         currentRemoteLabel = nextCandidate.value
         logger.warn(PLAYBACK_LOG_TAG) {
             "remote-address-fallback retry index=$nextIndex url=${nextCandidate.value}"
         }
-        setRemoteMediaItem(
-            uri = Uri.parse(nextCandidate.value),
-            navidromePlaybackCacheKey = fallback.navidromePlaybackCacheKey,
-        )
+        setRemoteMediaItem(Uri.parse(nextCandidate.value))
         player.prepare()
         player.seekTo(retryPositionMs)
         player.playWhenReady = retryPlayWhenReady
@@ -2904,30 +2933,49 @@ internal class AndroidPlaybackGateway(
                 )
                 else -> null
             }
-            val navidromePlaybackCacheKey = subsonicCompatible
+            val navidromePlaybackCacheLocator = subsonicCompatible
                 ?.takeIf { it.sourceType == ImportSourceType.NAVIDROME }
                 ?.takeIf { navidromePlaybackCachePreferencesStore.navidromePlaybackCacheEnabled.value }
+            val cachedNavidromePlaybackTarget = navidromePlaybackCacheLocator
                 ?.let { locator ->
-                    buildAndroidNavidromePlaybackCacheKey(
+                    resolveAndroidNavidromePlaybackCacheTarget(
+                        track = track,
                         locator = locator,
-                        audioQuality = navidromeAudioQuality ?: NavidromeAudioQuality.Original,
+                        allowDownload = false,
                     )
                 }
-            if (
-                navidromePlaybackCacheKey != null &&
-                !hasAndroidNavidromePlayableCacheData(navidromePlaybackCacheKey)
-            ) {
+            if (navidromePlaybackCacheLocator != null && cachedNavidromePlaybackTarget == null) {
                 waitForAndroidNetworkAvailableOrThrow(ANDROID_PLAYBACK_NETWORK_WAIT_TIMEOUT_SECONDS)
             }
-            val remotePlaybackCandidates = if (offlineTarget == null && webDavTarget == null && sambaTarget == null) {
+            val navidromePlaybackCacheTarget = cachedNavidromePlaybackTarget
+                ?: navidromePlaybackCacheLocator?.let { locator ->
+                    resolveAndroidNavidromePlaybackCacheTarget(
+                        track = track,
+                        locator = locator,
+                        allowDownload = true,
+                    )
+                }
+            val remotePlaybackCandidates = if (
+                offlineTarget == null &&
+                webDavTarget == null &&
+                sambaTarget == null &&
+                navidromePlaybackCacheTarget?.cacheHit != true
+            ) {
                 resolveLocatorCandidates(track.mediaLocator, navidromeAudioQuality)
             } else {
                 null
             }
+            val playbackCacheState = when {
+                offlineTarget != null || navidromePlaybackCacheTarget?.cacheHit == true -> PlaybackCacheState.LOCAL
+                navidromePlaybackCacheTarget != null -> PlaybackCacheState.CACHING
+                else -> PlaybackCacheState.NONE
+            }
+            currentNavidromePlaybackCacheKey = navidromePlaybackCacheTarget?.cacheKey
             val resolvedUri = if (offlineTarget != null) {
                 Uri.fromFile(offlineTarget.file)
             } else if (webDavTarget == null && sambaTarget == null) {
-                remotePlaybackCandidates?.firstOrNull()?.value?.let(Uri::parse)
+                navidromePlaybackCacheTarget?.playbackUri
+                    ?: remotePlaybackCandidates?.firstOrNull()?.value?.let(Uri::parse)
                     ?: resolveLocator(track.mediaLocator, navidromeAudioQuality)
             } else {
                 null
@@ -2972,20 +3020,23 @@ internal class AndroidPlaybackGateway(
                     } else {
                         null
                     }
-                    currentRemotePlaybackFallback = remotePlaybackCandidates?.takeIf { it.isNotEmpty() }?.let { candidates ->
+                    currentRemotePlaybackFallback = remotePlaybackCandidates
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.takeUnless { navidromePlaybackCacheTarget?.cacheHit == true }
+                        ?.let { candidates ->
                         AndroidRemotePlaybackFallback(
                             candidates = candidates,
                             selectedIndex = 0,
-                            navidromePlaybackCacheKey = navidromePlaybackCacheKey,
                         )
                     }
-                    setRemoteMediaItem(
-                        uri = checkNotNull(resolvedUri),
-                        navidromePlaybackCacheKey = navidromePlaybackCacheKey,
-                    )
+                    setRemoteMediaItem(checkNotNull(resolvedUri))
                 }
                 mutableState.update {
-                    it.copy(currentNavidromeAudioQuality = navidromeAudioQuality)
+                    it.copy(
+                        currentNavidromeAudioQuality = navidromeAudioQuality,
+                        cacheProgressFraction = if (playbackCacheState == PlaybackCacheState.CACHING) 0f else null,
+                        cacheState = playbackCacheState,
+                    )
                 }
                 player.prepare()
                 player.seekTo(startPositionMs)
@@ -2998,6 +3049,13 @@ internal class AndroidPlaybackGateway(
             }
             ensureProgressTicker()
         } catch (throwable: Throwable) {
+            currentNavidromePlaybackCacheKey = null
+            mutableState.update {
+                it.copy(
+                    cacheProgressFraction = null,
+                    cacheState = PlaybackCacheState.NONE,
+                )
+            }
             clearPendingLoadPlayWhenReady(loadToken)
             throw throwable
         }
@@ -3023,6 +3081,8 @@ internal class AndroidPlaybackGateway(
             currentRemoteLogTag = null
             currentRemoteLabel = null
             currentRemotePlaybackFallback = null
+            currentNavidromePlaybackCacheKey = null
+            prematureRemoteEndRecoveryCount = 0
             mutableState.update {
                 it.resetForTrackSwitch(
                     volumeOverride = player.volume,
@@ -3117,6 +3177,8 @@ internal class AndroidPlaybackGateway(
             pendingLoadPlayWhenReady = false
             player.release()
         }
+        navidromePlaybackCacheScope.cancel()
+        currentNavidromePlaybackCacheKey = null
     }
 
     private suspend fun resolveLocator(
@@ -3279,6 +3341,40 @@ internal class AndroidPlaybackGateway(
         return pendingLoadPlayWhenReady || player.isPlaying || player.playbackState == Player.STATE_BUFFERING
     }
 
+    private fun tryRecoverPrematureRemoteEnd(): Boolean {
+        if (currentRemotePlaybackFallback == null) return false
+        if (prematureRemoteEndRecoveryCount >= ANDROID_PREMATURE_REMOTE_END_MAX_RECOVERIES) return false
+        if (!player.isCurrentMediaItemSeekable) return false
+        val durationMs = player.duration.takeIf { it > 0 } ?: mutableState.value.durationMs
+        val positionMs = maxOf(
+            player.currentPosition.takeIf { it >= 0L } ?: 0L,
+            mutableState.value.positionMs.coerceAtLeast(0L),
+        )
+        if (durationMs < ANDROID_PREMATURE_REMOTE_END_MIN_DURATION_MILLIS) return false
+        if (positionMs < ANDROID_PREMATURE_REMOTE_END_MIN_POSITION_MILLIS) return false
+        if (durationMs - positionMs <= ANDROID_PREMATURE_REMOTE_END_REMAINING_TOLERANCE_MILLIS) return false
+        prematureRemoteEndRecoveryCount += 1
+        pendingLoadPlayWhenReady = true
+        logger.warn(PLAYBACK_LOG_TAG) {
+            "premature-remote-end-recover attempt=$prematureRemoteEndRecoveryCount " +
+                "positionMs=$positionMs durationMs=$durationMs source=${currentRemoteLogTag.orEmpty()} " +
+                playerDebugSummary()
+        }
+        player.prepare()
+        player.seekTo(positionMs)
+        player.playWhenReady = true
+        mutableState.update {
+            it.copy(
+                isPlaying = true,
+                positionMs = positionMs,
+                durationMs = durationMs,
+                errorMessage = null,
+            )
+        }
+        ensureProgressTicker()
+        return true
+    }
+
     private fun playerDebugSummary(): String {
         return "pending=$pendingLoadPlayWhenReady playerIsPlaying=${player.isPlaying} " +
             "playerPlayWhenReady=${player.playWhenReady} playbackState=${player.playbackState} " +
@@ -3293,7 +3389,7 @@ internal class AndroidPlaybackGateway(
                 DefaultRenderersFactory(context).setExtensionRendererMode(
                     DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
                 ),
-            ).build()
+            ).setLoadControl(createAndroidPlaybackLoadControl()).build()
             //如果引入LibflacAudioRenderer需要使用下面的方式，因为它会在 extractor 阶段就用 libFLAC 解码，输出的 sampleMimeType 直接是 audio/raw。
             //webdav 和 samba 也要改 ，这里对他们不生效，他们自定义了 media source
 //            val mediaSourceFactory = DefaultMediaSourceFactory(
@@ -3315,61 +3411,197 @@ internal class AndroidPlaybackGateway(
                 DefaultRenderersFactory(context).setExtensionRendererMode(
                     DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
                 ),
-            ).build()
+            ).setLoadControl(createAndroidPlaybackLoadControl()).build()
         }
     }
 
-    private fun setRemoteMediaItem(
-        uri: Uri,
-        navidromePlaybackCacheKey: String?,
-    ) {
-        if (navidromePlaybackCacheKey == null) {
-            player.setMediaItem(MediaItem.fromUri(uri))
-            return
-        }
-        val mediaItem = MediaItem.Builder()
-            .setUri(uri)
-            .setCustomCacheKey(navidromePlaybackCacheKey)
+    private fun createAndroidPlaybackLoadControl(): DefaultLoadControl {
+        return DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                ANDROID_PLAYBACK_MIN_BUFFER_MILLIS,
+                ANDROID_PLAYBACK_MAX_BUFFER_MILLIS,
+                ANDROID_PLAYBACK_BUFFER_FOR_PLAYBACK_MILLIS,
+                ANDROID_PLAYBACK_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MILLIS,
+            )
             .build()
-        val mediaSource = DefaultMediaSourceFactory(
-            createAndroidNavidromePlaybackCacheDataSourceFactory(),
-        ).createMediaSource(mediaItem)
-        player.setMediaSource(mediaSource)
     }
 
-    private fun createAndroidNavidromePlaybackCacheDataSourceFactory(): CacheDataSource.Factory {
-        val cache = AndroidNavidromePlaybackCacheHolder.get(
+    private fun setRemoteMediaItem(uri: Uri) {
+        player.setMediaItem(MediaItem.fromUri(uri))
+    }
+
+    private suspend fun resolveAndroidNavidromePlaybackCacheTarget(
+        track: Track,
+        locator: top.iwesley.lyn.music.core.model.SubsonicCompatibleLocator,
+        allowDownload: Boolean,
+    ): AndroidNavidromePlaybackCacheTarget? {
+        val directory = resolveAndroidNavidromePlaybackCacheTrackDirectory(
             context = context,
-            maxBytes = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheSizePreset.value.sizeBytes,
-            directory = resolveAndroidNavidromePlaybackCacheDirectory(
+            selection = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value,
+            artistName = track.artistName,
+            itemId = locator.itemId,
+        )
+        val cacheFile = File(directory, androidNavidromePlaybackCacheFileName(track, locator))
+        val playableCacheFile = cacheFile.takeIf { it.isFile && it.length() > 0L }
+            ?: legacyAndroidNavidromePlaybackCacheFile(
                 context = context,
                 selection = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value,
-            ),
+                sourceId = locator.sourceId,
+                itemId = locator.itemId,
+                fileName = cacheFile.name,
+            ).takeIf { it.isFile && it.length() > 0L }
+        if (playableCacheFile != null) {
+            playableCacheFile.setLastModified(System.currentTimeMillis())
+            logger.info(PLAYBACK_LOG_TAG) {
+                "navidrome-cache-hit source=${locator.sourceId} item=${locator.itemId} path=${playableCacheFile.absolutePath} size=${playableCacheFile.length()}"
+            }
+            return AndroidNavidromePlaybackCacheTarget(
+                playbackUri = Uri.fromFile(playableCacheFile),
+                cacheHit = true,
+                cacheKey = cacheFile.absolutePath,
+            )
+        }
+        if (!allowDownload) return null
+        val downloadCandidates = resolveNavidromeDownloadUrlCandidates(
+            database = database,
+            secureCredentialStore = secureCredentialStore,
+            locator = track.mediaLocator,
+            addressSelector = addressSelector,
         )
-        return CacheDataSource.Factory()
-            .setCache(cache)
-            .setUpstreamDataSourceFactory(DefaultDataSource.Factory(context))
-            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        val downloadUrl = downloadCandidates?.firstOrNull()?.value ?: return null
+        scheduleAndroidNavidromePlaybackCacheDownload(
+            locator = locator,
+            remoteUrl = downloadUrl,
+            directory = directory,
+            cacheFile = cacheFile,
+        )
+        return AndroidNavidromePlaybackCacheTarget(
+            playbackUri = Uri.parse(downloadUrl),
+            cacheHit = false,
+            cacheKey = cacheFile.absolutePath,
+        )
     }
 
-    private fun hasAndroidNavidromePlayableCacheData(cacheKey: String): Boolean {
-        return runCatching {
-            val cache = AndroidNavidromePlaybackCacheHolder.get(
-                context = context,
-                maxBytes = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheSizePreset.value.sizeBytes,
+    private fun scheduleAndroidNavidromePlaybackCacheDownload(
+        locator: top.iwesley.lyn.music.core.model.SubsonicCompatibleLocator,
+        remoteUrl: String,
+        directory: File,
+        cacheFile: File,
+    ) {
+        val cacheKey = cacheFile.absolutePath
+        val shouldStart = synchronized(navidromePlaybackCacheDownloads) {
+            navidromePlaybackCacheDownloads.add(cacheKey)
+        }
+        if (!shouldStart) return
+        navidromePlaybackCacheScope.launch {
+            try {
+                downloadAndroidNavidromePlaybackCacheFile(
+                    locator = locator,
+                    remoteUrl = remoteUrl,
+                    directory = directory,
+                    cacheFile = cacheFile,
+                )
+            } finally {
+                synchronized(navidromePlaybackCacheDownloads) {
+                    navidromePlaybackCacheDownloads.remove(cacheKey)
+                }
+            }
+        }
+    }
+
+    private fun downloadAndroidNavidromePlaybackCacheFile(
+        locator: top.iwesley.lyn.music.core.model.SubsonicCompatibleLocator,
+        remoteUrl: String,
+        directory: File,
+        cacheFile: File,
+    ) {
+        if (cacheFile.isFile && cacheFile.length() > 0L) return
+        directory.mkdirs()
+        val partFile = File(directory, "${cacheFile.name}.part")
+        val startedAt = System.currentTimeMillis()
+        logger.info(PLAYBACK_LOG_TAG) {
+            "navidrome-cache-download-start source=${locator.sourceId} item=${locator.itemId}"
+        }
+        runCatching {
+            val connection = (URL(remoteUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = ANDROID_NAVIDROME_PLAYBACK_CACHE_CONNECT_TIMEOUT_MILLIS
+                readTimeout = ANDROID_NAVIDROME_PLAYBACK_CACHE_READ_TIMEOUT_MILLIS
+                instanceFollowRedirects = true
+            }
+            try {
+                connection.inputStream.use { input ->
+                    partFile.outputStream().use { output ->
+                        val totalBytes = (
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                connection.contentLengthLong
+                            } else {
+                                connection.contentLength.toLong()
+                            }
+                        ).takeIf { it > 0L }
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var downloadedBytes = 0L
+                        var lastReportedFraction = -1f
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            output.write(buffer, 0, read)
+                            downloadedBytes += read
+                            totalBytes?.let { total ->
+                                val fraction = (downloadedBytes.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                                if (fraction - lastReportedFraction >= 0.01f || fraction >= 1f) {
+                                    publishAndroidNavidromePlaybackCacheProgress(cacheFile.absolutePath, fraction)
+                                    lastReportedFraction = fraction
+                                }
+                            }
+                        }
+                    }
+                }
+            } finally {
+                connection.disconnect()
+            }
+            require(partFile.length() > 0L) { "Navidrome 播放缓存为空。" }
+            if (cacheFile.exists()) cacheFile.delete()
+            check(partFile.renameTo(cacheFile)) { "Navidrome 播放缓存写入失败。" }
+            cacheFile.setLastModified(System.currentTimeMillis())
+            evictAndroidNavidromePlaybackCache(
                 directory = resolveAndroidNavidromePlaybackCacheDirectory(
                     context = context,
                     selection = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value,
                 ),
+                maxBytes = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheSizePreset.value.sizeBytes,
             )
-            val cachedFromStart = cache.getCachedLength(cacheKey, 0L, Long.MAX_VALUE)
-                .coerceAtLeast(0L)
-            val contentLength = ContentMetadata.getContentLength(cache.getContentMetadata(cacheKey))
-            hasPlayableAndroidNavidromePlaybackCache(
-                cachedFromStartBytes = cachedFromStart,
-                contentLengthBytes = contentLength,
+        }.onSuccess {
+            publishAndroidNavidromePlaybackCacheComplete(cacheFile.absolutePath)
+            logger.info(PLAYBACK_LOG_TAG) {
+                "navidrome-cache-download-complete source=${locator.sourceId} item=${locator.itemId} path=${cacheFile.absolutePath} size=${cacheFile.length()} elapsedMs=${System.currentTimeMillis() - startedAt}"
+            }
+        }.onFailure { throwable ->
+            partFile.delete()
+            if (throwable is CancellationException) throw throwable
+            logger.warn(PLAYBACK_LOG_TAG) {
+                "navidrome-cache-download-failed source=${locator.sourceId} item=${locator.itemId} message=${throwable.message.orEmpty()} elapsedMs=${System.currentTimeMillis() - startedAt}"
+            }
+        }
+    }
+
+    private fun publishAndroidNavidromePlaybackCacheProgress(cacheKey: String, fraction: Float) {
+        if (currentNavidromePlaybackCacheKey != cacheKey) return
+        mutableState.update {
+            it.copy(
+                cacheState = PlaybackCacheState.CACHING,
+                cacheProgressFraction = fraction.coerceIn(0f, 1f),
             )
-        }.getOrDefault(false)
+        }
+    }
+
+    private fun publishAndroidNavidromePlaybackCacheComplete(cacheKey: String) {
+        if (currentNavidromePlaybackCacheKey != cacheKey) return
+        mutableState.update {
+            it.copy(
+                cacheState = PlaybackCacheState.COMPLETE,
+                cacheProgressFraction = 1f,
+            )
+        }
     }
 
     private suspend fun waitForAndroidNetworkAvailableOrThrow(timeoutSeconds: Int) {
@@ -3394,48 +3626,6 @@ internal class AndroidPlaybackGateway(
         val network = manager.activeNetwork ?: return false
         val capabilities = manager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
-}
-
-@UnstableApi
-private object AndroidNavidromePlaybackCacheHolder {
-    private var cache: SimpleCache? = null
-    private var configuredMaxBytes: Long = -1L
-    private var configuredDirectoryPath: String? = null
-
-    @Synchronized
-    fun get(context: Context, maxBytes: Long, directory: File): SimpleCache {
-        val normalizedMaxBytes = maxBytes.coerceAtLeast(1L * 1024L * 1024L)
-        val normalizedDirectory = directory.absoluteFile
-        val existing = cache
-        if (
-            existing != null &&
-            configuredMaxBytes == normalizedMaxBytes &&
-            configuredDirectoryPath == normalizedDirectory.absolutePath
-        ) {
-            return existing
-        }
-        existing?.release()
-        normalizedDirectory.apply {
-            mkdirs()
-        }
-        return SimpleCache(
-            normalizedDirectory,
-            LeastRecentlyUsedCacheEvictor(normalizedMaxBytes),
-            StandaloneDatabaseProvider(context.applicationContext),
-        ).also {
-            cache = it
-            configuredMaxBytes = normalizedMaxBytes
-            configuredDirectoryPath = normalizedDirectory.absolutePath
-        }
-    }
-
-    @Synchronized
-    fun release() {
-        cache?.release()
-        cache = null
-        configuredMaxBytes = -1L
-        configuredDirectoryPath = null
     }
 }
 
@@ -3475,6 +3665,105 @@ internal fun defaultAndroidNavidromePlaybackCacheDirectory(context: Context): Fi
     return File(context.applicationContext.cacheDir, NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME)
 }
 
+private fun resolveAndroidNavidromePlaybackCacheTrackDirectory(
+    context: Context,
+    selection: LocalFolderSelection?,
+    artistName: String?,
+    itemId: String,
+): File {
+    return File(
+        File(
+            resolveAndroidNavidromePlaybackCacheDirectory(context, selection),
+            sanitizeAndroidNavidromePlaybackCachePathSegment(artistName?.takeIf { it.isNotBlank() } ?: "未知歌手"),
+        ),
+        sanitizeAndroidNavidromePlaybackCachePathSegment(itemId),
+    ).apply { mkdirs() }
+}
+
+private fun legacyAndroidNavidromePlaybackCacheFile(
+    context: Context,
+    selection: LocalFolderSelection?,
+    sourceId: String,
+    itemId: String,
+    fileName: String,
+): File {
+    return File(
+        File(
+            File(
+                resolveAndroidNavidromePlaybackCacheDirectory(context, selection),
+                sanitizeAndroidNavidromePlaybackCachePathSegment(sourceId),
+            ),
+            sanitizeAndroidNavidromePlaybackCachePathSegment(itemId),
+        ),
+        fileName,
+    )
+}
+
+private fun androidNavidromePlaybackCacheFileName(
+    track: Track,
+    locator: top.iwesley.lyn.music.core.model.SubsonicCompatibleLocator,
+): String {
+    val originalName = track.relativePath
+        .substringAfterLast('/')
+        .substringAfterLast('\\')
+        .trim()
+        .takeIf { it.isNotBlank() }
+        ?: locator.itemId
+    return sanitizeAndroidNavidromePlaybackCacheFileName(originalName)
+}
+
+private fun sanitizeAndroidNavidromePlaybackCacheFileName(value: String): String {
+    return value
+        .replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001F]"), "_")
+        .trim()
+        .trim('.')
+        .takeIf { it.isNotBlank() }
+        ?: "audio"
+}
+
+private fun sanitizeAndroidNavidromePlaybackCachePathSegment(value: String): String {
+    return value
+        .replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001F]"), "_")
+        .trim()
+        .trim('.')
+        .takeIf { it.isNotBlank() }
+        ?: "unknown"
+}
+
+private fun evictAndroidNavidromePlaybackCache(
+    directory: File,
+    maxBytes: Long,
+) {
+    val files = directory.walkTopDown()
+        .filter { it.isFile && !it.name.endsWith(".part") }
+        .toList()
+        .sortedBy { it.lastModified() }
+    var currentBytes = files.sumOf { it.length().coerceAtLeast(0L) }
+    val normalizedMaxBytes = maxBytes.coerceAtLeast(1L * 1024L * 1024L)
+    files.forEach { file ->
+        if (currentBytes <= normalizedMaxBytes) return
+        val length = file.length().coerceAtLeast(0L)
+        if (file.delete()) {
+            currentBytes -= length
+            deleteEmptyParentDirectories(file.parentFile, directory)
+        }
+    }
+}
+
+private fun deleteEmptyParentDirectories(
+    start: File?,
+    stopAt: File,
+) {
+    var current = start
+    val boundary = stopAt.absoluteFile
+    while (current != null && current.absoluteFile != boundary) {
+        if (current.listFiles().orEmpty().isNotEmpty()) return
+        val parent = current.parentFile
+        current.delete()
+        current = parent
+    }
+}
+
 internal fun readAndroidNavidromePlaybackCacheDirectorySelection(context: Context): LocalFolderSelection? {
     val preferences = context.applicationContext.getSharedPreferences("lynmusic.settings", Context.MODE_PRIVATE)
     val reference = preferences.getString(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE, null)
@@ -3512,7 +3801,7 @@ internal fun hasPlayableAndroidNavidromePlaybackCache(
 
 @OptIn(UnstableApi::class)
 internal fun releaseAndroidNavidromePlaybackCache() {
-    AndroidNavidromePlaybackCacheHolder.release()
+    // No-op for the file-based playback cache. Kept for storage cleanup compatibility.
 }
 
 private fun Tracks.selectedAudioFormat(): PlaybackAudioFormat? {
@@ -3707,6 +3996,8 @@ private const val KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE = "navidrome_
 private const val KEY_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET = "navidrome_playback_cache_size_preset"
 internal const val NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME = "navidrome-playback-cache"
 private const val MIN_NAVIDROME_PLAYBACK_CACHE_BOOTSTRAP_BYTES = 1024L * 1024L
+private const val ANDROID_NAVIDROME_PLAYBACK_CACHE_CONNECT_TIMEOUT_MILLIS = 15_000
+private const val ANDROID_NAVIDROME_PLAYBACK_CACHE_READ_TIMEOUT_MILLIS = 45_000
 private const val KEY_LYRICS_SHARE_FONT_KEY = "lyrics_share_font_key"
 private const val KEY_LIBRARY_SOURCE_FILTER = "library_source_filter"
 private const val KEY_FAVORITES_SOURCE_FILTER = "favorites_source_filter"
@@ -3717,6 +4008,14 @@ private const val KEY_LIBRARY_TRACK_SORT_MODE = "library_track_sort_mode"
 private const val KEY_FAVORITES_TRACK_SORT_MODE = "favorites_track_sort_mode"
 private const val WAITING_FOR_NETWORK_MESSAGE = "等待网络连接，网络恢复后将继续播放"
 private const val ANDROID_PLAYBACK_NETWORK_WAIT_TIMEOUT_SECONDS = 60
+private const val ANDROID_PLAYBACK_MIN_BUFFER_MILLIS = 30_000
+private const val ANDROID_PLAYBACK_MAX_BUFFER_MILLIS = 120_000
+private const val ANDROID_PLAYBACK_BUFFER_FOR_PLAYBACK_MILLIS = 2_500
+private const val ANDROID_PLAYBACK_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MILLIS = 7_500
+private const val ANDROID_PREMATURE_REMOTE_END_MAX_RECOVERIES = 2
+private const val ANDROID_PREMATURE_REMOTE_END_MIN_DURATION_MILLIS = 60_000L
+private const val ANDROID_PREMATURE_REMOTE_END_MIN_POSITION_MILLIS = 15_000L
+private const val ANDROID_PREMATURE_REMOTE_END_REMAINING_TOLERANCE_MILLIS = 15_000L
 private const val ANDROID_KEYSTORE = "AndroidKeyStore"
 private const val CREDENTIAL_KEY_ALIAS = "lynmusic.credentials.master"
 private const val AES_TRANSFORMATION = "AES/GCM/NoPadding"

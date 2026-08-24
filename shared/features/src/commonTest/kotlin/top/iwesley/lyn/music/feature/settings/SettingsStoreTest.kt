@@ -2491,6 +2491,8 @@ private class FakeNavidromePlaybackCacheDirectoryPicker(
     private val result: Result<LocalFolderSelection?>,
 ) : NavidromePlaybackCacheDirectoryPicker {
     override suspend fun pickDirectory(): Result<LocalFolderSelection?> = result
+
+    override suspend fun openDirectory(selection: LocalFolderSelection?): Result<Unit> = Result.success(Unit)
 }
 
 private class FakeAppUpdateRepository(

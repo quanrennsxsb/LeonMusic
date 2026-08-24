@@ -33,6 +33,7 @@ import top.iwesley.lyn.music.core.model.DesktopVlcPreferencesStore
 import top.iwesley.lyn.music.core.model.PlaybackLoadToken
 import top.iwesley.lyn.music.core.model.PlaybackPreferencesStore
 import top.iwesley.lyn.music.core.model.Track
+import top.iwesley.lyn.music.core.model.UnsupportedNavidromePlaybackCachePreferencesStore
 import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
 import top.iwesley.lyn.music.data.db.LynMusicDatabase
@@ -480,6 +481,7 @@ private fun createGateway(
         secureCredentialStore = EmptySecureCredentialStore,
         playbackPreferencesStore = playbackPreferencesStore,
         desktopVlcPreferencesStore = desktopVlcPreferencesStore,
+        navidromePlaybackCachePreferencesStore = UnsupportedNavidromePlaybackCachePreferencesStore,
         logger = top.iwesley.lyn.music.core.model.NoopDiagnosticLogger,
         runtimeInitializer = runtimeInitializer,
         runtimeDispatcher = runtimeDispatcher,

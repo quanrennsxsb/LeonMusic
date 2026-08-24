@@ -35,7 +35,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		6C04A2EB204B9C1C7EEF2244 /* LeonMusicMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LeonMusicMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C04A2EB204B9C1C7EEF2244 /* LeonMusic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LeonMusic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB627435E8124B018BB6A74C /* LeonMusicWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LeonMusicWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -101,7 +101,7 @@
 		1424A8AD89B842D6CCDBF75C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				6C04A2EB204B9C1C7EEF2244 /* LeonMusicMac.app */,
+				6C04A2EB204B9C1C7EEF2244 /* LeonMusic.app */,
 				FB627435E8124B018BB6A74C /* LeonMusicWidget.appex */,
 			);
 			name = Products;
@@ -124,7 +124,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 431DE9D83A67E346504FAF68 /* Build configuration list for PBXNativeTarget "macosApp" */;
 			buildPhases = (
-				CD965B81930CAC202C90C384 /* Compile Kotlin Framework */,
+				CD965B81930CAC202C90C384 /* Embed LeonMusic Player */,
 				16063A127374F550E25891B1 /* Sources */,
 				98B1D0FA12A4A50A2BA5A4E7 /* Frameworks */,
 				9E9539E526BBE26101D21D4A /* Resources */,
@@ -143,7 +143,7 @@
 			packageProductDependencies = (
 			);
 			productName = macosApp;
-			productReference = 6C04A2EB204B9C1C7EEF2244 /* LeonMusicMac.app */;
+			productReference = 6C04A2EB204B9C1C7EEF2244 /* LeonMusic.app */;
 			productType = "com.apple.product-type.application";
 		};
 		4AD2DB0A94F74FA48F929208 /* LeonMusicWidget */ = {
@@ -240,7 +240,7 @@
 			shellPath = /bin/sh;
 			shellScript = "if [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  exit 0\nfi\nWIDGET_EXTENSION=\"$CODESIGNING_FOLDER_PATH/Contents/PlugIns/LeonMusicWidget.appex\"\nif [ -d \"$WIDGET_EXTENSION\" ]; then\n  /usr/bin/pluginkit -a \"$WIDGET_EXTENSION\" || true\n  /usr/bin/pluginkit -e use -p com.apple.widgetkit-extension -i \"$PRODUCT_BUNDLE_IDENTIFIER.LeonMusicWidget\" || true\nfi\n";
 		};
-		CD965B81930CAC202C90C384 /* Compile Kotlin Framework */ = {
+		CD965B81930CAC202C90C384 /* Embed LeonMusic Player */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -250,14 +250,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Compile Kotlin Framework";
+			name = "Embed LeonMusic Player";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\nJAVA_21_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || true)\nif [ -z \"$JAVA_21_HOME\" ] && [ -x \"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java\" ]; then\n  JAVA_21_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\"\nfi\nif [ -n \"$JAVA_21_HOME\" ]; then\n  export JAVA_HOME=\"$JAVA_21_HOME\"\n  export PATH=\"$JAVA_HOME/bin:$PATH\"\nfi\nGRADLE_BIN=$(find \"$HOME/.gradle/wrapper/dists\" -path \"*gradle-8.14.3/bin/gradle\" | head -n 1)\ncd \"$SRCROOT/..\"\nif [ -x \"$GRADLE_BIN\" ]; then\n  \"$GRADLE_BIN\" :composeApp:embedAndSignAppleFrameworkForXcode\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\nfi\nFRAMEWORK_SOURCE=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME/ComposeApp.framework\"\nif [ ! -d \"$FRAMEWORK_SOURCE\" ]; then\n  FRAMEWORK_SOURCE=$(find \"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION\" -maxdepth 2 -name ComposeApp.framework | head -n 1)\nfi\nif [ ! -d \"$FRAMEWORK_SOURCE\" ]; then\n  echo \"ComposeApp.framework not found after Gradle build\"\n  exit 1\nfi\nFRAMEWORK_DESTINATION=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/ComposeApp.framework\"\nmkdir -p \"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\nrm -rf \"$FRAMEWORK_DESTINATION\"\n/usr/bin/ditto \"$FRAMEWORK_SOURCE\" \"$FRAMEWORK_DESTINATION\"\nif [ \"$CODE_SIGNING_ALLOWED\" = \"YES\" ] && [ -n \"$EXPANDED_CODE_SIGN_IDENTITY\" ] && [ \"$EXPANDED_CODE_SIGN_IDENTITY\" != \"-\" ]; then\n  /usr/bin/codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --preserve-metadata=identifier,entitlements \"$FRAMEWORK_DESTINATION\"\nfi\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\nJAVA_21_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || true)\nif [ -z \"$JAVA_21_HOME\" ] && [ -x \"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java\" ]; then\n  JAVA_21_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\"\nfi\nif [ -n \"$JAVA_21_HOME\" ]; then\n  export JAVA_HOME=\"$JAVA_21_HOME\"\n  export PATH=\"$JAVA_HOME/bin:$PATH\"\nfi\nGRADLE_BIN=$(find \"$HOME/.gradle/wrapper/dists\" -path \"*gradle-8.14.3/bin/gradle\" | head -n 1)\ncd \"$SRCROOT/..\"\nif [ -x \"$GRADLE_BIN\" ]; then\n  \"$GRADLE_BIN\" :composeApp:createDistributable\nelse\n  ./gradlew :composeApp:createDistributable\nfi\nPLAYER_SOURCE=\"$SRCROOT/../composeApp/build/compose/binaries/main/app/LeonMusic.app/Contents\"\nif [ ! -x \"$PLAYER_SOURCE/MacOS/LeonMusic\" ]; then\n  echo \"Embedded LeonMusic player executable not found at $PLAYER_SOURCE/MacOS/LeonMusic\"\n  exit 1\nfi\nPLAYER_DESTINATION=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Contents\"\nmkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nrm -rf \"$PLAYER_DESTINATION\"\nrm -rf \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/LeonMusicPlayer\"\n/usr/bin/ditto \"$PLAYER_SOURCE\" \"$PLAYER_DESTINATION\"\nrm -rf \"$PLAYER_DESTINATION/_CodeSignature\"\nRUNTIME_LIB_DIR=\"$PLAYER_DESTINATION/runtime/Contents/Home/lib\"\nBREW_DYLIBS=\"/opt/homebrew/opt/harfbuzz/lib/libharfbuzz.0.dylib /opt/homebrew/opt/freetype/lib/libfreetype.6.dylib /opt/homebrew/opt/glib/lib/libglib-2.0.0.dylib /opt/homebrew/opt/graphite2/lib/libgraphite2.3.dylib /opt/homebrew/opt/libpng/lib/libpng16.16.dylib /opt/homebrew/opt/gettext/lib/libintl.8.dylib /opt/homebrew/opt/pcre2/lib/libpcre2-8.0.dylib\"\nfor dylib in $BREW_DYLIBS; do\n  if [ ! -f \"$dylib\" ]; then\n    echo \"Required embedded dependency not found: $dylib\"\n    exit 1\n  fi\n  /usr/bin/ditto \"$dylib\" \"$RUNTIME_LIB_DIR/$(basename \"$dylib\")\"\n  chmod u+w \"$RUNTIME_LIB_DIR/$(basename \"$dylib\")\"\n  install_name_tool -id \"@rpath/$(basename \"$dylib\")\" \"$RUNTIME_LIB_DIR/$(basename \"$dylib\")\"\ndone\ninstall_name_tool -change /opt/homebrew/opt/harfbuzz/lib/libharfbuzz.0.dylib @rpath/libharfbuzz.0.dylib \"$RUNTIME_LIB_DIR/libfontmanager.dylib\"\ninstall_name_tool -change /opt/homebrew/opt/freetype/lib/libfreetype.6.dylib @rpath/libfreetype.6.dylib \"$RUNTIME_LIB_DIR/libfontmanager.dylib\"\ninstall_name_tool -change /opt/homebrew/opt/freetype/lib/libfreetype.6.dylib @rpath/libfreetype.6.dylib \"$RUNTIME_LIB_DIR/libharfbuzz.0.dylib\"\ninstall_name_tool -change /opt/homebrew/opt/glib/lib/libglib-2.0.0.dylib @rpath/libglib-2.0.0.dylib \"$RUNTIME_LIB_DIR/libharfbuzz.0.dylib\"\ninstall_name_tool -change /opt/homebrew/opt/graphite2/lib/libgraphite2.3.dylib @rpath/libgraphite2.3.dylib \"$RUNTIME_LIB_DIR/libharfbuzz.0.dylib\"\ninstall_name_tool -change /opt/homebrew/opt/libpng/lib/libpng16.16.dylib @rpath/libpng16.16.dylib \"$RUNTIME_LIB_DIR/libfreetype.6.dylib\"\ninstall_name_tool -change /opt/homebrew/opt/gettext/lib/libintl.8.dylib @rpath/libintl.8.dylib \"$RUNTIME_LIB_DIR/libglib-2.0.0.dylib\"\ninstall_name_tool -change /opt/homebrew/opt/pcre2/lib/libpcre2-8.0.dylib @rpath/libpcre2-8.0.dylib \"$RUNTIME_LIB_DIR/libglib-2.0.0.dylib\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -510,7 +510,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				PRODUCT_BUNDLE_IDENTIFIER = top.iwesley.lyn.music.LeonMusicMac.LeonMusicWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = top.iwesley.lyn.music.LeonMusicWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -544,7 +544,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				PRODUCT_BUNDLE_IDENTIFIER = top.iwesley.lyn.music.LeonMusicMac.LeonMusicWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = top.iwesley.lyn.music.LeonMusicWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;

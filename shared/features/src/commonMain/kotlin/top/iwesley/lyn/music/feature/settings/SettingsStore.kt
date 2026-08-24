@@ -170,6 +170,7 @@ sealed interface SettingsIntent {
     data class NavidromeMobileAudioQualityChanged(val value: NavidromeAudioQuality) : SettingsIntent
     data class NavidromePlaybackCacheEnabledChanged(val value: Boolean) : SettingsIntent
     data object PickNavidromePlaybackCacheDirectory : SettingsIntent
+    data object OpenNavidromePlaybackCacheDirectory : SettingsIntent
     data object ResetNavidromePlaybackCacheDirectory : SettingsIntent
     data class NavidromePlaybackCacheSizePresetChanged(
         val value: NavidromePlaybackCacheSizePreset,
@@ -679,6 +680,8 @@ class SettingsStore(
             }
 
             SettingsIntent.PickNavidromePlaybackCacheDirectory -> pickNavidromePlaybackCacheDirectory()
+
+            SettingsIntent.OpenNavidromePlaybackCacheDirectory -> openNavidromePlaybackCacheDirectory()
 
             SettingsIntent.ResetNavidromePlaybackCacheDirectory -> {
                 repository.setNavidromePlaybackCacheDirectory(null)
@@ -1328,6 +1331,21 @@ class SettingsStore(
             onFailure = { error ->
                 updateState {
                     it.copy(message = error.message ?: "边听边存目录选择失败。")
+                }
+            },
+        )
+    }
+
+    private suspend fun openNavidromePlaybackCacheDirectory() {
+        val selection = state.value.navidromePlaybackCacheDirectory
+        val result = navidromePlaybackCacheDirectoryPicker.openDirectory(selection)
+        result.fold(
+            onSuccess = {
+                updateState { it.copy(message = "已打开边听边存目录。") }
+            },
+            onFailure = { error ->
+                updateState {
+                    it.copy(message = error.message ?: "边听边存目录打开失败。")
                 }
             },
         )

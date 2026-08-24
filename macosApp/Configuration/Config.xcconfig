@@ -2,7 +2,7 @@
 
 TEAM_ID=
 
-PRODUCT_NAME=LeonMusicMac
-PRODUCT_BUNDLE_IDENTIFIER=top.iwesley.lyn.music.LeonMusicMac
+PRODUCT_NAME=LeonMusic
+PRODUCT_BUNDLE_IDENTIFIER=top.iwesley.lyn.music
 
 #include? "Config.local.xcconfig"

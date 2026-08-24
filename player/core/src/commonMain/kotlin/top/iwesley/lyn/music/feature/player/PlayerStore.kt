@@ -37,6 +37,7 @@ import top.iwesley.lyn.music.core.model.LyricsSharePlatformService
 import top.iwesley.lyn.music.core.model.NoopDiagnosticLogger
 import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.PlaybackMode
+import top.iwesley.lyn.music.core.model.PlaybackCacheState
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.UnsupportedLyricsShareFontLibraryPlatformService
@@ -160,6 +161,8 @@ data class PlayerState(
                     },
                 positionMs = remotePositionMs,
                 durationMs = remoteDurationMs,
+                cacheProgressFraction = null,
+                cacheState = PlaybackCacheState.NONE,
                 canSeek = playback?.canSeek ?: snapshot.canSeek,
                 metadataTitle = if (effectiveIndex == snapshot.currentIndex) snapshot.metadataTitle else null,
                 metadataArtistName = if (effectiveIndex == snapshot.currentIndex) snapshot.metadataArtistName else null,

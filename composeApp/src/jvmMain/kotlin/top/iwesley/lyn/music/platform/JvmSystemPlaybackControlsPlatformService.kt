@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.iwesley.lyn.music.core.model.ArtworkCacheStore
 import top.iwesley.lyn.music.core.model.DiagnosticLogger
@@ -66,6 +67,7 @@ internal data class JvmNowPlayingPayload(
     val artist: String?,
     val album: String?,
     val artworkPath: String?,
+    val lyricsText: String? = null,
     val durationMs: Long,
     val positionMs: Long,
     val isPlaying: Boolean,
@@ -99,6 +101,8 @@ internal fun buildJvmNowPlayingPayload(
 internal class JvmSystemPlaybackControlsPlatformService(
     private val bridge: MacOsNowPlayingBridge,
     private val artworkCacheStore: ArtworkCacheStore = createJvmArtworkCacheStore(),
+    private val widgetNowPlayingWriter: JvmMacOsWidgetNowPlayingWriter = JvmMacOsWidgetNowPlayingStore.default(),
+    private val widgetPlaybackCommandReader: JvmMacOsWidgetPlaybackCommandReader = JvmMacOsWidgetNowPlayingStore.default(),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : SystemPlaybackControlsPlatformService {
     private var callbacks = SystemPlaybackControlCallbacks()
@@ -108,13 +112,12 @@ internal class JvmSystemPlaybackControlsPlatformService(
 
     init {
         bridge.setCommandHandler { command ->
-            when (command) {
-                is MacOsNowPlayingCommand.Play -> scope.launch { callbacks.play() }
-                is MacOsNowPlayingCommand.Pause -> scope.launch { callbacks.pause() }
-                is MacOsNowPlayingCommand.TogglePlayPause -> scope.launch { callbacks.togglePlayPause() }
-                is MacOsNowPlayingCommand.Next -> scope.launch { callbacks.skipNext() }
-                is MacOsNowPlayingCommand.Previous -> scope.launch { callbacks.skipPrevious() }
-                is MacOsNowPlayingCommand.Seek -> scope.launch { callbacks.seekTo(command.positionMs) }
+            dispatchCommand(command)
+        }
+        scope.launch {
+            while (true) {
+                widgetPlaybackCommandReader.consumeCommand()?.let(::dispatchCommand)
+                delay(JVM_WIDGET_COMMAND_POLL_INTERVAL_MILLIS)
             }
         }
     }
@@ -129,23 +132,23 @@ internal class JvmSystemPlaybackControlsPlatformService(
             latestArtworkLocator = null
             latestArtworkCacheKey = null
             latestArtworkPath = null
-            JvmMacOsWidgetNowPlayingStore.clear()
+            widgetNowPlayingWriter.clear()
             bridge.clear()
             return
         }
         val artworkPath = resolveArtworkPath(snapshot)
         val payload = buildJvmNowPlayingPayload(snapshot, artworkPath)
         if (payload == null) {
-            JvmMacOsWidgetNowPlayingStore.clear()
+            widgetNowPlayingWriter.clear()
             bridge.clear()
             return
         }
-        JvmMacOsWidgetNowPlayingStore.update(payload)
+        widgetNowPlayingWriter.update(payload)
         bridge.update(payload)
     }
 
     override suspend fun close() {
-        JvmMacOsWidgetNowPlayingStore.clear()
+        widgetNowPlayingWriter.clear()
         bridge.clear()
         bridge.dispose()
         scope.cancel()
@@ -168,6 +171,17 @@ internal class JvmSystemPlaybackControlsPlatformService(
             ?.takeIf { it.isNotBlank() }
             ?: normalized?.let { artworkCacheStore.cache(it, cacheKey ?: it) }
         return latestArtworkPath
+    }
+
+    private fun dispatchCommand(command: MacOsNowPlayingCommand) {
+        when (command) {
+            is MacOsNowPlayingCommand.Play -> scope.launch { callbacks.play() }
+            is MacOsNowPlayingCommand.Pause -> scope.launch { callbacks.pause() }
+            is MacOsNowPlayingCommand.TogglePlayPause -> scope.launch { callbacks.togglePlayPause() }
+            is MacOsNowPlayingCommand.Next -> scope.launch { callbacks.skipNext() }
+            is MacOsNowPlayingCommand.Previous -> scope.launch { callbacks.skipPrevious() }
+            is MacOsNowPlayingCommand.Seek -> scope.launch { callbacks.seekTo(command.positionMs) }
+        }
     }
 }
 
@@ -280,10 +294,29 @@ private interface LeonMusicNowPlayingNativeLibrary : Library {
     fun lyn_music_now_playing_clear(handle: Pointer): Int
 
     fun lyn_music_now_playing_dispose(handle: Pointer): Int
+
+    fun lyn_music_widget_reload_timelines(): Int
 }
 
 private fun interface LeonMusicNowPlayingCommandCallback : Callback {
     fun invoke(command: Int, value: Double)
+}
+
+internal fun reloadJvmMacOsWidgetTimeline(
+    logger: DiagnosticLogger = NoopDiagnosticLogger,
+): Boolean {
+    return runCatching {
+        val nativeLibrary = Native.load(
+            extractMacOsNowPlayingBridgeLibrary().toAbsolutePath().toString(),
+            LeonMusicNowPlayingNativeLibrary::class.java,
+            mapOf(Library.OPTION_STRING_ENCODING to Charsets.UTF_8.name()),
+        )
+        nativeLibrary.lyn_music_widget_reload_timelines() == 1
+    }.onFailure { throwable ->
+        logger.warn(JVM_SYSTEM_PLAYBACK_CONTROLS_TAG) {
+            "macOS widget timeline reload unavailable: ${throwable.message.orEmpty()}"
+        }
+    }.getOrDefault(false)
 }
 
 @OptIn(ExperimentalPathApi::class)
@@ -313,3 +346,4 @@ private const val NATIVE_COMMAND_TOGGLE_PLAY_PAUSE = 3
 private const val NATIVE_COMMAND_NEXT = 4
 private const val NATIVE_COMMAND_PREVIOUS = 5
 private const val NATIVE_COMMAND_SEEK = 6
+private const val JVM_WIDGET_COMMAND_POLL_INTERVAL_MILLIS = 350L

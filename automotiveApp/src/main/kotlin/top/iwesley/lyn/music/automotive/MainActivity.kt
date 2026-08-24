@@ -3,11 +3,13 @@ package top.iwesley.lyn.music.automotive
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.app.AlertDialog
 import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -54,6 +56,7 @@ class MainActivity : ComponentActivity() {
     private var externalAudioOpenJob: Job? = null
     private var externalAudioOpenRequestId = 0L
     private var wakeResumeJob: Job? = null
+    private var backActionDialog: AlertDialog? = null
     private val screenStateReceiver = AutomotiveWakeScreenStateReceiver(
         onScreenTurnedOff = { rememberPlaybackForWake() },
     )
@@ -99,6 +102,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val appComponent = appComponentResult.getOrNull()
             if (appComponent != null) {
+                BackHandler {
+                    showAutomotiveBackActionDialog()
+                }
                 val appDisplayScalePreset by appComponent.appDisplayScalePreset.collectAsState()
                 ProvideFixedAndroidComposeDensity(appDisplayScalePreset = appDisplayScalePreset) {
                     App(
@@ -135,6 +141,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        backActionDialog?.dismiss()
+        backActionDialog = null
         wakeResumeJob?.cancel()
         externalAudioOpenScope.cancel()
     }
@@ -198,6 +206,33 @@ class MainActivity : ComponentActivity() {
 
     private fun rememberPlaybackForWake() {
         wakeResumeViewModel.rememberForWake(appComponent?.playerStore?.state?.value)
+    }
+
+    private fun pausePlaybackBeforeExit() {
+        val component = appComponent ?: return
+        if (component.playerStore.state.value.effectiveSnapshot.isPlaying) {
+            component.playerStore.dispatch(PlayerIntent.TogglePlayPause)
+        }
+    }
+
+    private fun showAutomotiveBackActionDialog() {
+        if (backActionDialog?.isShowing == true) return
+        backActionDialog = AlertDialog.Builder(this)
+            .setTitle("离开 LeonMusic？")
+            .setMessage("可以让歌曲继续在后台播放，或暂停播放并退出应用。")
+            .setPositiveButton("后台播放") { dialog, _ ->
+                dialog.dismiss()
+                moveTaskToBack(true)
+            }
+            .setNegativeButton("退出") { dialog, _ ->
+                dialog.dismiss()
+                pausePlaybackBeforeExit()
+                finishAndRemoveTask()
+            }
+            .setOnDismissListener {
+                backActionDialog = null
+            }
+            .show()
     }
 }
 

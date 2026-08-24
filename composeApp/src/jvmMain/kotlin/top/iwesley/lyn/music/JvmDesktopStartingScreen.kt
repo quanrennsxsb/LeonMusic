@@ -38,13 +38,13 @@ internal fun JvmDesktopStartingScreen(
             ) {
                 Image(
                     painter = painterResource("desktop-icon.png"),
-                    contentDescription = "LynMusic 应用图标",
+                    contentDescription = "LeonMusic 应用图标",
                     modifier = Modifier
                         .size(128.dp)
                         .clip(RoundedCornerShape(28.dp)),
                 )
                 Text(
-                    text = "LynMusic 正在启动…",
+                    text = "LeonMusic 正在启动…",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = StartupContentColor,

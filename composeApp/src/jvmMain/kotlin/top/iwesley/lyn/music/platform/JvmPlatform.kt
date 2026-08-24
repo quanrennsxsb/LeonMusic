@@ -10,7 +10,9 @@ import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
+import java.awt.Desktop
 import java.io.File
+import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.nio.file.AtomicMoveNotSupportedException
@@ -57,6 +59,10 @@ import top.iwesley.lyn.music.core.model.AudioTagPatch
 import top.iwesley.lyn.music.core.model.AudioTagSnapshot
 import top.iwesley.lyn.music.core.model.ConsoleDiagnosticLogger
 import top.iwesley.lyn.music.core.model.CompactPlayerLyricsPreferencesStore
+import top.iwesley.lyn.music.core.model.DEFAULT_NAVIDROME_MOBILE_AUDIO_QUALITY
+import top.iwesley.lyn.music.core.model.DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED
+import top.iwesley.lyn.music.core.model.DEFAULT_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET
+import top.iwesley.lyn.music.core.model.DEFAULT_NAVIDROME_WIFI_AUDIO_QUALITY
 import top.iwesley.lyn.music.core.model.DEFAULT_MINIMIZE_WINDOW_ON_CLOSE
 import top.iwesley.lyn.music.core.model.DEFAULT_SAMBA_PORT
 import top.iwesley.lyn.music.core.model.DesktopLyricsPreferencesStore
@@ -71,6 +77,7 @@ import top.iwesley.lyn.music.core.model.ImportScanProgress
 import top.iwesley.lyn.music.core.model.ImportScanProgressSink
 import top.iwesley.lyn.music.core.model.ImportScanReport
 import top.iwesley.lyn.music.core.model.ImportStreamingScanReport
+import top.iwesley.lyn.music.core.model.ImportSourceType
 import top.iwesley.lyn.music.core.model.ImportSourceGateway
 import top.iwesley.lyn.music.core.model.ImportTrackBatchSink
 import top.iwesley.lyn.music.core.model.LocalFolderSelection
@@ -79,13 +86,18 @@ import top.iwesley.lyn.music.core.model.LyricsHttpResponse
 import top.iwesley.lyn.music.core.model.LyricsRequest
 import top.iwesley.lyn.music.core.model.MenuBarLyricsControlsPreferencesStore
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
+import top.iwesley.lyn.music.core.model.NavidromeAudioQualityPreferencesStore
 import top.iwesley.lyn.music.core.model.NavidromeLibraryProbe
 import top.iwesley.lyn.music.core.model.NavidromeSourceDraft
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheDirectoryPicker
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCachePreferencesStore
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCacheSizePreset
 import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.NonNavidromeAudioScanResult
 import top.iwesley.lyn.music.core.model.PlatformCapabilities
 import top.iwesley.lyn.music.core.model.PlatformDescriptor
 import top.iwesley.lyn.music.core.model.PlaybackGateway
+import top.iwesley.lyn.music.core.model.PlaybackCacheState
 import top.iwesley.lyn.music.core.model.PlaybackGatewayState
 import top.iwesley.lyn.music.core.model.PlaybackLoadToken
 import top.iwesley.lyn.music.core.model.PlaybackPreferencesStore
@@ -125,6 +137,7 @@ import top.iwesley.lyn.music.core.model.SecureCredentialStore
 import top.iwesley.lyn.music.core.model.SameNameLyricsFileGateway
 import top.iwesley.lyn.music.core.model.SubsonicSourceDraft
 import top.iwesley.lyn.music.core.model.Track
+import top.iwesley.lyn.music.core.model.SubsonicCompatibleLocator
 import top.iwesley.lyn.music.core.model.VlcPathPickerPlatformService
 import top.iwesley.lyn.music.core.model.WebDavSourceDraft
 import top.iwesley.lyn.music.core.model.WifiNetworkConnectionTypeProvider
@@ -137,6 +150,8 @@ import top.iwesley.lyn.music.core.model.info
 import top.iwesley.lyn.music.core.model.joinSambaPath
 import top.iwesley.lyn.music.core.model.normalizeArtworkLocator
 import top.iwesley.lyn.music.core.model.normalizeSambaPath
+import top.iwesley.lyn.music.core.model.navidromeAudioQualityOrDefault
+import top.iwesley.lyn.music.core.model.navidromePlaybackCacheSizePresetOrDefault
 import top.iwesley.lyn.music.core.model.parseSambaLocator
 import top.iwesley.lyn.music.core.model.parseSambaPath
 import top.iwesley.lyn.music.core.model.parseEmbyCoverLocator
@@ -153,6 +168,7 @@ import top.iwesley.lyn.music.data.db.openLynMusicDatabase
 import top.iwesley.lyn.music.data.repository.DailyRecommendationDateChangeNotifier
 import top.iwesley.lyn.music.data.repository.DailyRecommendationDateKeyProvider
 import top.iwesley.lyn.music.data.repository.PlayerRuntimeServices
+import top.iwesley.lyn.music.domain.resolveNavidromeDownloadUrlCandidates
 import top.iwesley.lyn.music.domain.resolveNavidromeStreamUrl
 import top.iwesley.lyn.music.domain.resolveNavidromeStreamUrlCandidates
 import top.iwesley.lyn.music.domain.resolveEmbyStreamUrl
@@ -233,6 +249,7 @@ fun createJvmAppComponent(
         secureCredentialStore = secureStore,
         playbackPreferencesStore = appPreferencesStore,
         desktopVlcPreferencesStore = appPreferencesStore,
+        navidromePlaybackCachePreferencesStore = appPreferencesStore,
         logger = logger,
         addressSelector = remoteSourceAddressSelector,
     )
@@ -276,6 +293,9 @@ fun createJvmAppComponent(
             playerLyricsFontSizePreferencesStore = appPreferencesStore,
             playerArtworkSizePreferencesStore = appPreferencesStore,
             desktopVlcPreferencesStore = appPreferencesStore,
+            navidromeAudioQualityPreferencesStore = appPreferencesStore,
+            navidromePlaybackCachePreferencesStore = appPreferencesStore,
+            navidromePlaybackCacheDirectoryPicker = JvmNavidromePlaybackCacheDirectoryPicker(),
             networkConnectionTypeProvider = WifiNetworkConnectionTypeProvider,
             remoteSourceAddressSelector = remoteSourceAddressSelector,
             librarySourceFilterPreferencesStore = appPreferencesStore,
@@ -283,7 +303,10 @@ fun createJvmAppComponent(
             lyricsShareFontPreferencesStore = appPreferencesStore,
             lyricsHttpClient = navidromeHttpClient,
             artworkCacheStore = artworkCacheStore,
-            appStorageGateway = createJvmAppStorageGateway(database = database),
+            appStorageGateway = createJvmAppStorageGateway(
+                database = database,
+                navidromePlaybackCachePreferencesStore = appPreferencesStore,
+            ),
             appDataLocationPlatformService = JvmAppDataLocationPlatformService(dataLocationManager),
             offlineDownloadGateway = createJvmOfflineDownloadGateway(
                 database = database,
@@ -324,6 +347,7 @@ fun createJvmAppComponent(
             lyricsShareFontPreferencesStore = appPreferencesStore,
             systemPlaybackControlsPlatformService = systemPlaybackControls.service,
             menuBarLyricsControlsPlatformService = menuBarLyricsControls.service,
+            widgetLyricsPlatformService = JvmWidgetLyricsPlatformService(),
             closeDesktopResources = { resourceGuard.closeAll().getOrThrow() },
         ),
     )
@@ -441,7 +465,8 @@ internal class JvmAppPreferencesStore(
     CompactPlayerLyricsPreferencesStore, DesktopLyricsPreferencesStore, MenuBarLyricsControlsPreferencesStore,
     DesktopVlcPreferencesStore, LyricsShareFontPreferencesStore, PlayerArtworkStylePreferencesStore,
     PlayerLyricsColorPreferencesStore, PlayerLyricsFontSizePreferencesStore, PlayerArtworkSizePreferencesStore,
-    LibrarySourceFilterPreferencesStore, WindowClosePreferencesStore, AutoOpenPlayerOnStartupPreferencesStore {
+    LibrarySourceFilterPreferencesStore, WindowClosePreferencesStore, AutoOpenPlayerOnStartupPreferencesStore,
+    NavidromeAudioQualityPreferencesStore, NavidromePlaybackCachePreferencesStore {
     private val propertiesFile = JvmSettingsPropertiesFile(settingsFile)
     private val mutableUseSambaCache = MutableStateFlow(readUseSambaCache())
     private val mutablePlaybackVolume = MutableStateFlow(readPlaybackVolume())
@@ -479,6 +504,15 @@ internal class JvmAppPreferencesStore(
             autoDetectedPath = mutableDesktopVlcAutoDetectedPath.value,
         ),
     )
+    private val mutableNavidromeWifiAudioQuality = MutableStateFlow(
+        readNavidromeAudioQuality(KEY_NAVIDROME_WIFI_AUDIO_QUALITY, DEFAULT_NAVIDROME_WIFI_AUDIO_QUALITY),
+    )
+    private val mutableNavidromeMobileAudioQuality = MutableStateFlow(
+        readNavidromeAudioQuality(KEY_NAVIDROME_MOBILE_AUDIO_QUALITY, DEFAULT_NAVIDROME_MOBILE_AUDIO_QUALITY),
+    )
+    private val mutableNavidromePlaybackCacheEnabled = MutableStateFlow(readNavidromePlaybackCacheEnabled())
+    private val mutableNavidromePlaybackCacheDirectory = MutableStateFlow(readNavidromePlaybackCacheDirectory())
+    private val mutableNavidromePlaybackCacheSizePreset = MutableStateFlow(readNavidromePlaybackCacheSizePreset())
     private val mutableSelectedLyricsShareFontKey = MutableStateFlow(readSelectedLyricsShareFontKey())
 
     override val useSambaCache: StateFlow<Boolean> = mutableUseSambaCache.asStateFlow()
@@ -515,6 +549,16 @@ internal class JvmAppPreferencesStore(
     override val onlinePlaylistsSourceId: StateFlow<String?> = mutableOnlinePlaylistsSourceId.asStateFlow()
     override val libraryTrackSortMode: StateFlow<TrackSortMode> = mutableLibraryTrackSortMode.asStateFlow()
     override val favoritesTrackSortMode: StateFlow<TrackSortMode> = mutableFavoritesTrackSortMode.asStateFlow()
+    override val navidromeWifiAudioQuality: StateFlow<NavidromeAudioQuality> =
+        mutableNavidromeWifiAudioQuality.asStateFlow()
+    override val navidromeMobileAudioQuality: StateFlow<NavidromeAudioQuality> =
+        mutableNavidromeMobileAudioQuality.asStateFlow()
+    override val navidromePlaybackCacheEnabled: StateFlow<Boolean> =
+        mutableNavidromePlaybackCacheEnabled.asStateFlow()
+    override val navidromePlaybackCacheDirectory: StateFlow<LocalFolderSelection?> =
+        mutableNavidromePlaybackCacheDirectory.asStateFlow()
+    override val navidromePlaybackCacheSizePreset: StateFlow<NavidromePlaybackCacheSizePreset> =
+        mutableNavidromePlaybackCacheSizePreset.asStateFlow()
 
     override suspend fun setUseSambaCache(enabled: Boolean) {
         updateProperties(
@@ -668,6 +712,49 @@ internal class JvmAppPreferencesStore(
         updateProperties(
             mutate = { setProperty(KEY_FAVORITES_TRACK_SORT_MODE, mode.name) },
             onPersisted = { mutableFavoritesTrackSortMode.value = mode },
+        )
+    }
+
+    override suspend fun setNavidromeWifiAudioQuality(quality: NavidromeAudioQuality) {
+        updateProperties(
+            mutate = { setProperty(KEY_NAVIDROME_WIFI_AUDIO_QUALITY, quality.name) },
+            onPersisted = { mutableNavidromeWifiAudioQuality.value = quality },
+        )
+    }
+
+    override suspend fun setNavidromeMobileAudioQuality(quality: NavidromeAudioQuality) {
+        updateProperties(
+            mutate = { setProperty(KEY_NAVIDROME_MOBILE_AUDIO_QUALITY, quality.name) },
+            onPersisted = { mutableNavidromeMobileAudioQuality.value = quality },
+        )
+    }
+
+    override suspend fun setNavidromePlaybackCacheEnabled(enabled: Boolean) {
+        updateProperties(
+            mutate = { setProperty(KEY_NAVIDROME_PLAYBACK_CACHE_ENABLED, enabled.toString()) },
+            onPersisted = { mutableNavidromePlaybackCacheEnabled.value = enabled },
+        )
+    }
+
+    override suspend fun setNavidromePlaybackCacheDirectory(selection: LocalFolderSelection?) {
+        updateProperties(
+            mutate = {
+                if (selection == null) {
+                    remove(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL)
+                    remove(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE)
+                } else {
+                    setProperty(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL, selection.label)
+                    setProperty(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE, selection.persistentReference)
+                }
+            },
+            onPersisted = { mutableNavidromePlaybackCacheDirectory.value = selection },
+        )
+    }
+
+    override suspend fun setNavidromePlaybackCacheSizePreset(preset: NavidromePlaybackCacheSizePreset) {
+        updateProperties(
+            mutate = { setProperty(KEY_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET, preset.name) },
+            onPersisted = { mutableNavidromePlaybackCacheSizePreset.value = preset },
         )
     }
 
@@ -852,6 +939,40 @@ internal class JvmAppPreferencesStore(
 
     private fun readSelectedLyricsShareFontKey(): String? {
         return loadProperties().getProperty(KEY_LYRICS_SHARE_FONT_KEY)?.trim()?.takeIf { it.isNotBlank() }
+    }
+
+    private fun readNavidromeAudioQuality(
+        key: String,
+        default: NavidromeAudioQuality,
+    ): NavidromeAudioQuality {
+        return navidromeAudioQualityOrDefault(loadProperties().getProperty(key), default)
+    }
+
+    private fun readNavidromePlaybackCacheEnabled(): Boolean {
+        return loadProperties().getProperty(KEY_NAVIDROME_PLAYBACK_CACHE_ENABLED)?.toBooleanStrictOrNull()
+            ?: DEFAULT_NAVIDROME_PLAYBACK_CACHE_ENABLED
+    }
+
+    private fun readNavidromePlaybackCacheDirectory(): LocalFolderSelection? {
+        val properties = loadProperties()
+        val reference = properties.getProperty(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val label = properties.getProperty(KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: File(reference).name.ifBlank { "自定义目录" }
+        return LocalFolderSelection(
+            label = label,
+            persistentReference = reference,
+        )
+    }
+
+    private fun readNavidromePlaybackCacheSizePreset(): NavidromePlaybackCacheSizePreset {
+        return navidromePlaybackCacheSizePresetOrDefault(
+            loadProperties().getProperty(KEY_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET),
+        )
     }
 
     private fun readCustomThemeTokens(): AppThemeTokens {
@@ -1805,6 +1926,36 @@ private fun readJvmSambaRemoteMetadata(
     )
 }
 
+private class JvmNavidromePlaybackCacheDirectoryPicker : NavidromePlaybackCacheDirectoryPicker {
+    override suspend fun pickDirectory(): Result<LocalFolderSelection?> {
+        return runCatching {
+            val path = JvmNativeFilePicker.pickDirectory("选择 Navidrome 播放缓存目录")
+                ?: return@runCatching null
+            val directory = path.toFile()
+            if ((!directory.exists() && !directory.mkdirs()) || !directory.isDirectory || !directory.canWrite()) {
+                error("该目录无法用于边听边存，请选择可写入的本机目录。")
+            }
+            LocalFolderSelection(
+                label = path.name.ifBlank { path.toString() },
+                persistentReference = path.toString(),
+            )
+        }
+    }
+
+    override suspend fun openDirectory(selection: LocalFolderSelection?): Result<Unit> {
+        return runCatching {
+            val directory = resolveJvmNavidromePlaybackCacheDirectory(selection)
+            if ((!directory.exists() && !directory.mkdirs()) || !directory.isDirectory) {
+                error("Navidrome 播放缓存目录创建失败。")
+            }
+            if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                error("当前系统不支持直接打开目录。")
+            }
+            Desktop.getDesktop().open(directory)
+        }
+    }
+}
+
 private data class JvmRemotePlaybackFallback(
     val candidates: List<RemoteSourceResolvedUrl>,
     val selectedIndex: Int,
@@ -1816,11 +1967,18 @@ private data class JvmRemotePlaybackFallback(
     fun currentCandidate(): RemoteSourceResolvedUrl? = candidates.getOrNull(selectedIndex)
 }
 
+private data class JvmNavidromePlaybackCacheTarget(
+    val playbackSource: String,
+    val cacheHit: Boolean,
+    val cacheKey: String,
+)
+
 internal class JvmPlaybackGateway(
     private val database: LynMusicDatabase,
     private val secureCredentialStore: SecureCredentialStore,
     private val playbackPreferencesStore: PlaybackPreferencesStore,
     private val desktopVlcPreferencesStore: DesktopVlcPreferencesStore,
+    private val navidromePlaybackCachePreferencesStore: NavidromePlaybackCachePreferencesStore,
     private val logger: DiagnosticLogger,
     private val addressSelector: RemoteSourceAddressSelector = RemoteSourceAddressSelector(WifiNetworkConnectionTypeProvider),
     private val runtimeInitializer: suspend () -> JvmVlcRuntimeInitializationResult = {
@@ -1842,6 +2000,7 @@ internal class JvmPlaybackGateway(
     private val sambaCacheDir = JvmAppDataDirectory.resolve("cache").apply {
         mkdirs()
     }
+    private val navidromePlaybackCacheDownloads = mutableSetOf<String>()
     private var currentCallbackMedia: CallbackMedia? = null
     private val recentVlcLogs = ArrayDeque<String>(MAX_RECENT_VLC_LOGS)
     @Volatile
@@ -1852,6 +2011,8 @@ internal class JvmPlaybackGateway(
     private var currentTrackForMetadata: Track? = null
     @Volatile
     private var currentRemotePlaybackFallback: JvmRemotePlaybackFallback? = null
+    @Volatile
+    private var currentNavidromePlaybackCacheKey: String? = null
     private val nativeLogListener = object : LogEventListener {
         override fun log(
             level: LogLevel,
@@ -1890,6 +2051,9 @@ internal class JvmPlaybackGateway(
     init {
         logger.info(SAMBA_LOG_TAG) {
             "cache-dir path=${sambaCacheDir.absolutePath}"
+        }
+        logger.info(VLC_LOG_TAG) {
+            "navidrome-cache-dir path=${resolveJvmNavidromePlaybackCacheDirectory(navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value).absolutePath}"
         }
         scope.launch {
             val result = runCatching {
@@ -2047,7 +2211,7 @@ internal class JvmPlaybackGateway(
             (runtimeState as? JvmVlcRuntimeState.Ready)?.runtime
         } ?: return false
         val retryPositionMs = mutableState.value.positionMs.coerceAtLeast(0L)
-        val retryPlayWhenReady = mutableState.value.isPlaying || fallback.playWhenReady
+        val retryPlayWhenReady = mutableState.value.isPlaying
         val nextFallback = fallback.copy(
             selectedIndex = nextIndex,
             playWhenReady = retryPlayWhenReady,
@@ -2114,7 +2278,7 @@ internal class JvmPlaybackGateway(
                     null
                 }
                 pendingSeek?.let(::replacePendingInitialSeek) ?: clearPendingInitialSeek()
-                val playbackMedia = JvmVlcPlaybackMedia.Source(candidate.value)
+                val playbackMedia = buildJvmVlcSourceMedia(candidate.value)
                 started = if (retryPlayWhenReady) {
                     runtime.start(playbackMedia)
                 } else {
@@ -2335,12 +2499,30 @@ internal class JvmPlaybackGateway(
                 null
             }?.takeIf { it.isNotEmpty() }
             val selectedRemotePlaybackCandidate = remotePlaybackCandidates?.firstOrNull()
+            val navidromePlaybackCacheTarget = selectedRemotePlaybackCandidate
+                ?.let { candidate ->
+                    parseSubsonicCompatibleSongLocator(track.mediaLocator)
+                        ?.takeIf { it.sourceType == ImportSourceType.NAVIDROME }
+                        ?.let { locator ->
+                            resolveJvmNavidromePlaybackCacheTarget(
+                                track = track,
+                                locator = locator,
+                                remoteUrl = candidate.value,
+                            )
+                        }
+                }
             val actualPlaybackSource = when {
                 offlineTarget != null -> offlineTarget
                 sambaTarget != null -> sambaTarget.sourceReference
                 webDavTarget != null -> webDavTarget.requestUrl
+                navidromePlaybackCacheTarget != null -> navidromePlaybackCacheTarget.playbackSource
                 selectedRemotePlaybackCandidate != null -> selectedRemotePlaybackCandidate.value
                 else -> resolveLocator(track.mediaLocator)
+            }
+            val playbackCacheState = when {
+                offlineTarget != null || navidromePlaybackCacheTarget?.cacheHit == true -> PlaybackCacheState.LOCAL
+                navidromePlaybackCacheTarget != null -> PlaybackCacheState.CACHING
+                else -> PlaybackCacheState.NONE
             }
             val sourceReference = when {
                 offlineTarget != null -> track.mediaLocator
@@ -2358,13 +2540,14 @@ internal class JvmPlaybackGateway(
                 offlineTarget != null -> offlineTarget
                 webDavTarget != null -> "webdav-callback://${track.id}"
                 sambaTarget != null -> buildJvmSambaPlaybackTarget(track.id)
+                navidromePlaybackCacheTarget?.cacheHit == true -> navidromePlaybackCacheTarget.playbackSource
                 selectedRemotePlaybackCandidate != null -> selectedRemotePlaybackCandidate.value
                 else -> sourceReference
             }
             val playbackMedia = when {
                 webDavTarget != null -> JvmVlcPlaybackMedia.Callback(webDavTarget.media)
                 sambaTarget != null -> JvmVlcPlaybackMedia.Callback(sambaTarget.media)
-                else -> JvmVlcPlaybackMedia.Source(actualPlaybackSource)
+                else -> buildJvmVlcSourceMedia(actualPlaybackSource)
             }
             var loadSkipped = false
             val started = nativePlaybackMutex.withLock {
@@ -2402,10 +2585,14 @@ internal class JvmPlaybackGateway(
                 currentPlaybackTarget = null
                 currentSourceReference = null
                 currentRemotePlaybackFallback = null
+                currentNavidromePlaybackCacheKey = null
                 currentTrackForMetadata = track
                 currentPlaybackTarget = playbackTarget
                 currentSourceReference = sourceReference
-                currentRemotePlaybackFallback = remotePlaybackCandidates?.let { candidates ->
+                currentNavidromePlaybackCacheKey = navidromePlaybackCacheTarget?.cacheKey
+                currentRemotePlaybackFallback = remotePlaybackCandidates
+                    ?.takeUnless { navidromePlaybackCacheTarget?.cacheHit == true }
+                    ?.let { candidates ->
                     JvmRemotePlaybackFallback(
                         candidates = candidates,
                         selectedIndex = 0,
@@ -2421,6 +2608,8 @@ internal class JvmPlaybackGateway(
                         isPlaying = playWhenReady,
                         positionMs = 0L,
                         durationMs = 0L,
+                        cacheProgressFraction = if (playbackCacheState == PlaybackCacheState.CACHING) 0f else null,
+                        cacheState = playbackCacheState,
                         canSeek = false,
                         metadataTitle = null,
                         metadataArtistName = null,
@@ -2487,11 +2676,14 @@ internal class JvmPlaybackGateway(
                 "load-failed track=${track.id} locator=${track.mediaLocator} playWhenReady=$playWhenReady startPositionMs=$startPositionMs target=${currentPlaybackTarget.orEmpty()} source=${currentSourceReference.orEmpty()}"
             }
             currentCallbackMedia = null
+            currentNavidromePlaybackCacheKey = null
             mutableState.update {
                 it.copy(
                     isPlaying = false,
                     positionMs = startPositionMs.coerceAtLeast(0L),
                     durationMs = 0L,
+                    cacheProgressFraction = null,
+                    cacheState = PlaybackCacheState.NONE,
                     canSeek = false,
                     errorMessage = buildJvmPlaybackLoadFailureMessage(throwable),
                     errorRevision = it.errorRevision + 1L,
@@ -2762,6 +2954,189 @@ internal class JvmPlaybackGateway(
         }
     }
 
+    private suspend fun resolveJvmNavidromePlaybackCacheTarget(
+        track: Track,
+        locator: SubsonicCompatibleLocator,
+        remoteUrl: String,
+    ): JvmNavidromePlaybackCacheTarget? {
+        if (!navidromePlaybackCachePreferencesStore.navidromePlaybackCacheEnabled.value) return null
+        val cacheRootDirectory = resolveJvmNavidromePlaybackCacheDirectory(
+            navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value,
+        )
+        val cacheDirectory = resolveJvmNavidromePlaybackCacheTrackDirectory(
+            selection = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value,
+            artistName = track.artistName,
+            itemId = locator.itemId,
+        )
+        val cacheFile = File(cacheDirectory, jvmNavidromePlaybackCacheFileName(track, locator))
+        val playableCacheFile = cacheFile.takeIf { it.isFile && it.length() > 0L }
+            ?: legacyJvmNavidromePlaybackCacheFile(
+                selection = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheDirectory.value,
+                sourceId = locator.sourceId,
+                itemId = locator.itemId,
+                fileName = cacheFile.name,
+            ).takeIf { it.isFile && it.length() > 0L }
+        if (playableCacheFile != null) {
+            playableCacheFile.setLastModified(System.currentTimeMillis())
+            logger.info(VLC_LOG_TAG) {
+                "navidrome-cache-hit source=${locator.sourceId} item=${locator.itemId} path=${playableCacheFile.absolutePath} size=${playableCacheFile.length()}"
+            }
+            return JvmNavidromePlaybackCacheTarget(
+                playbackSource = playableCacheFile.absolutePath,
+                cacheHit = true,
+                cacheKey = cacheFile.absolutePath,
+            )
+        }
+        val downloadUrl = runCatching {
+            resolveNavidromeDownloadUrlCandidates(
+                database = database,
+                secureCredentialStore = secureCredentialStore,
+                locator = track.mediaLocator,
+                addressSelector = addressSelector,
+            )?.firstOrNull()?.value
+        }.getOrNull() ?: remoteUrl
+        scheduleJvmNavidromePlaybackCacheDownload(
+            locator = locator,
+            remoteUrl = downloadUrl,
+            cacheRootDirectory = cacheRootDirectory,
+            cacheDirectory = cacheDirectory,
+            cacheFile = cacheFile,
+        )
+        return JvmNavidromePlaybackCacheTarget(
+            playbackSource = remoteUrl,
+            cacheHit = false,
+            cacheKey = cacheFile.absolutePath,
+        )
+    }
+
+    private fun scheduleJvmNavidromePlaybackCacheDownload(
+        locator: SubsonicCompatibleLocator,
+        remoteUrl: String,
+        cacheRootDirectory: File,
+        cacheDirectory: File,
+        cacheFile: File,
+    ) {
+        val cacheKey = cacheFile.absolutePath
+        val shouldStart = synchronized(navidromePlaybackCacheDownloads) {
+            navidromePlaybackCacheDownloads.add(cacheKey)
+        }
+        if (!shouldStart) return
+        scope.launch {
+            try {
+                downloadJvmNavidromePlaybackCacheFile(
+                    locator = locator,
+                    remoteUrl = remoteUrl,
+                    cacheRootDirectory = cacheRootDirectory,
+                    cacheDirectory = cacheDirectory,
+                    cacheFile = cacheFile,
+                )
+            } finally {
+                synchronized(navidromePlaybackCacheDownloads) {
+                    navidromePlaybackCacheDownloads.remove(cacheKey)
+                }
+            }
+        }
+    }
+
+    private fun downloadJvmNavidromePlaybackCacheFile(
+        locator: SubsonicCompatibleLocator,
+        remoteUrl: String,
+        cacheRootDirectory: File,
+        cacheDirectory: File,
+        cacheFile: File,
+    ) {
+        if (cacheFile.isFile && cacheFile.length() > 0L) return
+        cacheDirectory.mkdirs()
+        val temporaryFile = File(cacheDirectory, "${cacheFile.name}.part")
+        val startedAt = System.currentTimeMillis()
+        logger.info(VLC_LOG_TAG) {
+            "navidrome-cache-download-start source=${locator.sourceId} item=${locator.itemId}"
+        }
+        runCatching {
+            val connection = (URL(remoteUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = JVM_NAVIDROME_PLAYBACK_CACHE_CONNECT_TIMEOUT_MILLIS
+                readTimeout = JVM_NAVIDROME_PLAYBACK_CACHE_READ_TIMEOUT_MILLIS
+                instanceFollowRedirects = true
+            }
+            try {
+                connection.inputStream.use { input ->
+                    temporaryFile.outputStream().use { output ->
+                        val totalBytes = connection.contentLengthLong.takeIf { it > 0L }
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var downloadedBytes = 0L
+                        var lastReportedFraction = -1f
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            output.write(buffer, 0, read)
+                            downloadedBytes += read
+                            totalBytes?.let { total ->
+                                val fraction = (downloadedBytes.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                                if (fraction - lastReportedFraction >= 0.01f || fraction >= 1f) {
+                                    publishNavidromePlaybackCacheProgress(cacheFile.absolutePath, fraction)
+                                    lastReportedFraction = fraction
+                                }
+                            }
+                        }
+                    }
+                }
+            } finally {
+                connection.disconnect()
+            }
+            if (temporaryFile.length() <= 0L) error("Navidrome 播放缓存为空。")
+            try {
+                Files.move(
+                    temporaryFile.toPath(),
+                    cacheFile.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(
+                    temporaryFile.toPath(),
+                    cacheFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            }
+            cacheFile.setLastModified(System.currentTimeMillis())
+            evictJvmNavidromePlaybackCache(
+                directory = cacheRootDirectory,
+                maxBytes = navidromePlaybackCachePreferencesStore.navidromePlaybackCacheSizePreset.value.sizeBytes,
+            )
+        }.onSuccess {
+            publishNavidromePlaybackCacheComplete(cacheFile.absolutePath)
+            logger.info(VLC_LOG_TAG) {
+                "navidrome-cache-download-complete source=${locator.sourceId} item=${locator.itemId} path=${cacheFile.absolutePath} size=${cacheFile.length()} elapsedMs=${System.currentTimeMillis() - startedAt}"
+            }
+        }.onFailure { throwable ->
+            temporaryFile.delete()
+            if (throwable is CancellationException) throw throwable
+            logger.warn(VLC_LOG_TAG) {
+                "navidrome-cache-download-failed source=${locator.sourceId} item=${locator.itemId} message=${throwable.message.orEmpty()} elapsedMs=${System.currentTimeMillis() - startedAt}"
+            }
+        }
+    }
+
+    private fun publishNavidromePlaybackCacheProgress(cacheKey: String, fraction: Float) {
+        if (currentNavidromePlaybackCacheKey != cacheKey) return
+        mutableState.update {
+            it.copy(
+                cacheState = PlaybackCacheState.CACHING,
+                cacheProgressFraction = fraction.coerceIn(0f, 1f),
+            )
+        }
+    }
+
+    private fun publishNavidromePlaybackCacheComplete(cacheKey: String) {
+        if (currentNavidromePlaybackCacheKey != cacheKey) return
+        mutableState.update {
+            it.copy(
+                cacheState = PlaybackCacheState.COMPLETE,
+                cacheProgressFraction = 1f,
+            )
+        }
+    }
+
     private suspend fun resolveLocatorCandidates(locator: String): List<RemoteSourceResolvedUrl>? {
         resolveNavidromeStreamUrlCandidates(
             database = database,
@@ -2941,7 +3316,10 @@ internal interface JvmVlcPlaybackRuntime {
 }
 
 internal sealed interface JvmVlcPlaybackMedia {
-    data class Source(val value: String) : JvmVlcPlaybackMedia
+    data class Source(
+        val value: String,
+        val options: List<String> = emptyList(),
+    ) : JvmVlcPlaybackMedia
     data class Callback(val value: CallbackMedia) : JvmVlcPlaybackMedia
 }
 
@@ -3015,7 +3393,10 @@ private class LibVlcPlaybackRuntime(
 
     private fun prepareAndPlay(media: JvmVlcPlaybackMedia, vararg options: String): Boolean {
         val prepared = when (media) {
-            is JvmVlcPlaybackMedia.Source -> mediaPlayer.media().prepare(media.value, *options)
+            is JvmVlcPlaybackMedia.Source -> {
+                val mergedOptions = media.options + options
+                mediaPlayer.media().prepare(media.value, *mergedOptions.toTypedArray())
+            }
             is JvmVlcPlaybackMedia.Callback -> mediaPlayer.media().prepare(media.value, *options)
         }
         if (prepared) {
@@ -3230,11 +3611,141 @@ private const val KEY_ONLINE_FAVORITES_SOURCE_ID = "online_favorites_source_id"
 private const val KEY_ONLINE_PLAYLISTS_SOURCE_ID = "online_playlists_source_id"
 private const val KEY_LIBRARY_TRACK_SORT_MODE = "library_track_sort_mode"
 private const val KEY_FAVORITES_TRACK_SORT_MODE = "favorites_track_sort_mode"
+private const val KEY_NAVIDROME_WIFI_AUDIO_QUALITY = "navidrome_wifi_audio_quality"
+private const val KEY_NAVIDROME_MOBILE_AUDIO_QUALITY = "navidrome_mobile_audio_quality"
+private const val KEY_NAVIDROME_PLAYBACK_CACHE_ENABLED = "navidrome_playback_cache_enabled"
+private const val KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_LABEL = "navidrome_playback_cache_directory_label"
+private const val KEY_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_REFERENCE = "navidrome_playback_cache_directory_reference"
+private const val KEY_NAVIDROME_PLAYBACK_CACHE_SIZE_PRESET = "navidrome_playback_cache_size_preset"
 private const val MAX_RECENT_VLC_LOGS = 8
+internal const val JVM_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME = "navidrome-playback-cache"
 
 private fun buildSambaCacheFileName(sourceId: String, remotePath: String): String {
     val sanitized = remotePath.replace(Regex("[^A-Za-z0-9._-]"), "_")
     return "$sourceId-$sanitized"
+}
+
+private fun buildJvmVlcSourceMedia(value: String): JvmVlcPlaybackMedia.Source {
+    return JvmVlcPlaybackMedia.Source(
+        value = value,
+        options = if (isJvmRemotePlaybackSource(value)) JVM_VLC_REMOTE_PLAYBACK_OPTIONS else emptyList(),
+    )
+}
+
+private fun isJvmRemotePlaybackSource(value: String): Boolean {
+    return value.startsWith("http://", ignoreCase = true) ||
+        value.startsWith("https://", ignoreCase = true)
+}
+
+internal fun resolveJvmNavidromePlaybackCacheDirectory(selection: LocalFolderSelection?): File {
+    val customRoot = selection?.persistentReference
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let(::File)
+        ?.takeIf { it.exists() || it.mkdirs() }
+        ?.takeIf { it.isDirectory && it.canWrite() }
+    return if (customRoot == null) {
+        JvmAppDataDirectory.resolve(JVM_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME)
+    } else {
+        File(customRoot, JVM_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME)
+    }.apply { mkdirs() }
+}
+
+private fun resolveJvmNavidromePlaybackCacheTrackDirectory(
+    selection: LocalFolderSelection?,
+    artistName: String?,
+    itemId: String,
+): File {
+    return File(
+        File(
+            resolveJvmNavidromePlaybackCacheDirectory(selection),
+            sanitizeJvmNavidromePlaybackCachePathSegment(artistName?.takeIf { it.isNotBlank() } ?: "未知歌手"),
+        ),
+        sanitizeJvmNavidromePlaybackCachePathSegment(itemId),
+    ).apply { mkdirs() }
+}
+
+private fun legacyJvmNavidromePlaybackCacheFile(
+    selection: LocalFolderSelection?,
+    sourceId: String,
+    itemId: String,
+    fileName: String,
+): File {
+    return File(
+        File(
+            File(
+                resolveJvmNavidromePlaybackCacheDirectory(selection),
+                sanitizeJvmNavidromePlaybackCachePathSegment(sourceId),
+            ),
+            sanitizeJvmNavidromePlaybackCachePathSegment(itemId),
+        ),
+        fileName,
+    )
+}
+
+private fun jvmNavidromePlaybackCacheFileName(
+    track: Track,
+    locator: SubsonicCompatibleLocator,
+): String {
+    val originalName = track.relativePath
+        .substringAfterLast('/')
+        .substringAfterLast('\\')
+        .trim()
+        .takeIf { it.isNotBlank() }
+        ?: locator.itemId
+    return sanitizeJvmNavidromePlaybackCacheFileName(originalName)
+}
+
+private fun sanitizeJvmNavidromePlaybackCacheFileName(value: String): String {
+    return value
+        .replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001F]"), "_")
+        .trim()
+        .trim('.')
+        .takeIf { it.isNotBlank() }
+        ?: "audio"
+}
+
+private fun sanitizeJvmNavidromePlaybackCachePathSegment(value: String): String {
+    return value
+        .replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001F]"), "_")
+        .trim()
+        .trim('.')
+        .takeIf { it.isNotBlank() }
+        ?: "unknown"
+}
+
+private fun evictJvmNavidromePlaybackCache(
+    directory: File,
+    maxBytes: Long,
+) {
+    val files = directory.walkTopDown()
+        .filter { it.isFile && !it.name.endsWith(".part") }
+        .toList()
+        .sortedBy { it.lastModified() }
+    var currentBytes = files.sumOf { it.length().coerceAtLeast(0L) }
+    val normalizedMaxBytes = maxBytes.coerceAtLeast(1L * 1024L * 1024L)
+    files.forEach { file ->
+        if (currentBytes <= normalizedMaxBytes) return
+        val length = file.length().coerceAtLeast(0L)
+        if (file.delete()) {
+            currentBytes -= length
+            deleteEmptyJvmNavidromePlaybackCacheParentDirectories(file.parentFile, directory)
+        }
+    }
+}
+
+private fun deleteEmptyJvmNavidromePlaybackCacheParentDirectories(
+    start: File?,
+    stopAt: File,
+) {
+    var current = start
+    val boundary = stopAt.absoluteFile
+    while (current != null && current.absoluteFile != boundary) {
+        if (current.listFiles().orEmpty().isNotEmpty()) return
+        val parent = current.parentFile
+        current.delete()
+        current = parent
+    }
 }
 
 private val jvmRemoteArtworkDirectory by lazy {
@@ -3247,6 +3758,12 @@ private const val VLC_LOG_TAG = "VLC"
 private const val DESKTOP_VLC_UNAVAILABLE_MESSAGE = "未检测到 VLC，请安装或在设置手动选择 VLC 路径。"
 private const val DESKTOP_VLC_INITIALIZING_MESSAGE = "正在初始化 VLC, 用户也可能没有安装 VLC 播放器..."
 private const val VLC_START_PAUSED_OPTION = "start-paused"
+private const val JVM_NAVIDROME_PLAYBACK_CACHE_CONNECT_TIMEOUT_MILLIS = 15_000
+private const val JVM_NAVIDROME_PLAYBACK_CACHE_READ_TIMEOUT_MILLIS = 45_000
+private val JVM_VLC_REMOTE_PLAYBACK_OPTIONS = listOf(
+    ":network-caching=5000",
+    ":http-reconnect",
+)
 
 private fun scanFailureReason(throwable: Throwable): String {
     return throwable.message?.takeIf { it.isNotBlank() }

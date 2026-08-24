@@ -1,180 +1,155 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
-import ComposeApp
 
 @MainActor
-final class MacPlaybackViewModel: ObservableObject {
-    private static let unsupportedSeekMessage = "歌曲可能正在转码，不支持快进。"
-    private let controller = MacosPlaybackHostKt.createMacPlaybackHostController()
-    private var timer: Timer?
-    private var transientSeekMessage: String?
+final class EmbeddedLeonMusicPlayerLauncher {
+    static let shared = EmbeddedLeonMusicPlayerLauncher()
 
-    @Published var title: String = "未选择文件"
-    @Published var isPlaying: Bool = false
-    @Published var positionMs: Double = 0
-    @Published var durationMs: Double = 0
-    @Published var canSeek: Bool = false
-    @Published var volume: Double = 1.0
-    @Published var errorMessage: String?
+    private var process: Process?
 
-    init() {
-        refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.refresh()
-            }
-        }
+    var isRunning: Bool {
+        process?.isRunning == true
     }
 
-    deinit {
-        timer?.invalidate()
-        controller.dispose()
-    }
-
-    var durationText: String {
-        Self.formatTime(durationMs)
-    }
-
-    var positionText: String {
-        Self.formatTime(positionMs)
-    }
-
-    var seekUpperBound: Double {
-        max(durationMs, 1)
-    }
-
-    func openLocalFile() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = ["mp3", "m4a", "aac", "wav"]
-            .compactMap { UTType(filenameExtension: $0) }
-        if panel.runModal() == .OK, let url = panel.url {
-            transientSeekMessage = nil
-            controller.openLocalFile(path: url.path)
-            refresh()
-        }
-    }
-
-    func togglePlayback() {
-        if isPlaying {
-            controller.pause()
-        } else {
-            controller.play()
-        }
-        refresh()
-    }
-
-    func seek(to value: Double) {
-        if !canSeek {
-            showTransientSeekMessage()
+    func launch(completion: @escaping (Result<Void, Error>) -> Void) {
+        if isRunning {
+            log("embedded player already running")
+            completion(.success(()))
             return
         }
-        controller.seek(positionMs: Int64(value))
-        refresh()
-    }
-
-    func setVolume(_ value: Double) {
-        controller.setVolume(volume: Float(value))
-        refresh()
-    }
-
-    func refresh() {
-        let snapshot = controller.currentState()
-        title = snapshot.title.isEmpty ? "未选择文件" : snapshot.title
-        isPlaying = snapshot.isPlaying
-        positionMs = Double(snapshot.positionMs)
-        durationMs = Double(snapshot.durationMs)
-        canSeek = snapshot.canSeek
-        volume = Double(snapshot.volume)
-        if let playbackError = snapshot.errorMessage, !playbackError.isEmpty {
-            transientSeekMessage = nil
-            errorMessage = playbackError
-        } else {
-            errorMessage = transientSeekMessage
+        guard let executableURL = resolveExecutableURL() else {
+            log("missing embedded player executable")
+            completion(.failure(LauncherError.missingEmbeddedPlayer))
+            return
         }
-    }
-
-    private func showTransientSeekMessage() {
-        transientSeekMessage = Self.unsupportedSeekMessage
-        errorMessage = Self.unsupportedSeekMessage
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            await MainActor.run {
-                guard self?.transientSeekMessage == Self.unsupportedSeekMessage else { return }
-                self?.transientSeekMessage = nil
-                self?.refresh()
+        log("launching embedded player at \(executableURL.path)")
+        let playerRootURL = executableURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let newProcess = Process()
+        newProcess.executableURL = executableURL
+        newProcess.currentDirectoryURL = playerRootURL
+        let outputURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("LeonMusicEmbeddedPlayer.log")
+        FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+        if let outputHandle = try? FileHandle(forWritingTo: outputURL) {
+            newProcess.standardOutput = outputHandle
+            newProcess.standardError = outputHandle
+        }
+        newProcess.terminationHandler = { [weak self, weak newProcess] _ in
+            Task { @MainActor in
+                if self?.process === newProcess {
+                    self?.log("embedded player terminated")
+                    self?.process = nil
+                }
             }
         }
+        do {
+            try newProcess.run()
+            process = newProcess
+            log("embedded player launched pid=\(newProcess.processIdentifier)")
+            completion(.success(()))
+        } catch {
+            log("embedded player launch failed: \(error.localizedDescription)")
+            completion(.failure(error))
+        }
     }
 
-    private static func formatTime(_ value: Double) -> String {
-        let totalSeconds = max(Int(value / 1000), 0)
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+    func revealEmbeddedPlayer() {
+        guard let executableURL = resolveExecutableURL() else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([executableURL])
+    }
+
+    private func resolveExecutableURL() -> URL? {
+        guard let resourceURL = Bundle.main.resourceURL else { return nil }
+        let executableURL = resourceURL
+            .appendingPathComponent("Contents")
+            .appendingPathComponent("MacOS")
+            .appendingPathComponent("LeonMusic")
+        return FileManager.default.isExecutableFile(atPath: executableURL.path) ? executableURL : nil
+    }
+
+    private func log(_ message: String) {
+        let line = "\(Date()) \(message)\n"
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("LeonMusicLauncher.log")
+        guard let data = line.data(using: .utf8) else { return }
+        if FileManager.default.fileExists(atPath: url.path),
+           let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        } else {
+            try? data.write(to: url)
+        }
+    }
+
+    enum LauncherError: LocalizedError {
+        case missingEmbeddedPlayer
+
+        var errorDescription: String? {
+            "未找到内置 LeonMusic 播放器。请重新构建并安装应用。"
+        }
     }
 }
 
 struct ContentView: View {
-    @StateObject private var viewModel = MacPlaybackViewModel()
+    @State private var launchMessage: String = "正在启动 LeonMusic..."
+    @State private var lastLaunchError: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 12) {
-                Button("打开本地文件") {
-                    viewModel.openLocalFile()
-                }
-                Button(viewModel.isPlaying ? "暂停" : "播放") {
-                    viewModel.togglePlayback()
-                }
-                .disabled(viewModel.title == "未选择文件")
-            }
+        VStack(spacing: 18) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 72, height: 72)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(viewModel.title)
+            VStack(spacing: 6) {
+                Text("LeonMusic")
                     .font(.title2.weight(.semibold))
-                    .lineLimit(1)
-                if let errorMessage = viewModel.errorMessage, !errorMessage.isEmpty {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                Text(launchMessage)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let lastLaunchError {
+                Text(lastLaunchError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
+            }
+
+            HStack(spacing: 12) {
+                Button("打开 LeonMusic") {
+                    launchLeonMusic()
+                }
+                Button("显示内置播放器") {
+                    EmbeddedLeonMusicPlayerLauncher.shared.revealEmbeddedPlayer()
                 }
             }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Slider(
-                    value: Binding(
-                        get: { min(viewModel.positionMs, viewModel.seekUpperBound) },
-                        set: { viewModel.seek(to: $0) }
-                    ),
-                    in: 0...viewModel.seekUpperBound
-                )
-                HStack {
-                    Text(viewModel.positionText)
-                    Spacer()
-                    Text(viewModel.durationText)
-                }
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("音量")
-                    .font(.headline)
-                Slider(
-                    value: Binding(
-                        get: { viewModel.volume },
-                        set: { viewModel.setVolume($0) }
-                    ),
-                    in: 0...1
-                )
-            }
-
-            Spacer()
         }
-        .padding(24)
-        .frame(minWidth: 520, minHeight: 320)
+        .padding(28)
+        .frame(minWidth: 440, minHeight: 280)
+        .onAppear {
+            launchLeonMusic()
+        }
     }
+
+    private func launchLeonMusic() {
+        lastLaunchError = nil
+        EmbeddedLeonMusicPlayerLauncher.shared.launch { result in
+            switch result {
+            case .success:
+                launchMessage = "LeonMusic 已启动"
+            case .failure(let error):
+                launchMessage = "启动失败"
+                lastLaunchError = error.localizedDescription
+            }
+        }
+    }
+}
+
+#Preview {
+    ContentView()
 }

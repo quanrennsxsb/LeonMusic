@@ -64,6 +64,8 @@ import top.iwesley.lyn.music.core.model.UnsupportedLyricsShareFontPreferencesSto
 import top.iwesley.lyn.music.core.model.UnsupportedLyricsSharePlatformService
 import top.iwesley.lyn.music.core.model.UnsupportedMenuBarLyricsControlsPlatformService
 import top.iwesley.lyn.music.core.model.UnsupportedSystemPlaybackControlsPlatformService
+import top.iwesley.lyn.music.core.model.UnsupportedWidgetLyricsPlatformService
+import top.iwesley.lyn.music.core.model.WidgetLyricsPlatformService
 import top.iwesley.lyn.music.core.model.debug
 import top.iwesley.lyn.music.core.model.error
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
@@ -140,6 +142,7 @@ class DefaultPlaybackRepository(
     }
     @Volatile
     private var latestLoadRequestId = 0L
+    private val cancelledLoadRequestIds = mutableSetOf<Long>()
     private var persistedQueueHydrationResult: PlaybackHydrationResult? = null
     @Volatile
     private var currentQueueIsTransient = false
@@ -257,6 +260,8 @@ class DefaultPlaybackRepository(
                             currentTrack = it.currentTrack,
                             currentSnapshotDurationMs = it.durationMs,
                         ),
+                        cacheProgressFraction = gatewayState.cacheProgressFraction,
+                        cacheState = gatewayState.cacheState,
                         canSeek = gatewayState.canSeek,
                         volume = gatewayState.volume,
                         metadataTitle = gatewayState.metadataTitle,
@@ -439,6 +444,7 @@ class DefaultPlaybackRepository(
             }
             clearStartupAutoPlayCountdownLocked()
             if (snapshot.isPlaying) {
+                markCurrentPlaybackPausedLocked()
                 gateway.pause()
             } else if (shouldReloadCurrentTrackForPlayback(snapshot)) {
                 reloadRequest = createCurrentTrackResumeLoadRequestLocked(snapshot)
@@ -605,7 +611,20 @@ class DefaultPlaybackRepository(
                     "snapshotPlaying=${mutableSnapshot.value.isPlaying} position=${mutableSnapshot.value.positionMs}"
             }
             clearStartupAutoPlayCountdownLocked()
+            markCurrentPlaybackPausedLocked()
             gateway.pause()
+        }
+    }
+
+    private fun markCurrentPlaybackPausedLocked() {
+        if (latestLoadRequestId > 0L) {
+            cancelledLoadRequestIds += latestLoadRequestId
+        }
+        mutableSnapshot.update {
+            it.copy(
+                isPlaying = false,
+                startupAutoPlayCountdownSeconds = null,
+            )
         }
     }
 
@@ -1018,6 +1037,7 @@ class DefaultPlaybackRepository(
     ): PlaybackLoadRequest {
         val requestId = latestLoadRequestId + 1L
         latestLoadRequestId = requestId
+        cancelledLoadRequestIds.removeAll { it < requestId }
         logger.debug(PLAYBACK_LOG_TAG) {
             "load-enqueued request=$requestId track=${track.id} locator=${track.mediaLocator} " +
                 "playWhenReady=$playWhenReady startPositionMs=$startPositionMs"
@@ -1026,7 +1046,9 @@ class DefaultPlaybackRepository(
             track = track,
             playWhenReady = playWhenReady,
             startPositionMs = startPositionMs,
-            loadToken = PlaybackLoadToken(requestId) { requestId == latestLoadRequestId },
+            loadToken = PlaybackLoadToken(requestId) {
+                requestId == latestLoadRequestId && requestId !in cancelledLoadRequestIds
+            },
         )
     }
 
@@ -1248,6 +1270,7 @@ data class PlayerRuntimeServices(
     val systemPlaybackControlsPlatformService: SystemPlaybackControlsPlatformService = UnsupportedSystemPlaybackControlsPlatformService,
     val menuBarLyricsControlsPlatformService: MenuBarLyricsControlsPlatformService =
         UnsupportedMenuBarLyricsControlsPlatformService,
+    val widgetLyricsPlatformService: WidgetLyricsPlatformService = UnsupportedWidgetLyricsPlatformService,
     val closeDesktopResources: suspend () -> Unit = {},
 )
 

@@ -66,6 +66,23 @@ class DesktopLyricsOverlayTextResolverTest {
     }
 
     @Test
+    fun `lyrics status lines are ignored`() {
+        val lyrics = lyricsDocument(
+            LyricsLine(timestampMs = 0, text = "获取歌词信息失败"),
+            LyricsLine(timestampMs = 1000, text = "正常歌词"),
+        )
+
+        assertEquals(
+            "正常歌词",
+            resolveDesktopLyricsOverlayText(
+                lyrics = lyrics,
+                highlightedLineIndex = 0,
+                isLyricsLoading = false,
+            ),
+        )
+    }
+
+    @Test
     fun `highlight line is resolved from synced timestamp`() {
         val lyrics = lyricsDocument(
             LyricsLine(timestampMs = 0, text = "第一句"),
@@ -73,6 +90,27 @@ class DesktopLyricsOverlayTextResolverTest {
         )
 
         assertEquals(1, findDesktopLyricsHighlightedLine(lyrics, positionMs = 1600))
+    }
+
+    @Test
+    fun `widget lyrics show only the current line`() {
+        val lyrics = lyricsDocument(
+            LyricsLine(timestampMs = 0, text = "上一句"),
+            LyricsLine(timestampMs = 1000, text = "当前句"),
+            LyricsLine(timestampMs = 2000, text = "下一句"),
+        )
+
+        assertEquals("当前句", resolveWidgetLyricsText(lyrics, highlightedLineIndex = 1))
+    }
+
+    @Test
+    fun `widget lyrics show the first current line without padding`() {
+        val lyrics = lyricsDocument(
+            LyricsLine(timestampMs = 0, text = "当前句"),
+            LyricsLine(timestampMs = 1000, text = "下一句"),
+        )
+
+        assertEquals("当前句", resolveWidgetLyricsText(lyrics, highlightedLineIndex = 0))
     }
 
     private fun lyricsDocument(vararg lines: LyricsLine): LyricsDocument {

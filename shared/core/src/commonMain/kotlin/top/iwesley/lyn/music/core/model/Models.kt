@@ -185,11 +185,16 @@ enum class LocalFolderPickerMode {
 
 interface NavidromePlaybackCacheDirectoryPicker {
     suspend fun pickDirectory(): Result<LocalFolderSelection?>
+    suspend fun openDirectory(selection: LocalFolderSelection?): Result<Unit>
 }
 
 object UnsupportedNavidromePlaybackCacheDirectoryPicker : NavidromePlaybackCacheDirectoryPicker {
     override suspend fun pickDirectory(): Result<LocalFolderSelection?> {
         return Result.failure(IllegalStateException("当前平台不支持选择 Navidrome 播放缓存目录。"))
+    }
+
+    override suspend fun openDirectory(selection: LocalFolderSelection?): Result<Unit> {
+        return Result.failure(IllegalStateException("当前平台不支持打开 Navidrome 播放缓存目录。"))
     }
 }
 

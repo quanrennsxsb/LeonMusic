@@ -1486,6 +1486,47 @@ class PlaybackRepositoriesTest {
     }
 
     @Test
+    fun `pause while load is in flight prevents stale load from starting playback`() = runTest {
+        val database = createTestDatabase()
+        val gateway = BlockingPlaybackGateway()
+        val playbackPreferencesStore = FakePlaybackPreferencesStore()
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val track = sampleNavidromeTrack(id = "nav-track-1", songId = "song-1")
+        val repository = DefaultPlaybackRepository(
+            database = database,
+            gateway = gateway,
+            playbackPreferencesStore = playbackPreferencesStore,
+            scope = scope,
+            hydrateImmediately = false,
+        )
+
+        try {
+            val loadGate = CompletableDeferred<Unit>()
+            gateway.nextLoadGate = loadGate
+            val playJob = launch { repository.playTracks(listOf(track), startIndex = 0) }
+            advanceUntilIdle()
+
+            assertEquals(true, repository.snapshot.value.isPlaying)
+
+            repository.pause()
+            advanceUntilIdle()
+
+            assertEquals(false, repository.snapshot.value.isPlaying)
+
+            loadGate.complete(Unit)
+            playJob.join()
+            advanceUntilIdle()
+
+            assertEquals(false, repository.snapshot.value.isPlaying)
+            assertEquals(emptyList(), gateway.appliedTrackIds)
+        } finally {
+            repository.close()
+            scope.cancel()
+            database.close()
+        }
+    }
+
+    @Test
     fun `seek and automatic next update cursor without rewriting fallback json`() = runTest {
         val database = createTestDatabase()
         val gateway = FakePlaybackGateway()

@@ -16,7 +16,10 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import java.awt.Desktop
 import java.awt.Dimension
+import java.awt.EventQueue
+import java.awt.Frame
 import javax.swing.JOptionPane
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -36,10 +39,10 @@ fun main() {
     val osName = System.getProperty("os.name").orEmpty()
     val instanceLock = if (isJvmWindowsOs(osName)) {
         runCatching { JvmAppInstanceLock.tryAcquire() }.getOrElse { error ->
-            showDesktopStartupMessage("无法启动 LynMusic：${error.message ?: error}")
+            showDesktopStartupMessage("无法启动 LeonMusic：${error.message ?: error}")
             return
         } ?: run {
-            showDesktopStartupMessage("LynMusic 已在运行")
+            showDesktopStartupMessage("LeonMusic 已在运行")
             return
         }
     } else {
@@ -158,6 +161,7 @@ fun main() {
                 init = { composeWindow ->
                     composeWindow.minimumSize = Dimension(1200, 720)
                     applyDesktopWindowChrome(composeWindow, desktopWindowChrome)
+                    installMacOsWidgetOpenUriHandler(composeWindow)
                 },
             ) {
                 when (val current = startupState) {
@@ -227,6 +231,23 @@ fun main() {
         }
     } finally {
         instanceLock?.close()
+    }
+}
+
+private fun installMacOsWidgetOpenUriHandler(window: Frame) {
+    if (!System.getProperty("os.name").orEmpty().contains("mac", ignoreCase = true)) return
+    runCatching {
+        val desktop = Desktop.getDesktop()
+        if (!desktop.isSupported(Desktop.Action.APP_OPEN_URI)) return@runCatching
+        desktop.setOpenURIHandler { event ->
+            if (!event.uri.scheme.equals("leonmusic", ignoreCase = true)) return@setOpenURIHandler
+            EventQueue.invokeLater {
+                window.isVisible = true
+                window.extendedState = Frame.NORMAL
+                window.toFront()
+                window.requestFocus()
+            }
+        }
     }
 }
 

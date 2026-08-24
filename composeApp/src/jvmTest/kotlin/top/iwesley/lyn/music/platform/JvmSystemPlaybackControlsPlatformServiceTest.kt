@@ -94,14 +94,17 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
     @Test
     fun `service clears bridge without current track`() = runTest {
         val bridge = RecordingNowPlayingBridge()
+        val widgetWriter = RecordingWidgetNowPlayingWriter()
         val service = JvmSystemPlaybackControlsPlatformService(
             bridge = bridge,
             artworkCacheStore = RecordingArtworkCacheStore(),
+            widgetNowPlayingWriter = widgetWriter,
             scope = this,
         )
 
         service.updateSnapshot(PlaybackSnapshot())
 
+        assertEquals(1, widgetWriter.clearCount)
         assertEquals(1, bridge.clearCount)
         assertTrue(bridge.updates.isEmpty())
     }
@@ -113,6 +116,7 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
         val service = JvmSystemPlaybackControlsPlatformService(
             bridge = bridge,
             artworkCacheStore = artworkStore,
+            widgetNowPlayingWriter = RecordingWidgetNowPlayingWriter(),
             scope = this,
         )
 
@@ -133,6 +137,7 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
     @Test
     fun `service prefers track artwork cache target used by player ui`() = runTest {
         val bridge = RecordingNowPlayingBridge()
+        val widgetWriter = RecordingWidgetNowPlayingWriter()
         val cachedTarget = ArtworkCachedTarget(
             target = "/tmp/album-cache-cover.jpg",
             version = "1:2",
@@ -149,6 +154,7 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
         val service = JvmSystemPlaybackControlsPlatformService(
             bridge = bridge,
             artworkCacheStore = artworkStore,
+            widgetNowPlayingWriter = widgetWriter,
             scope = this,
         )
 
@@ -161,6 +167,7 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
 
         assertTrue(artworkStore.requests.isEmpty())
         assertEquals("/tmp/album-cache-cover.jpg", bridge.updates.single().artworkPath)
+        assertEquals("/tmp/album-cache-cover.jpg", widgetWriter.updates.single().artworkPath)
     }
 
     @Test
@@ -170,6 +177,7 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
         val service = JvmSystemPlaybackControlsPlatformService(
             bridge = bridge,
             artworkCacheStore = artworkStore,
+            widgetNowPlayingWriter = RecordingWidgetNowPlayingWriter(),
             scope = this,
         )
         val snapshot = PlaybackSnapshot(
@@ -192,6 +200,7 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
         val service = JvmSystemPlaybackControlsPlatformService(
             bridge = bridge,
             artworkCacheStore = RecordingArtworkCacheStore(),
+            widgetNowPlayingWriter = RecordingWidgetNowPlayingWriter(),
             scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler)),
         )
         service.bind(
@@ -222,14 +231,17 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
     @Test
     fun `service close clears and disposes bridge`() = runTest {
         val bridge = RecordingNowPlayingBridge()
+        val widgetWriter = RecordingWidgetNowPlayingWriter()
         val service = JvmSystemPlaybackControlsPlatformService(
             bridge = bridge,
             artworkCacheStore = RecordingArtworkCacheStore(),
+            widgetNowPlayingWriter = widgetWriter,
             scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler)),
         )
 
         service.close()
 
+        assertEquals(1, widgetWriter.clearCount)
         assertEquals(1, bridge.clearCount)
         assertTrue(bridge.disposed)
     }
@@ -279,6 +291,19 @@ class JvmSystemPlaybackControlsPlatformServiceTest {
 
         fun emit(command: MacOsNowPlayingCommand) {
             handler(command)
+        }
+    }
+
+    private class RecordingWidgetNowPlayingWriter : JvmMacOsWidgetNowPlayingWriter {
+        val updates = mutableListOf<JvmNowPlayingPayload>()
+        var clearCount = 0
+
+        override fun update(payload: JvmNowPlayingPayload) {
+            updates += payload
+        }
+
+        override fun clear() {
+            clearCount += 1
         }
     }
 

@@ -71,6 +71,7 @@ import top.iwesley.lyn.music.LibraryNavigationTarget
 import top.iwesley.lyn.music.PlayerArtworkDisplay
 import top.iwesley.lyn.music.PlayerLyricsPane
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
+import top.iwesley.lyn.music.core.model.PlaybackCacheState
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
 import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
 import top.iwesley.lyn.music.core.model.PlayerVisualSizePreset
@@ -594,6 +595,8 @@ private fun AutomotivePlaybackProgress(
         ) {
             AutomotiveRoundedSliderTrack(
                 progressFraction = progressFraction,
+                cacheProgressFraction = snapshot.cacheProgressFraction,
+                cacheState = snapshot.cacheState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(12.dp),
@@ -639,6 +642,8 @@ private fun AutomotivePlaybackProgress(
 @Composable
 private fun AutomotiveRoundedSliderTrack(
     progressFraction: Float,
+    cacheProgressFraction: Float?,
+    cacheState: PlaybackCacheState,
     modifier: Modifier = Modifier,
     trackHeightPx: Float,
 ) {
@@ -653,10 +658,36 @@ private fun AutomotiveRoundedSliderTrack(
             size = Size(trackWidth, trackHeightPx),
             cornerRadius = radius,
         )
+        val cacheFraction = when (cacheState) {
+            PlaybackCacheState.CACHING -> cacheProgressFraction?.coerceIn(0f, 1f) ?: 0f
+            PlaybackCacheState.COMPLETE,
+            PlaybackCacheState.LOCAL -> 1f
+            PlaybackCacheState.NONE -> 0f
+        }
+        val cacheWidth = (trackWidth * cacheFraction).coerceIn(0f, trackWidth)
+        if (cacheWidth > 0f) {
+            val cacheColor = when (cacheState) {
+                PlaybackCacheState.CACHING -> Color(0xFF42A5F5).copy(alpha = 0.78f)
+                PlaybackCacheState.COMPLETE,
+                PlaybackCacheState.LOCAL -> Color(0xFF48C774).copy(alpha = 0.42f)
+                PlaybackCacheState.NONE -> Color.Transparent
+            }
+            drawRoundRect(
+                color = cacheColor,
+                topLeft = Offset(0f, top),
+                size = Size(cacheWidth, trackHeightPx),
+                cornerRadius = radius,
+            )
+        }
         val activeWidth = (trackWidth * progressFraction.coerceIn(0f, 1f)).coerceIn(0f, trackWidth)
         if (activeWidth > 0f) {
             drawRoundRect(
-                color = Color.White.copy(alpha = 0.96f),
+                color = when (cacheState) {
+                    PlaybackCacheState.COMPLETE,
+                    PlaybackCacheState.LOCAL -> Color(0xFF48C774).copy(alpha = 0.98f)
+                    PlaybackCacheState.NONE,
+                    PlaybackCacheState.CACHING -> Color.White.copy(alpha = 0.96f)
+                },
                 topLeft = Offset(0f, top),
                 size = Size(activeWidth, trackHeightPx),
                 cornerRadius = radius,

@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -58,7 +59,6 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -93,11 +93,14 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button as TvButton
+import androidx.tv.material3.IconButton as TvIconButton
 import androidx.tv.material3.OutlinedButton as TvOutlinedButton
 import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
@@ -282,16 +285,20 @@ private fun TvPlayerScreen(
         "$artistName $title"
     }
     val playPauseFocusRequester = remember { FocusRequester() }
+    val progressFocusRequester = remember { FocusRequester() }
     val lyricsSearchButtonFocusRequester = remember { FocusRequester() }
     val playbackModeFocusRequester = remember { FocusRequester() }
+    val previousTrackFocusRequester = remember { FocusRequester() }
+    val nextTrackFocusRequester = remember { FocusRequester() }
+    val favoriteFocusRequester = remember { FocusRequester() }
     val queueButtonFocusRequester = remember { FocusRequester() }
     var initialPlayPauseFocusRequested by remember { mutableStateOf(false) }
     var lyricsSearchWasVisible by remember { mutableStateOf(false) }
     LaunchedEffect(state.isQueueVisible, state.isManualLyricsSearchVisible) {
         if (!initialPlayPauseFocusRequested && !state.isQueueVisible && !state.isManualLyricsSearchVisible) {
             withFrameNanos { }
-            playPauseFocusRequester.requestFocus()
-            initialPlayPauseFocusRequested = true
+            withFrameNanos { }
+            initialPlayPauseFocusRequested = playPauseFocusRequester.requestFocus()
         }
     }
     LaunchedEffect(state.isManualLyricsSearchVisible) {
@@ -304,7 +311,28 @@ private fun TvPlayerScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onPreviewKeyEvent { event ->
+                val playerIntent = tvPlayerIntentForMediaKey(
+                    key = event.key,
+                    isPlaying = snapshot.isPlaying,
+                )
+                when (event.type) {
+                    KeyEventType.KeyDown -> {
+                        if (playerIntent != null) {
+                            onPlayerIntent(playerIntent)
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    KeyEventType.KeyUp -> event.key.isTvMediaKey()
+                    else -> false
+                }
+            },
+    ) {
         TvPlaybackArtworkBackground(
             artworkModel = artwork.target,
             artworkMemoryCacheKey = artwork.memoryCacheKey,
@@ -344,9 +372,13 @@ private fun TvPlayerScreen(
             TvPlayerBottomControls(
                 snapshot = snapshot,
                 isFavorite = track.id in favoriteTrackIds,
+                progressFocusRequester = progressFocusRequester,
                 playPauseFocusRequester = playPauseFocusRequester,
                 lyricsSearchButtonFocusRequester = lyricsSearchButtonFocusRequester,
                 playbackModeFocusRequester = playbackModeFocusRequester,
+                previousTrackFocusRequester = previousTrackFocusRequester,
+                nextTrackFocusRequester = nextTrackFocusRequester,
+                favoriteFocusRequester = favoriteFocusRequester,
                 queueButtonFocusRequester = queueButtonFocusRequester,
                 onPlayerIntent = onPlayerIntent,
                 onToggleFavorite = { onToggleFavorite(track) },
@@ -517,9 +549,13 @@ private fun TvLyricsContent(
 private fun TvPlayerBottomControls(
     snapshot: PlaybackSnapshot,
     isFavorite: Boolean,
+    progressFocusRequester: FocusRequester,
     playPauseFocusRequester: FocusRequester,
     lyricsSearchButtonFocusRequester: FocusRequester,
     playbackModeFocusRequester: FocusRequester,
+    previousTrackFocusRequester: FocusRequester,
+    nextTrackFocusRequester: FocusRequester,
+    favoriteFocusRequester: FocusRequester,
     queueButtonFocusRequester: FocusRequester,
     onPlayerIntent: (PlayerIntent) -> Unit,
     onToggleFavorite: () -> Unit,
@@ -531,6 +567,8 @@ private fun TvPlayerBottomControls(
     ) {
         TvPlayerProgressArea(
             snapshot = snapshot,
+            focusRequester = progressFocusRequester,
+            downFocusRequester = playPauseFocusRequester,
             onPlayerIntent = onPlayerIntent,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -538,16 +576,20 @@ private fun TvPlayerBottomControls(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            IconButton(
+            TvPlayerControlButton(
                 onClick = { onPlayerIntent(PlayerIntent.OpenManualLyricsSearch) },
+                contentDescription = "搜索歌词",
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .focusRequester(lyricsSearchButtonFocusRequester)
-                    .focusProperties { right = playbackModeFocusRequester },
+                    .focusProperties {
+                        right = playbackModeFocusRequester
+                        up = progressFocusRequester
+                    },
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Search,
-                    contentDescription = "搜索歌词",
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -555,48 +597,97 @@ private fun TvPlayerBottomControls(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
+                TvPlayerControlButton(
                     onClick = { onPlayerIntent(PlayerIntent.CycleMode) },
+                    contentDescription = "播放模式",
                     modifier = Modifier
                         .focusRequester(playbackModeFocusRequester)
-                        .focusProperties { left = lyricsSearchButtonFocusRequester },
+                        .focusProperties {
+                            left = lyricsSearchButtonFocusRequester
+                            right = previousTrackFocusRequester
+                            up = progressFocusRequester
+                        },
                 ) {
                     Icon(
                         imageVector = tvPlaybackModeIcon(snapshot.mode),
-                        contentDescription = "播放模式",
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
-                IconButton(onClick = { onPlayerIntent(PlayerIntent.SkipPrevious) }) {
-                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首")
+                TvPlayerControlButton(
+                    onClick = { onPlayerIntent(PlayerIntent.SkipPrevious) },
+                    contentDescription = "上一首",
+                    modifier = Modifier
+                        .focusRequester(previousTrackFocusRequester)
+                        .focusProperties {
+                            left = playbackModeFocusRequester
+                            right = playPauseFocusRequester
+                            up = progressFocusRequester
+                        },
+                ) {
+                    Icon(Icons.Rounded.SkipPrevious, contentDescription = null)
                 }
-                IconButton(
+                TvPlayerControlButton(
                     onClick = { onPlayerIntent(PlayerIntent.TogglePlayPause) },
-                    modifier = Modifier.focusRequester(playPauseFocusRequester),
+                    contentDescription = if (snapshot.isPlaying) "暂停" else "播放",
+                    modifier = Modifier
+                        .size(64.dp)
+                        .focusRequester(playPauseFocusRequester)
+                        .focusProperties {
+                            left = previousTrackFocusRequester
+                            right = nextTrackFocusRequester
+                            up = progressFocusRequester
+                        },
                 ) {
                     Icon(
                         imageVector = if (snapshot.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (snapshot.isPlaying) "暂停" else "播放",
+                        contentDescription = null,
                         modifier = Modifier.size(36.dp),
                     )
                 }
-                IconButton(onClick = { onPlayerIntent(PlayerIntent.SkipNext) }) {
-                    Icon(Icons.Rounded.SkipNext, contentDescription = "下一首")
+                TvPlayerControlButton(
+                    onClick = { onPlayerIntent(PlayerIntent.SkipNext) },
+                    contentDescription = "下一首",
+                    modifier = Modifier
+                        .focusRequester(nextTrackFocusRequester)
+                        .focusProperties {
+                            left = playPauseFocusRequester
+                            right = favoriteFocusRequester
+                            up = progressFocusRequester
+                        },
+                ) {
+                    Icon(Icons.Rounded.SkipNext, contentDescription = null)
                 }
-                IconButton(onClick = onToggleFavorite) {
+                TvPlayerControlButton(
+                    onClick = onToggleFavorite,
+                    contentDescription = if (isFavorite) "取消喜欢" else "喜欢",
+                    modifier = Modifier
+                        .focusRequester(favoriteFocusRequester)
+                        .focusProperties {
+                            left = nextTrackFocusRequester
+                            right = queueButtonFocusRequester
+                            up = progressFocusRequester
+                        },
+                ) {
                     Icon(
                         imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        contentDescription = if (isFavorite) "取消喜欢" else "喜欢",
+                        contentDescription = null,
                         tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     )
                 }
-                IconButton(
+                TvPlayerControlButton(
                     onClick = { onPlayerIntent(PlayerIntent.QueueVisibilityChanged(true)) },
-                    modifier = Modifier.focusRequester(queueButtonFocusRequester),
+                    contentDescription = "播放列表",
+                    modifier = Modifier
+                        .focusRequester(queueButtonFocusRequester)
+                        .focusProperties {
+                            left = favoriteFocusRequester
+                            up = progressFocusRequester
+                        },
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                        contentDescription = "播放列表",
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -606,8 +697,52 @@ private fun TvPlayerBottomControls(
 }
 
 @Composable
+private fun TvPlayerControlButton(
+    onClick: () -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    TvIconButton(
+        onClick = onClick,
+        modifier = modifier
+            .semantics { this.contentDescription = contentDescription }
+            .onPreviewKeyEvent { event ->
+                if (!event.key.isTvConfirmKey()) {
+                    false
+                } else {
+                    when (event.type) {
+                        KeyEventType.KeyDown -> true
+                        KeyEventType.KeyUp -> {
+                            onClick()
+                            true
+                        }
+                        else -> false
+                    }
+                }
+            },
+    ) {
+        content()
+    }
+}
+
+private fun Key.isTvConfirmKey(): Boolean {
+    return this == Key.DirectionCenter || this == Key.Enter || this == Key.NumPadEnter
+}
+
+private fun Key.isTvMediaKey(): Boolean {
+    return this == Key.MediaPlayPause ||
+        this == Key.MediaPlay ||
+        this == Key.MediaPause ||
+        this == Key.MediaNext ||
+        this == Key.MediaPrevious
+}
+
+@Composable
 private fun TvPlayerProgressArea(
     snapshot: PlaybackSnapshot,
+    focusRequester: FocusRequester,
+    downFocusRequester: FocusRequester,
     onPlayerIntent: (PlayerIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -645,6 +780,8 @@ private fun TvPlayerProgressArea(
 
     Column(
         modifier = modifier
+            .focusRequester(focusRequester)
+            .focusProperties { down = downFocusRequester }
             .onFocusChanged { isFocused = it.hasFocus || it.isFocused }
             .onPreviewKeyEvent { event ->
                 when (event.key) {
@@ -877,13 +1014,14 @@ private fun TvPlayerQueuePanel(
                     style = MaterialTheme.typography.titleSmall,
                 )
             }
-            IconButton(
+            TvPlayerControlButton(
                 onClick = onClose,
+                contentDescription = "关闭播放列表",
                 modifier = Modifier.focusRequester(closeFocusRequester),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Close,
-                    contentDescription = "关闭播放列表",
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -1278,6 +1416,37 @@ private fun formatTvPlayerDuration(durationMs: Long): String {
         "%d:%02d:%02d".format(hours, minutes, seconds)
     } else {
         "%d:%02d".format(minutes, seconds)
+    }
+}
+
+internal fun tvPlayerIntentForMediaKey(
+    keyCode: Int,
+    isPlaying: Boolean,
+): PlayerIntent? {
+    return when (keyCode) {
+        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+        KeyEvent.KEYCODE_HEADSETHOOK,
+        -> PlayerIntent.TogglePlayPause
+
+        KeyEvent.KEYCODE_MEDIA_NEXT -> PlayerIntent.SkipNext
+        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> PlayerIntent.SkipPrevious
+        KeyEvent.KEYCODE_MEDIA_PLAY -> if (isPlaying) null else PlayerIntent.ResumeCurrentTrackPlayback
+        KeyEvent.KEYCODE_MEDIA_PAUSE -> if (isPlaying) PlayerIntent.TogglePlayPause else null
+        else -> null
+    }
+}
+
+private fun tvPlayerIntentForMediaKey(
+    key: Key,
+    isPlaying: Boolean,
+): PlayerIntent? {
+    return when (key) {
+        Key.MediaPlayPause -> PlayerIntent.TogglePlayPause
+        Key.MediaNext -> PlayerIntent.SkipNext
+        Key.MediaPrevious -> PlayerIntent.SkipPrevious
+        Key.MediaPlay -> if (isPlaying) null else PlayerIntent.ResumeCurrentTrackPlayback
+        Key.MediaPause -> if (isPlaying) PlayerIntent.TogglePlayPause else null
+        else -> null
     }
 }
 

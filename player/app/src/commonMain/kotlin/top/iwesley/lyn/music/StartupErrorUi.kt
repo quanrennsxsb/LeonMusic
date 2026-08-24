@@ -126,7 +126,7 @@ fun StartupDataLocationProgressScreen(
             )
         }
         Text(
-            "请勿关闭应用。数据准备完成后将自动进入 LynMusic。",
+            "请勿关闭应用。数据准备完成后将自动进入 LeonMusic。",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )

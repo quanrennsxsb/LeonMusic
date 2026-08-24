@@ -30,7 +30,7 @@ private final class LeonMusicNowPlayingController {
         self.callback = callback
         runOnMainSync {
             self.installRemoteCommands()
-            self.updateCommandAvailability(hasTrack: false, canSeek: false, hasNext: false, hasPrevious: false)
+            self.updateCommandAvailability(hasTrack: false, isPlaying: false, canSeek: false, hasNext: false, hasPrevious: false)
         }
     }
 
@@ -77,7 +77,13 @@ private final class LeonMusicNowPlayingController {
             if #available(macOS 10.12.2, *) {
                 self.infoCenter.playbackState = isPlaying ? .playing : .paused
             }
-            self.updateCommandAvailability(hasTrack: true, canSeek: canSeek, hasNext: hasNext, hasPrevious: hasPrevious)
+            self.updateCommandAvailability(
+                hasTrack: true,
+                isPlaying: isPlaying,
+                canSeek: canSeek,
+                hasNext: hasNext,
+                hasPrevious: hasPrevious
+            )
             self.lastWidgetTitle = title
             self.lastWidgetArtworkPath = artworkPath?.trimmedNonEmpty
             self.reloadWidgetTimelineIfNeeded(force: widgetReloadShouldBeForced)
@@ -95,7 +101,7 @@ private final class LeonMusicNowPlayingController {
             self.currentArtworkImage = nil
             self.lastWidgetTitle = nil
             self.lastWidgetArtworkPath = nil
-            self.updateCommandAvailability(hasTrack: false, canSeek: false, hasNext: false, hasPrevious: false)
+            self.updateCommandAvailability(hasTrack: false, isPlaying: false, canSeek: false, hasNext: false, hasPrevious: false)
             self.reloadWidgetTimelineIfNeeded(force: true)
         }
     }
@@ -139,9 +145,9 @@ private final class LeonMusicNowPlayingController {
         commandTargets.append((remoteCommand, target))
     }
 
-    private func updateCommandAvailability(hasTrack: Bool, canSeek: Bool, hasNext: Bool, hasPrevious: Bool) {
-        commandCenter.playCommand.isEnabled = hasTrack
-        commandCenter.pauseCommand.isEnabled = hasTrack
+    private func updateCommandAvailability(hasTrack: Bool, isPlaying: Bool, canSeek: Bool, hasNext: Bool, hasPrevious: Bool) {
+        commandCenter.playCommand.isEnabled = hasTrack && !isPlaying
+        commandCenter.pauseCommand.isEnabled = hasTrack && isPlaying
         commandCenter.togglePlayPauseCommand.isEnabled = hasTrack
         commandCenter.nextTrackCommand.isEnabled = hasTrack && hasNext
         commandCenter.previousTrackCommand.isEnabled = hasTrack && hasPrevious
@@ -191,6 +197,15 @@ private func runOnMainSync(_ block: @escaping () -> Void) {
     } else {
         DispatchQueue.main.sync(execute: block)
     }
+}
+
+@_cdecl("lyn_music_widget_reload_timelines")
+public func lyn_music_widget_reload_timelines() -> Int32 {
+    guard #available(macOS 11.0, *) else { return 0 }
+    runOnMainSync {
+        WidgetCenter.shared.reloadTimelines(ofKind: "LeonMusicNowPlayingWidget")
+    }
+    return 1
 }
 
 @_cdecl("lyn_music_now_playing_create")

@@ -8,6 +8,14 @@ enum class PlaybackMode {
     REPEAT_ONE,
 }
 
+/** The availability of the current track in the local playback cache. */
+enum class PlaybackCacheState {
+    NONE,
+    CACHING,
+    COMPLETE,
+    LOCAL,
+}
+
 data class PlaybackSnapshot(
     val queue: List<Track> = emptyList(),
     val orderedQueue: List<Track> = queue,
@@ -17,6 +25,8 @@ data class PlaybackSnapshot(
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
+    val cacheProgressFraction: Float? = null,
+    val cacheState: PlaybackCacheState = PlaybackCacheState.NONE,
     val canSeek: Boolean = false,
     val volume: Float = 1f,
     val metadataTitle: String? = null,
@@ -76,6 +86,8 @@ data class PlaybackGatewayState(
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
+    val cacheProgressFraction: Float? = null,
+    val cacheState: PlaybackCacheState = PlaybackCacheState.NONE,
     val canSeek: Boolean = false,
     val volume: Float = 1f,
     val metadataTitle: String? = null,

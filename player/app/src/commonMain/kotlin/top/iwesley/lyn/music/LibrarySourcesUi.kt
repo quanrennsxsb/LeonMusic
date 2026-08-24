@@ -3572,7 +3572,7 @@ private fun LargeNavidromeLibraryDialog(
                 if (isRescan) {
                     "检测到“${sourceLabel.orEmpty().ifBlank { "Navidrome 来源" }}”远端共有 $trackCount 首歌曲。建议切换为在线模式，旧本地索引会隐藏并保留；也可以继续全量重扫，把远端歌曲重新写入本地索引。"
                 } else {
-                    "检测到远端共有 $trackCount 首歌曲。建议使用在线模式，LynMusic 只保存来源和凭据，不会把全部歌曲写入本地索引；也可以选择全部导入，继续执行完整扫描。"
+                    "检测到远端共有 $trackCount 首歌曲。建议使用在线模式，LeonMusic 只保存来源和凭据，不会把全部歌曲写入本地索引；也可以选择全部导入，继续执行完整扫描。"
                 },
             )
         },

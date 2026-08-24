@@ -10,16 +10,19 @@ import top.iwesley.lyn.music.core.model.AppStorageCategoryUsage
 import top.iwesley.lyn.music.core.model.AppStorageGateway
 import top.iwesley.lyn.music.core.model.AppStorageSnapshot
 import top.iwesley.lyn.music.core.model.JvmAppDataDirectory
+import top.iwesley.lyn.music.core.model.NavidromePlaybackCachePreferencesStore
 import top.iwesley.lyn.music.data.db.LynMusicDatabase
 
 fun createJvmAppStorageGateway(
     rootDirectory: File = JvmAppDataDirectory.rootDirectory(),
     database: LynMusicDatabase? = null,
-): AppStorageGateway = JvmAppStorageGateway(rootDirectory, database)
+    navidromePlaybackCachePreferencesStore: NavidromePlaybackCachePreferencesStore? = null,
+): AppStorageGateway = JvmAppStorageGateway(rootDirectory, database, navidromePlaybackCachePreferencesStore)
 
 internal class JvmAppStorageGateway(
     private val rootDirectory: File,
     private val database: LynMusicDatabase? = null,
+    private val navidromePlaybackCachePreferencesStore: NavidromePlaybackCachePreferencesStore? = null,
 ) : AppStorageGateway {
     override suspend fun loadStorageSnapshot(): Result<AppStorageSnapshot> = withContext(Dispatchers.IO) {
         runCatching {
@@ -34,6 +37,10 @@ internal class JvmAppStorageGateway(
                 AppStorageCategoryUsage(
                     category = AppStorageCategory.PlaybackCache,
                     sizeBytes = directorySizeBytes(File(rootDirectory, "cache")),
+                ),
+                AppStorageCategoryUsage(
+                    category = AppStorageCategory.NavidromePlaybackCache,
+                    sizeBytes = directorySizeBytes(navidromePlaybackCacheDirectory()),
                 ),
                 AppStorageCategoryUsage(
                     category = AppStorageCategory.OfflineDownloads,
@@ -69,7 +76,12 @@ internal class JvmAppStorageGateway(
                     Unit
                 }
 
-                AppStorageCategory.NavidromePlaybackCache -> Unit
+                AppStorageCategory.NavidromePlaybackCache -> {
+                    val directory = navidromePlaybackCacheDirectory()
+                    clearDirectory(directory)
+                    directory.mkdirs()
+                    Unit
+                }
 
                 AppStorageCategory.OfflineDownloads -> {
                     val directory = File(rootDirectory, "offline")
@@ -84,6 +96,12 @@ internal class JvmAppStorageGateway(
                 -> Unit
             }
         }
+    }
+
+    private fun navidromePlaybackCacheDirectory(): File {
+        val preferencesStore = navidromePlaybackCachePreferencesStore
+            ?: return File(rootDirectory, JVM_NAVIDROME_PLAYBACK_CACHE_DIRECTORY_NAME)
+        return resolveJvmNavidromePlaybackCacheDirectory(preferencesStore.navidromePlaybackCacheDirectory.value)
     }
 }
 

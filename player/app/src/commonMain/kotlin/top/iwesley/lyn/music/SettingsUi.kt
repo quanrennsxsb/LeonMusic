@@ -635,7 +635,7 @@ private fun HelpSettingsPane(
                     }
                 }
                 Text(
-                    text = "请在系统电池设置中允许 LynMusic 完全后台运行，或关闭电池优化。这样应用退到后台后仍能继续维护投屏会话、同步状态并发起下一首音乐。",
+                    text = "请在系统电池设置中允许 LeonMusic 完全后台运行，或关闭电池优化。这样应用退到后台后仍能继续维护投屏会话、同步状态并发起下一首音乐。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1449,6 +1449,7 @@ private fun NavidromeAudioQualitySettingRow(
 private fun NavidromePlaybackCacheDirectorySettingRow(
     selection: LocalFolderSelection?,
     onPick: () -> Unit,
+    onOpen: (() -> Unit)? = null,
     onReset: () -> Unit,
 ) {
     val shellColors = mainShellColors
@@ -1485,6 +1486,19 @@ private fun NavidromePlaybackCacheDirectorySettingRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            if (onOpen != null) {
+                OutlinedButton(
+                    onClick = onOpen,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+                ) {
+                    Text(
+                        text = "打开目录",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             if (selection != null) {
                 TextButton(
@@ -2576,7 +2590,7 @@ private fun StorageSettingsPane(
                 tonalElevation = 0.dp,
                 title = { Text("需要重新打开应用") },
                 text = {
-                    Text("数据位置设置已保存。应用将退出，请重新打开 LynMusic 以完成数据位置切换。")
+                    Text("数据位置设置已保存。应用将退出，请重新打开 LeonMusic 以完成数据位置切换。")
                 },
                 confirmButton = {
                     Button(onClick = { onSettingsIntent(SettingsIntent.ConfirmDataLocationRestart) }) {
@@ -2695,6 +2709,37 @@ private fun StorageSettingsPane(
                 subtitle = "查看占用、清理缓存，并管理应用数据位置。",
             )
         }
+        MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Navidrome 播放缓存目录",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "边听边存会按歌手分组保存完整音频文件。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = shellColors.secondaryText,
+                    )
+                }
+                NavidromePlaybackCacheDirectorySettingRow(
+                    selection = state.navidromePlaybackCacheDirectory,
+                    onPick = {
+                        onSettingsIntent(SettingsIntent.PickNavidromePlaybackCacheDirectory)
+                    },
+                    onOpen = {
+                        onSettingsIntent(SettingsIntent.OpenNavidromePlaybackCacheDirectory)
+                    },
+                    onReset = {
+                        onSettingsIntent(SettingsIntent.ResetNavidromePlaybackCacheDirectory)
+                    },
+                )
+            }
+        }
         if (supportsCustomDataLocation) {
             MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                 Row(
@@ -2716,7 +2761,7 @@ private fun StorageSettingsPane(
                             fontFamily = FontFamily.Monospace,
                         )
                         Text(
-                            "更改后将在所选目录中创建 LynMusic 文件夹，并在下次启动时生效。",
+                            "更改后将在所选目录中创建 LeonMusic 文件夹，并在下次启动时生效。",
                             color = shellColors.secondaryText,
                             style = MaterialTheme.typography.bodySmall,
                         )

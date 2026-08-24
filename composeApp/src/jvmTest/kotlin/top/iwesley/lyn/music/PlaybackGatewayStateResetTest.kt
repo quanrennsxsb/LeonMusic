@@ -6,6 +6,7 @@ import kotlin.test.assertNull
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
 import top.iwesley.lyn.music.core.model.PlaybackAudioFormat
 import top.iwesley.lyn.music.core.model.PlaybackGatewayState
+import top.iwesley.lyn.music.core.model.PlaybackCacheState
 import top.iwesley.lyn.music.platform.resetForTrackSwitch
 
 class PlaybackGatewayStateResetTest {
@@ -16,6 +17,8 @@ class PlaybackGatewayStateResetTest {
             isPlaying = true,
             positionMs = 12_345L,
             durationMs = 98_765L,
+            cacheProgressFraction = 0.75f,
+            cacheState = PlaybackCacheState.CACHING,
             volume = 0.4f,
             metadataTitle = "Song",
             metadataArtistName = "Artist",
@@ -35,6 +38,8 @@ class PlaybackGatewayStateResetTest {
         assertEquals(false, reset.isPlaying)
         assertEquals(0L, reset.positionMs)
         assertEquals(0L, reset.durationMs)
+        assertNull(reset.cacheProgressFraction)
+        assertEquals(PlaybackCacheState.NONE, reset.cacheState)
         assertEquals(0.8f, reset.volume)
         assertNull(reset.metadataTitle)
         assertNull(reset.metadataArtistName)

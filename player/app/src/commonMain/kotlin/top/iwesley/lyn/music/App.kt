@@ -51,6 +51,7 @@ import top.iwesley.lyn.music.core.model.error
 import top.iwesley.lyn.music.core.model.EqualizerPlatformService
 import top.iwesley.lyn.music.core.model.MenuBarLyricsControlsPlatformService
 import top.iwesley.lyn.music.core.model.PlatformDescriptor
+import top.iwesley.lyn.music.core.model.WidgetLyricsPlatformService
 import top.iwesley.lyn.music.core.model.PlaylistKind
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.resolveAppThemeTextPalette
@@ -76,6 +77,7 @@ import top.iwesley.lyn.music.feature.player.PlayerState
 import top.iwesley.lyn.music.feature.player.PlayerStore
 import top.iwesley.lyn.music.feature.player.DESKTOP_LYRICS_LOADING_TEXT
 import top.iwesley.lyn.music.feature.player.resolveDesktopLyricsOverlayText
+import top.iwesley.lyn.music.feature.player.resolveWidgetLyricsText
 import top.iwesley.lyn.music.feature.playlists.PlaylistsIntent
 import top.iwesley.lyn.music.feature.playlists.PlaylistsStore
 import top.iwesley.lyn.music.feature.settings.SettingsEffect
@@ -209,6 +211,10 @@ fun buildPlayerAppComponent(
         playerStore = playerStore,
         menuBarLyricsControlsPlatformService = playerRuntimeServices.menuBarLyricsControlsPlatformService,
     )
+    sharedGraph.scope.launchWidgetLyricsSync(
+        playerStore = playerStore,
+        widgetLyricsPlatformService = playerRuntimeServices.widgetLyricsPlatformService,
+    )
     return LeonMusicAppComponent(
         platform = sharedGraph.platform,
         logger = sharedGraph.logger,
@@ -273,6 +279,26 @@ internal suspend fun closeAppResourcesBestEffort(
     failures.firstOrNull()?.let { primary ->
         failures.drop(1).forEach { failure -> primary.addSuppressedSafely(failure) }
         throw primary
+    }
+}
+
+private fun CoroutineScope.launchWidgetLyricsSync(
+    playerStore: PlayerStore,
+    widgetLyricsPlatformService: WidgetLyricsPlatformService,
+) {
+    if (!widgetLyricsPlatformService.isSupported) return
+    launch {
+        var lastText: String? = null
+        playerStore.state.collect { player ->
+            val text = resolveWidgetLyricsText(
+                lyrics = player.lyrics,
+                highlightedLineIndex = player.highlightedLineIndex,
+            )
+            if (text != lastText) {
+                widgetLyricsPlatformService.updateLyrics(text)
+                lastText = text
+            }
+        }
     }
 }
 

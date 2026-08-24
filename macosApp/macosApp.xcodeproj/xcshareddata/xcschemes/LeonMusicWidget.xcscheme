@@ -31,7 +31,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "45FD58BAFA8848084698B0E5"
-               BuildableName = "LeonMusicMac.app"
+               BuildableName = "LeonMusic.app"
                BlueprintName = "macosApp"
                ReferencedContainer = "container:macosApp.xcodeproj">
             </BuildableReference>
@@ -74,7 +74,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "45FD58BAFA8848084698B0E5"
-            BuildableName = "LeonMusicMac.app"
+            BuildableName = "LeonMusic.app"
             BlueprintName = "macosApp"
             ReferencedContainer = "container:macosApp.xcodeproj">
          </BuildableReference>
@@ -82,7 +82,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "_XCWidgetKind"
-            value = ""
+            value = "LeonMusicNowPlayingWidget"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
@@ -110,7 +110,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "45FD58BAFA8848084698B0E5"
-            BuildableName = "LeonMusicMac.app"
+            BuildableName = "LeonMusic.app"
             BlueprintName = "macosApp"
             ReferencedContainer = "container:macosApp.xcodeproj">
          </BuildableReference>
