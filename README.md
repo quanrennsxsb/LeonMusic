@@ -1,6 +1,6 @@
 # LeonMusic
 
-LeonMusic 根据https://github.com/wesley666/LynMusic项目修改而来，是一款使用 Kotlin Multiplatform 构建的跨平台音乐播放器，面向本地音乐收藏、NAS 与自建音乐服务场景。它将桌面、手机、电视和车机上的听歌体验放在同一套应用与曲库工作流中。
+LeonMusic 根据https://github.com/wesley666/LynMusic 项目修改而来，是一款使用 Kotlin Multiplatform 构建的跨平台音乐播放器，面向本地音乐收藏、NAS 与自建音乐服务场景。它将桌面、手机、电视和车机上的听歌体验放在同一套应用与曲库工作流中。
 在原项目的基础上增加了macOS桌面小组件，及播放缓存进度显示，优化了若干问题。
 
 
