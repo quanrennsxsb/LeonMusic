@@ -1,8 +1,8 @@
 # LeonMusic
 
-LeonMusic 是一款使用 Kotlin Multiplatform 构建的跨平台音乐播放器，面向本地音乐收藏、NAS 与自建音乐服务场景。它将桌面、手机、电视和车机上的听歌体验放在同一套应用与曲库工作流中。
+LeonMusic 根据https://github.com/wesley666/LynMusic项目修改而来，是一款使用 Kotlin Multiplatform 构建的跨平台音乐播放器，面向本地音乐收藏、NAS 与自建音乐服务场景。它将桌面、手机、电视和车机上的听歌体验放在同一套应用与曲库工作流中。
+在原项目的基础上增加了macOS桌面小组件，及播放缓存进度显示，优化了若干问题。
 
-![LeonMusic](./doc/LeonMusic.png)
 
 ## 下载
 
@@ -39,30 +39,13 @@ Android 安装包为侧载版本；请在设备的安全设置中允许相应的
 
 ## 界面预览
 
-### 电脑与平板
 
-![主界面](./doc/pc_main_ui.png)
-![播放界面](./doc/pc_player_ui.png)
-![全屏播放](./doc/pc_player_full_ui.png)
-![推荐](./doc/pc_recommend_ui.png)
-![歌词编辑](./doc/pc_lrc_apply.png)
-![歌词搜索](./doc/pc_lrc_search.png)
-![歌词分享](./doc/lyrics-share.png)
-![标签编辑](./doc/pc_music_tag_editor.png)
+![主界面](./doc/index.png)
+![播放界面](./doc/play.png)
+![设置界面](./doc/setup.png)
+![macos桌面小组件](./doc/macos_widget.png)
 
-### 手机
 
-![手机主界面](./doc/phone_main_ui.jpg)
-![手机播放界面](./doc/phone_player_ui.png)
-![手机歌词](./doc/phone_player_lrc_ui.png)
-![手机设置](./doc/phone_setting_ui.png)
-
-### TV 与车机
-
-![TV 主界面](./doc/tv_main_ui.png)
-![TV 播放界面](./doc/tv_player_ui.png)
-![车机主界面](./doc/car_main_ui.png)
-![车机播放界面](./doc/car_player_ui.png)
 
 ## 从源码构建
 
