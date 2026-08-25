@@ -90,4 +90,10 @@ LeonMusic 以 [GNU General Public License v3.0 or later](./LICENSE)（GPL-3.0-or
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=leon0576/LeonMusic&type=Date)](https://star-history.com/#leon0576/LeonMusic&Date)
+<a href="https://www.star-history.com/?type=date&repos=leon0576%2FLeonMusic">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=leon0576/LeonMusic&type=date&theme=dark&legend=top-left&sealed_token=KdeRUiGzidJAJ45OjEjE5D7AuhP2b67KqqAAPqclEByhgTgdi3TtDFoZ1wmNLtxtLQRTg9rINZSE1xfyPxmWrJmoIFQetS4Fg6roBi9zV1JDlE5jln2NUB8GowGGnOOB4kN3nKW76-BXf0WP2GC9MZ0cPwBqc1_LxUhPU_dcTUoatmdme5oLwkoFBCXN" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=leon0576/LeonMusic&type=date&legend=top-left&sealed_token=KdeRUiGzidJAJ45OjEjE5D7AuhP2b67KqqAAPqclEByhgTgdi3TtDFoZ1wmNLtxtLQRTg9rINZSE1xfyPxmWrJmoIFQetS4Fg6roBi9zV1JDlE5jln2NUB8GowGGnOOB4kN3nKW76-BXf0WP2GC9MZ0cPwBqc1_LxUhPU_dcTUoatmdme5oLwkoFBCXN" />
+    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=leon0576/LeonMusic&type=date&legend=top-left&sealed_token=KdeRUiGzidJAJ45OjEjE5D7AuhP2b67KqqAAPqclEByhgTgdi3TtDFoZ1wmNLtxtLQRTg9rINZSE1xfyPxmWrJmoIFQetS4Fg6roBi9zV1JDlE5jln2NUB8GowGGnOOB4kN3nKW76-BXf0WP2GC9MZ0cPwBqc1_LxUhPU_dcTUoatmdme5oLwkoFBCXN" />
+  </picture>
+</a>
