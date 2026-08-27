@@ -18,7 +18,7 @@
         android:allowBackup="true"
         android:appCategory="audio"
         android:requestLegacyExternalStorage="true"
-        android:banner="@drawable/banner"
+        android:banner="@drawable/tv_launcher_banner_with_wordmark_large"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

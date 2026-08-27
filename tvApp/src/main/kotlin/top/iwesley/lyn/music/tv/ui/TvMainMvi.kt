@@ -8,6 +8,7 @@ internal enum class TvMainDestination {
     My,
     Library,
     Favorites,
+    Playlists,
 }
 
 internal enum class TvMediaBrowserMode {
@@ -49,6 +50,7 @@ internal sealed interface TvMainIntent {
     data class SelectFavoritesMode(val mode: TvMediaBrowserMode) : TvMainIntent
     data class OpenLibraryDetail(val detail: TvMediaDetail) : TvMainIntent
     data class OpenFavoritesDetail(val detail: TvMediaDetail) : TvMainIntent
+    data class OpenPlaylist(val playlistId: String) : TvMainIntent
     data class OpenSearch(val target: TvSearchTarget, val currentQuery: String) : TvMainIntent
     data class SearchTextChanged(val value: String) : TvMainIntent
     data object SubmitSearch : TvMainIntent
@@ -63,6 +65,8 @@ internal sealed interface TvMainEffect {
     data object StartMy : TvMainEffect
     data object StartLibrary : TvMainEffect
     data object StartFavorites : TvMainEffect
+    data object StartPlaylists : TvMainEffect
+    data class SelectPlaylist(val playlistId: String) : TvMainEffect
     data class SearchLibrary(val query: String) : TvMainEffect
     data class SearchFavorites(val query: String) : TvMainEffect
     data class PlayTracks(val tracks: List<Track>, val startIndex: Int) : TvMainEffect
@@ -99,6 +103,10 @@ internal class TvMainStore(
                 it.copy(favoritesDetail = intent.detail)
             }
 
+            is TvMainIntent.OpenPlaylist -> {
+                emitEffect(TvMainEffect.SelectPlaylist(intent.playlistId))
+            }
+
             is TvMainIntent.OpenSearch -> updateState {
                 it.copy(searchDialog = TvSearchDialogState(intent.target, intent.currentQuery))
             }
@@ -124,6 +132,7 @@ internal class TvMainStore(
                 TvMainDestination.My -> TvMainEffect.StartMy
                 TvMainDestination.Library -> TvMainEffect.StartLibrary
                 TvMainDestination.Favorites -> TvMainEffect.StartFavorites
+                TvMainDestination.Playlists -> TvMainEffect.StartPlaylists
             },
         )
     }
@@ -152,7 +161,7 @@ internal class TvMainStore(
         }
     }
 
-    private fun handleBack() {
+    private suspend fun handleBack() {
         updateState { state ->
             when {
                 state.searchDialog != null -> state.copy(searchDialog = null)

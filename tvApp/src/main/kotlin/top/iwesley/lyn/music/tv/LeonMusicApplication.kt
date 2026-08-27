@@ -15,6 +15,7 @@ import kotlin.system.exitProcess
 import top.iwesley.lyn.music.ANDROID_TV_PLATFORM_NAME
 import top.iwesley.lyn.music.LeonMusicAppComponent
 import top.iwesley.lyn.music.buildPlayerAppComponent
+import top.iwesley.lyn.music.core.model.AppThemeId
 import top.iwesley.lyn.music.core.model.GlobalDiagnosticLogger
 import top.iwesley.lyn.music.core.model.LocalFolderPickerMode
 import top.iwesley.lyn.music.core.model.LocalFolderSelection
@@ -77,6 +78,7 @@ class LeonMusicApplication : Application() {
             context = applicationContext,
             activityActions = activityActions,
             platformName = ANDROID_TV_PLATFORM_NAME,
+            defaultTheme = AppThemeId.Classic,
         )
         return try {
             buildPlayerAppComponent(

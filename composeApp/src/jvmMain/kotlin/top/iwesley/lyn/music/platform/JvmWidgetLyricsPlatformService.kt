@@ -8,10 +8,16 @@ internal class JvmWidgetLyricsPlatformService(
     osName: String = System.getProperty("os.name").orEmpty(),
 ) : WidgetLyricsPlatformService {
     override val isSupported: Boolean = osName.contains("mac", ignoreCase = true)
+    private var latestLyrics: String? = null
+    private var hasPublishedLyrics = false
 
     override suspend fun updateLyrics(text: String?) {
         if (!isSupported) return
-        store.updateLyrics(text)
+        val normalizedText = text?.trim()?.takeIf { it.isNotEmpty() }
+        if (hasPublishedLyrics && latestLyrics == normalizedText) return
+        latestLyrics = normalizedText
+        hasPublishedLyrics = true
+        store.updateLyrics(normalizedText)
         reloadWidgetTimeline()
     }
 }

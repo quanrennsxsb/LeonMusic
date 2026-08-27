@@ -174,6 +174,41 @@ class JvmPlaybackGatewayVlcInitializationTest {
     }
 
     @Test
+    fun `macos ignores delayed vlc finished after explicit pause`() = runTest {
+        val database = createVlcGatewayTestDatabase()
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        val runtime = FakeVlcPlaybackRuntime()
+        val gateway = createGateway(
+            database = database,
+            runtimeDispatcher = dispatcher,
+            runtimeInitializer = {
+                JvmVlcRuntimeInitializationResult(
+                    runtime = runtime,
+                    autoDetectedPath = "/auto/vlc/lib",
+                    manualPath = null,
+                    effectivePath = "/auto/vlc/lib",
+                )
+            },
+            ignoreDelayedVlcFinishedAfterPause = true,
+        )
+
+        try {
+            gateway.load(sampleVlcGatewayTrack("track-1"), playWhenReady = true)
+            waitForStartCalls(runtime)
+            runtime.emitPlaying()
+            gateway.pause()
+            runtime.emitPaused()
+            runtime.emitFinished()
+
+            assertFalse(gateway.state.value.isPlaying)
+            assertEquals(0L, gateway.state.value.completionCount)
+        } finally {
+            gateway.release()
+            database.close()
+        }
+    }
+
+    @Test
     fun `vlc initialization success replays only latest current pending load`() = runTest {
         val database = createVlcGatewayTestDatabase()
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
@@ -475,6 +510,7 @@ private fun createGateway(
     desktopVlcPreferencesStore: DesktopVlcPreferencesStore = FakeDesktopVlcPreferencesStore(),
     runtimeDispatcher: CoroutineDispatcher,
     runtimeInitializer: suspend () -> JvmVlcRuntimeInitializationResult,
+    ignoreDelayedVlcFinishedAfterPause: Boolean = false,
 ): JvmPlaybackGateway {
     return JvmPlaybackGateway(
         database = database,
@@ -483,6 +519,7 @@ private fun createGateway(
         desktopVlcPreferencesStore = desktopVlcPreferencesStore,
         navidromePlaybackCachePreferencesStore = UnsupportedNavidromePlaybackCachePreferencesStore,
         logger = top.iwesley.lyn.music.core.model.NoopDiagnosticLogger,
+        ignoreDelayedVlcFinishedAfterPause = ignoreDelayedVlcFinishedAfterPause,
         runtimeInitializer = runtimeInitializer,
         runtimeDispatcher = runtimeDispatcher,
     )
@@ -603,6 +640,18 @@ private class FakeVlcPlaybackRuntime(
     fun emitPlaying() {
         mediaPlayerEventListeners.toList().forEach { listener ->
             listener.playing(null)
+        }
+    }
+
+    fun emitPaused() {
+        mediaPlayerEventListeners.toList().forEach { listener ->
+            listener.paused(null)
+        }
+    }
+
+    fun emitFinished() {
+        mediaPlayerEventListeners.toList().forEach { listener ->
+            listener.finished(null)
         }
     }
 

@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.RecentActors
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.AlertDialog
@@ -138,6 +139,7 @@ import top.iwesley.lyn.music.feature.online.OnlineFavoritesState
 import top.iwesley.lyn.music.feature.online.OnlineLibraryIntent
 import top.iwesley.lyn.music.feature.online.OnlineLibraryState
 import top.iwesley.lyn.music.feature.player.PlayerIntent
+import top.iwesley.lyn.music.feature.player.shuffledPlaybackQueue
 import top.iwesley.lyn.music.platform.PlatformBackHandler
 import top.iwesley.lyn.music.ui.mainShellColors
 import kotlin.math.roundToInt
@@ -1435,9 +1437,14 @@ private fun LibraryBrowserTab(
                     songsIcon = strings.songsIcon,
                     tracksStatFocusRequester = tracksStatFocusRequester,
                     onSelectRootView = ::selectRootView,
-                    onPlayAllTracks = {
+                    onPlayOrderedTracks = {
                         if (visibleTracks.isNotEmpty()) {
                             actions.onPlayTracks(visibleTracks, 0)
+                        }
+                    },
+                    onPlayShuffledTracks = {
+                        if (visibleTracks.isNotEmpty()) {
+                            actions.onPlayTracks(shuffledPlaybackQueue(visibleTracks), 0)
                         }
                     },
                 )
@@ -2041,7 +2048,8 @@ private fun LibraryRootSelector(
     songsIcon: ImageVector,
     tracksStatFocusRequester: FocusRequester,
     onSelectRootView: (LibraryBrowserRootView) -> Unit,
-    onPlayAllTracks: () -> Unit,
+    onPlayOrderedTracks: () -> Unit,
+    onPlayShuffledTracks: () -> Unit,
 ) {
     when (model.style) {
         LibraryRootSelectorStyle.Default -> DefaultLibraryRootSelector(
@@ -2058,7 +2066,8 @@ private fun LibraryRootSelector(
             songsIcon = songsIcon,
             tracksStatFocusRequester = tracksStatFocusRequester,
             onSelectRootView = onSelectRootView,
-            onPlayAllTracks = onPlayAllTracks,
+            onPlayOrderedTracks = onPlayOrderedTracks,
+            onPlayShuffledTracks = onPlayShuffledTracks,
         )
     }
 }
@@ -2102,7 +2111,8 @@ private fun CompactLibraryRootSelector(
     songsIcon: ImageVector,
     tracksStatFocusRequester: FocusRequester,
     onSelectRootView: (LibraryBrowserRootView) -> Unit,
-    onPlayAllTracks: () -> Unit,
+    onPlayOrderedTracks: () -> Unit,
+    onPlayShuffledTracks: () -> Unit,
 ) {
     val heroItem = model.heroItem ?: return
     Column(
@@ -2116,7 +2126,8 @@ private fun CompactLibraryRootSelector(
             tracksStatFocusRequester = tracksStatFocusRequester,
             playAllEnabled = model.playAllEnabled,
             onSelectTracks = { onSelectRootView(heroItem.rootView) },
-            onPlayAllTracks = onPlayAllTracks,
+            onPlayOrderedTracks = onPlayOrderedTracks,
+            onPlayShuffledTracks = onPlayShuffledTracks,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2143,7 +2154,8 @@ private fun CompactLibraryHeroCard(
     tracksStatFocusRequester: FocusRequester,
     playAllEnabled: Boolean,
     onSelectTracks: () -> Unit,
-    onPlayAllTracks: () -> Unit,
+    onPlayOrderedTracks: () -> Unit,
+    onPlayShuffledTracks: () -> Unit,
 ) {
     val containerColor = if (selected) {
         MaterialTheme.colorScheme.secondary
@@ -2199,7 +2211,7 @@ private fun CompactLibraryHeroCard(
             )
         }
         IconButton(
-            onClick = onPlayAllTracks,
+            onClick = onPlayOrderedTracks,
             enabled = playAllEnabled,
             modifier = Modifier
                 .size(42.dp)
@@ -2208,7 +2220,22 @@ private fun CompactLibraryHeroCard(
         ) {
             Icon(
                 imageVector = Icons.Rounded.PlayArrow,
-                contentDescription = "播放全部歌曲",
+                contentDescription = "顺序播放",
+                tint = contentColor.copy(alpha = if (playAllEnabled) 1f else 0.48f),
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        IconButton(
+            onClick = onPlayShuffledTracks,
+            enabled = playAllEnabled,
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(contentColor.copy(alpha = if (playAllEnabled) 0.22f else 0.12f)),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Shuffle,
+                contentDescription = "随机播放",
                 tint = contentColor.copy(alpha = if (playAllEnabled) 1f else 0.48f),
                 modifier = Modifier.size(24.dp),
             )

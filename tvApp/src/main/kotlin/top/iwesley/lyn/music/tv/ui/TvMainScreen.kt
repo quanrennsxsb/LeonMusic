@@ -1,7 +1,10 @@
 package top.iwesley.lyn.music.tv.ui
 
 import androidx.activity.compose.BackHandler
+import android.app.Activity
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -27,6 +30,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -36,8 +40,10 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Today
@@ -47,7 +53,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -60,9 +65,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -71,6 +80,11 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +108,7 @@ import top.iwesley.lyn.music.core.model.Artist
 import top.iwesley.lyn.music.core.model.ArtworkCacheStore
 import top.iwesley.lyn.music.core.model.RecentAlbum
 import top.iwesley.lyn.music.core.model.RecentTrack
+import top.iwesley.lyn.music.core.model.PlaybackCacheState
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.normalizedArtworkCacheLocator
 import top.iwesley.lyn.music.core.model.resolveArtworkCacheTarget
@@ -105,6 +120,8 @@ import top.iwesley.lyn.music.feature.library.libraryArtistId
 import top.iwesley.lyn.music.feature.my.MyState
 import top.iwesley.lyn.music.feature.player.PlayerIntent
 import top.iwesley.lyn.music.feature.player.PlayerState
+import top.iwesley.lyn.music.feature.player.shuffledPlaybackQueue
+import top.iwesley.lyn.music.feature.playlists.PlaylistsState
 import top.iwesley.lyn.music.tv.TvMediaDetailActivity
 import top.iwesley.lyn.music.tv.TvMediaDetailSource
 import top.iwesley.lyn.music.tv.TvPlayerActivity
@@ -116,6 +133,7 @@ private val TvNavigationItemShape = RoundedCornerShape(14.dp)
 private val TvClosedDrawerWidth = 88.dp
 private val TvOpenDrawerWidth = 260.dp
 private val TvContentStartPadding = 112.dp
+private val TvExpandedContentStartPadding = TvOpenDrawerWidth + 24.dp
 
 @Composable
 internal fun TvMainScreen(
@@ -123,25 +141,66 @@ internal fun TvMainScreen(
     myState: MyState,
     libraryState: LibraryState,
     favoritesState: FavoritesState,
+    playlistsState: PlaylistsState,
     playerState: PlayerState,
     showSettingsUpdateBadge: Boolean,
+    isRefreshingLibraries: Boolean,
     artworkCacheStore: ArtworkCacheStore,
     onIntent: (TvMainIntent) -> Unit,
     onPlayerIntent: (PlayerIntent) -> Unit,
+    onRefreshLibraries: () -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val context = LocalContext.current
+    var showExitDialog by remember { mutableStateOf(false) }
+    val backgroundPlaybackFocusRequester = remember { FocusRequester() }
+    val exitAppFocusRequester = remember { FocusRequester() }
+    var navigationHasFocus by remember { mutableStateOf(false) }
+    val contentStartPadding by animateDpAsState(
+        targetValue = if (drawerState.currentValue == DrawerValue.Open) {
+            TvExpandedContentStartPadding
+        } else {
+            TvContentStartPadding
+        },
+        label = "tv-content-start-padding",
+    )
     val allowContentInitialFocus = drawerState.currentValue == DrawerValue.Closed
     val myNavFocusRequester = remember { FocusRequester() }
     val libraryNavFocusRequester = remember { FocusRequester() }
     val favoritesNavFocusRequester = remember { FocusRequester() }
+    val playlistsNavFocusRequester = remember { FocusRequester() }
 
-    BackHandler(
-        enabled = state.searchDialog != null ||
-            state.libraryDetail != null ||
-            state.favoritesDetail != null,
-    ) {
-        onIntent(TvMainIntent.Back)
+    fun focusSelectedNavigationItem() {
+        when (state.selectedDestination) {
+            TvMainDestination.My -> myNavFocusRequester
+            TvMainDestination.Library -> libraryNavFocusRequester
+            TvMainDestination.Favorites -> favoritesNavFocusRequester
+            TvMainDestination.Playlists -> playlistsNavFocusRequester
+        }.requestFocus()
+    }
+
+    LaunchedEffect(showExitDialog) {
+        if (showExitDialog) {
+            withFrameNanos { }
+            runCatching { backgroundPlaybackFocusRequester.requestFocus() }
+        }
+    }
+
+    BackHandler {
+        when {
+            showExitDialog -> showExitDialog = false
+            navigationHasFocus -> showExitDialog = true
+            else -> {
+                if (
+                    state.searchDialog != null ||
+                    state.libraryDetail != null ||
+                    state.favoritesDetail != null
+                ) {
+                    onIntent(TvMainIntent.Back)
+                }
+                focusSelectedNavigationItem()
+            }
+        }
     }
 
     ModalNavigationDrawer(
@@ -153,13 +212,17 @@ internal fun TvMainScreen(
                 myFocusRequester = myNavFocusRequester,
                 libraryFocusRequester = libraryNavFocusRequester,
                 favoritesFocusRequester = favoritesNavFocusRequester,
+                playlistsFocusRequester = playlistsNavFocusRequester,
                 playerState = playerState,
                 artworkCacheStore = artworkCacheStore,
                 showSettingsUpdateBadge = showSettingsUpdateBadge,
+                isRefreshingLibraries = isRefreshingLibraries,
+                onNavigationFocusChanged = { navigationHasFocus = it },
                 onDestinationSelected = { onIntent(TvMainIntent.SelectDestination(it)) },
                 onPlayerIntent = onPlayerIntent,
                 onOpenPlayer = { context.startActivity(TvPlayerActivity.createIntent(context)) },
                 onOpenSettings = { context.startActivity(TvSettingsActivity.createIntent(context)) },
+                onRefreshLibraries = onRefreshLibraries,
             )
         },
         scrimBrush = SolidColor(Color.Transparent),
@@ -168,7 +231,7 @@ internal fun TvMainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(start = TvContentStartPadding, top = 28.dp, end = 36.dp, bottom = 26.dp),
+                .padding(start = contentStartPadding, top = 28.dp, end = 36.dp, bottom = 26.dp),
         ) {
             when (state.selectedDestination) {
                 TvMainDestination.My -> TvMyScreen(
@@ -184,6 +247,7 @@ internal fun TvMainScreen(
                     tvState = state,
                     artworkCacheStore = artworkCacheStore,
                     allowInitialFocus = allowContentInitialFocus,
+                    leftNavigationFocusRequester = libraryNavFocusRequester,
                     onIntent = onIntent,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -193,6 +257,14 @@ internal fun TvMainScreen(
                     tvState = state,
                     artworkCacheStore = artworkCacheStore,
                     allowInitialFocus = allowContentInitialFocus,
+                    leftNavigationFocusRequester = favoritesNavFocusRequester,
+                    onIntent = onIntent,
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                TvMainDestination.Playlists -> TvPlaylistsScreen(
+                    state = playlistsState,
+                    artworkCacheStore = artworkCacheStore,
                     onIntent = onIntent,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -209,6 +281,70 @@ internal fun TvMainScreen(
             onDismiss = { onIntent(TvMainIntent.DismissSearch) },
         )
     }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("离开 LeonMusic？") },
+            text = { Text("可以让歌曲继续在后台播放，或暂停播放并退出应用。") },
+            confirmButton = {
+                TvExitDialogActionButton(
+                    label = "后台播放",
+                    focusRequester = backgroundPlaybackFocusRequester,
+                    leftFocusRequester = exitAppFocusRequester,
+                    onClick = {
+                        showExitDialog = false
+                        (context as? Activity)?.moveTaskToBack(true)
+                    },
+                )
+            },
+            dismissButton = {
+                TvExitDialogActionButton(
+                    label = "退出",
+                    focusRequester = exitAppFocusRequester,
+                    rightFocusRequester = backgroundPlaybackFocusRequester,
+                    onClick = {
+                        showExitDialog = false
+                        if (playerState.effectiveSnapshot.isPlaying) {
+                            onPlayerIntent(PlayerIntent.TogglePlayPause)
+                        }
+                        (context as? Activity)?.finishAndRemoveTask()
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun TvExitDialogActionButton(
+    label: String,
+    focusRequester: FocusRequester,
+    onClick: () -> Unit,
+    leftFocusRequester: FocusRequester? = null,
+    rightFocusRequester: FocusRequester? = null,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .focusRequester(focusRequester)
+            .focusProperties {
+                leftFocusRequester?.let { left = it }
+                rightFocusRequester?.let { right = it }
+            }
+            .onFocusChanged { focused = it.isFocused },
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (focused) MaterialTheme.colorScheme.secondary else Color(0xFF3B393E),
+            contentColor = if (focused) MaterialTheme.colorScheme.onSecondary else Color(0xFFE6E1E5),
+        ),
+        border = BorderStroke(
+            width = if (focused) 3.dp else 1.dp,
+            color = if (focused) Color.White else Color.Transparent,
+        ),
+    ) {
+        Text(label)
+    }
 }
 
 @Composable
@@ -218,13 +354,17 @@ private fun NavigationDrawerScope.TvNavigationRail(
     myFocusRequester: FocusRequester,
     libraryFocusRequester: FocusRequester,
     favoritesFocusRequester: FocusRequester,
+    playlistsFocusRequester: FocusRequester,
     playerState: PlayerState,
     artworkCacheStore: ArtworkCacheStore,
     showSettingsUpdateBadge: Boolean,
+    isRefreshingLibraries: Boolean,
+    onNavigationFocusChanged: (Boolean) -> Unit,
     onDestinationSelected: (TvMainDestination) -> Unit,
     onPlayerIntent: (PlayerIntent) -> Unit,
     onOpenPlayer: () -> Unit,
     onOpenSettings: () -> Unit,
+    onRefreshLibraries: () -> Unit,
 ) {
     val expanded = drawerValue == DrawerValue.Open
     Column(
@@ -238,11 +378,13 @@ private fun NavigationDrawerScope.TvNavigationRail(
                             TvMainDestination.My -> myFocusRequester
                             TvMainDestination.Library -> libraryFocusRequester
                             TvMainDestination.Favorites -> favoritesFocusRequester
+                            TvMainDestination.Playlists -> playlistsFocusRequester
                         }.requestFocus()
                     }
                 }
             }
             .focusGroup()
+            .onFocusChanged { onNavigationFocusChanged(it.hasFocus) }
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = if (expanded) 18.dp else 14.dp, vertical = 26.dp)
             .selectableGroup(),
@@ -254,20 +396,35 @@ private fun NavigationDrawerScope.TvNavigationRail(
                     .fillMaxWidth()
                     .padding(start = 4.dp, bottom = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     text = "LeonMusic",
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(
+                    onClick = onRefreshLibraries,
+                    enabled = !isRefreshingLibraries,
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    if (isRefreshingLibraries) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = "刷新所有音乐库",
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                }
+                IconButton(
                     onClick = onOpenSettings,
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(40.dp),
                 ) {
                     BadgedIcon(
                         imageVector = Icons.Rounded.Settings,
@@ -287,6 +444,7 @@ private fun NavigationDrawerScope.TvNavigationRail(
             selected = selectedDestination == TvMainDestination.My,
             focusRequester = myFocusRequester,
             onClick = onDestinationSelected,
+            onOpenPlayer = onOpenPlayer,
         )
         TvDestinationItem(
             destination = TvMainDestination.Library,
@@ -295,6 +453,7 @@ private fun NavigationDrawerScope.TvNavigationRail(
             selected = selectedDestination == TvMainDestination.Library,
             focusRequester = libraryFocusRequester,
             onClick = onDestinationSelected,
+            onOpenPlayer = onOpenPlayer,
         )
         TvDestinationItem(
             destination = TvMainDestination.Favorites,
@@ -303,6 +462,16 @@ private fun NavigationDrawerScope.TvNavigationRail(
             selected = selectedDestination == TvMainDestination.Favorites,
             focusRequester = favoritesFocusRequester,
             onClick = onDestinationSelected,
+            onOpenPlayer = onOpenPlayer,
+        )
+        TvDestinationItem(
+            destination = TvMainDestination.Playlists,
+            label = "歌单",
+            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+            selected = selectedDestination == TvMainDestination.Playlists,
+            focusRequester = playlistsFocusRequester,
+            onClick = onDestinationSelected,
+            onOpenPlayer = onOpenPlayer,
         )
         Spacer(Modifier.weight(1f))
         TvSideNowPlayingPanel(
@@ -323,6 +492,7 @@ private fun NavigationDrawerScope.TvDestinationItem(
     selected: Boolean,
     focusRequester: FocusRequester,
     onClick: (TvMainDestination) -> Unit,
+    onOpenPlayer: () -> Unit,
 ) {
     val selectDestination = {
         if (!selected) {
@@ -342,6 +512,14 @@ private fun NavigationDrawerScope.TvDestinationItem(
         ),
         modifier = Modifier
             .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
+                    onOpenPlayer()
+                    true
+                } else {
+                    false
+                }
+            }
             .onFocusChanged { focusState ->
                 if (focusState.isFocused) {
                     selectDestination()
@@ -355,6 +533,111 @@ private fun NavigationDrawerScope.TvDestinationItem(
         },
     ) {
         androidx.tv.material3.Text(label)
+    }
+}
+
+@Composable
+private fun TvPlaylistsScreen(
+    state: PlaylistsState,
+    artworkCacheStore: ArtworkCacheStore,
+    onIntent: (TvMainIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val detail = state.selectedPlaylist
+    val detailTracks = detail?.tracks?.map { it.track }.orEmpty()
+    val orderedPlaybackFocusRequester = remember { FocusRequester() }
+    var playbackFocusPlaylistId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.selectedPlaylistId, detailTracks.isNotEmpty(), playbackFocusPlaylistId) {
+        if (
+            playbackFocusPlaylistId != null &&
+            playbackFocusPlaylistId == state.selectedPlaylistId &&
+            detailTracks.isNotEmpty()
+        ) {
+            // Wait for the newly selected detail pane to finish composing. Otherwise the
+            // track list can claim focus while this playlist's previous pane is replaced.
+            withFrameNanos { }
+            runCatching { orderedPlaybackFocusRequester.requestFocus() }
+            withFrameNanos { }
+            runCatching { orderedPlaybackFocusRequester.requestFocus() }
+            playbackFocusPlaylistId = null
+        }
+    }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        TvSectionHeader("歌单", if (state.isLoadingContent) "正在加载歌单" else "${state.playlists.size} 个歌单", action = null)
+        when {
+            state.isLoadingContent -> TvLoadingPanel()
+            state.playlists.isEmpty() -> TvEmptyPanel("还没有歌单", "可在播放歌曲时将歌曲加入歌单，歌单会显示在这里。", Modifier.weight(1f))
+            else -> Row(modifier = Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+                LazyColumn(
+                    modifier = Modifier.weight(0.30f).fillMaxHeight().focusGroup(),
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(state.playlists, key = { it.id }) { playlist ->
+                        Card(
+                            onClick = {
+                                playbackFocusPlaylistId = playlist.id
+                                onIntent(TvMainIntent.OpenPlaylist(playlist.id))
+                            },
+                            colors = CardDefaults.colors(
+                                containerColor = if (playlist.id == state.selectedPlaylistId) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                                focusedContainerColor = MaterialTheme.colorScheme.primary,
+                                focusedContentColor = Color.White,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 88.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, modifier = Modifier.size(28.dp))
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(playlist.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("${playlist.trackCount} 首歌曲", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+                Box(modifier = Modifier.weight(0.70f).fillMaxHeight()) {
+                    when {
+                        detail == null -> TvLoadingPanel()
+                        detailTracks.isEmpty() -> TvEmptyPanel(detail.name, "这个歌单暂时没有歌曲。")
+                        else -> Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            TvSectionHeader(
+                                detail.name,
+                                "${detailTracks.size} 首歌曲",
+                                action = {
+                                    TvPlaybackActions(
+                                        tracks = detailTracks,
+                                        onPlayTracks = { tracks, index -> onIntent(TvMainIntent.PlayTracks(tracks, index)) },
+                                        orderedFocusRequester = orderedPlaybackFocusRequester,
+                                    )
+                                },
+                            )
+                            TvTrackList(
+                                tracks = detailTracks,
+                                favoriteTrackIds = emptySet(),
+                                artworkCacheStore = artworkCacheStore,
+                                emptyTitle = "这里没有歌曲",
+                                emptyBody = "这个歌单暂时没有歌曲。",
+                                onPlayTracks = { tracks, index -> onIntent(TvMainIntent.PlayTracks(tracks, index)) },
+                                onToggleFavorite = { onIntent(TvMainIntent.ToggleFavorite(it)) },
+                                onItemFocused = {},
+                                onFocusExit = {},
+                                firstItemFocusRequester = remember { FocusRequester() },
+                                firstItemUpFocusRequester = orderedPlaybackFocusRequester,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -434,6 +717,7 @@ private fun TvLibraryScreen(
     tvState: TvMainState,
     artworkCacheStore: ArtworkCacheStore,
     allowInitialFocus: Boolean,
+    leftNavigationFocusRequester: FocusRequester,
     onIntent: (TvMainIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -452,6 +736,7 @@ private fun TvLibraryScreen(
         favoriteTrackIds = favoritesState.favoriteTrackIds,
         artworkCacheStore = artworkCacheStore,
         allowInitialFocus = allowInitialFocus,
+        leftNavigationFocusRequester = leftNavigationFocusRequester,
         onModeSelected = { onIntent(TvMainIntent.SelectLibraryMode(it)) },
         onOpenSearch = { onIntent(TvMainIntent.OpenSearch(TvSearchTarget.Library, state.query)) },
         onClearSearch = { onIntent(TvMainIntent.ClearSearch(TvSearchTarget.Library)) },
@@ -479,6 +764,7 @@ private fun TvFavoritesScreen(
     tvState: TvMainState,
     artworkCacheStore: ArtworkCacheStore,
     allowInitialFocus: Boolean,
+    leftNavigationFocusRequester: FocusRequester,
     onIntent: (TvMainIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -497,6 +783,7 @@ private fun TvFavoritesScreen(
         favoriteTrackIds = state.favoriteTrackIds,
         artworkCacheStore = artworkCacheStore,
         allowInitialFocus = allowInitialFocus,
+        leftNavigationFocusRequester = leftNavigationFocusRequester,
         onModeSelected = { onIntent(TvMainIntent.SelectFavoritesMode(it)) },
         onOpenSearch = { onIntent(TvMainIntent.OpenSearch(TvSearchTarget.Favorites, state.query)) },
         onClearSearch = { onIntent(TvMainIntent.ClearSearch(TvSearchTarget.Favorites)) },
@@ -533,6 +820,7 @@ private fun TvMediaBrowserScreen(
     favoriteTrackIds: Set<String>,
     artworkCacheStore: ArtworkCacheStore,
     allowInitialFocus: Boolean,
+    leftNavigationFocusRequester: FocusRequester,
     onModeSelected: (TvMediaBrowserMode) -> Unit,
     onOpenSearch: () -> Unit,
     onClearSearch: () -> Unit,
@@ -550,6 +838,7 @@ private fun TvMediaBrowserScreen(
         TvMediaBrowserMode.Artists -> artistsTabFocusRequester
     }
     val firstListItemFocusRequester = remember(title, mode, detail) { FocusRequester() }
+    val orderedPlaybackFocusRequester = remember(title, detail) { FocusRequester() }
     val displayedTracks = remember(detail, tracks) {
         when (detail?.mode) {
             TvMediaBrowserMode.Albums -> tracks.filter { track -> matchesAlbumDetail(track, detail.id) }
@@ -557,6 +846,11 @@ private fun TvMediaBrowserScreen(
             TvMediaBrowserMode.Tracks,
             null -> tracks
         }
+    }
+    val playbackTracks = when {
+        detail != null -> displayedTracks
+        mode == TvMediaBrowserMode.Tracks -> tracks
+        else -> emptyList()
     }
     val albumArtworkTrackById by produceState<Map<String, Track>>(initialValue = emptyMap(), tracks) {
         value = withContext(Dispatchers.Default) {
@@ -577,13 +871,29 @@ private fun TvMediaBrowserScreen(
         mode == TvMediaBrowserMode.Artists -> artists.isNotEmpty()
         else -> false
     }
-    LaunchedEffect(title) {
+    LaunchedEffect(allowInitialFocus, playbackTracks.isNotEmpty()) {
         if (allowInitialFocus) {
-            runCatching { currentTabFocusRequester.requestFocus() }
+            val initialFocusRequester = if (playbackTracks.isNotEmpty()) {
+                orderedPlaybackFocusRequester
+            } else {
+                currentTabFocusRequester
+            }
+            runCatching { initialFocusRequester.requestFocus() }
         }
     }
     Column(
-        modifier = modifier,
+        modifier = modifier
+            .focusProperties {
+                onEnter = {
+                    if (
+                        requestedFocusDirection == FocusDirection.Right &&
+                        playbackTracks.isNotEmpty()
+                    ) {
+                        orderedPlaybackFocusRequester.requestFocus()
+                    }
+                }
+            }
+            .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         TvSectionHeader(
@@ -591,6 +901,14 @@ private fun TvMediaBrowserScreen(
             subtitle = detail?.subtitle ?: browserSubtitle(query, tracks.size),
             action = {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (playbackTracks.isNotEmpty()) {
+                        TvPlaybackActions(
+                            tracks = playbackTracks,
+                            onPlayTracks = onPlayTracks,
+                            orderedFocusRequester = orderedPlaybackFocusRequester,
+                            leftFocusRequester = leftNavigationFocusRequester,
+                        )
+                    }
                     if (query.isNotBlank()) {
                         OutlinedButton(
                             onClick = onClearSearch,
@@ -675,6 +993,35 @@ private fun TvMediaBrowserScreen(
                 firstItemUpFocusRequester = currentTabFocusRequester,
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+    }
+}
+
+@Composable
+private fun TvPlaybackActions(
+    tracks: List<Track>,
+    onPlayTracks: (List<Track>, Int) -> Unit,
+    orderedFocusRequester: FocusRequester? = null,
+    leftFocusRequester: FocusRequester? = null,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        androidx.tv.material3.Button(
+            onClick = { onPlayTracks(tracks, 0) },
+            modifier = (orderedFocusRequester?.let(Modifier::focusRequester) ?: Modifier)
+                .then(
+                    leftFocusRequester?.let { focusRequester ->
+                        Modifier.focusProperties { left = focusRequester }
+                    } ?: Modifier,
+                ),
+        ) {
+            androidx.tv.material3.Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            androidx.tv.material3.Text("顺序播放")
+        }
+        androidx.tv.material3.OutlinedButton(onClick = { onPlayTracks(shuffledPlaybackQueue(tracks), 0) }) {
+            androidx.tv.material3.Icon(Icons.Rounded.Shuffle, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            androidx.tv.material3.Text("随机播放")
         }
     }
 }
@@ -1472,11 +1819,13 @@ private fun TvSideNowPlayingExpanded(
                 )
             }
         }
-        LinearProgressIndicator(
-            progress = { playbackProgress(snapshot.positionMs, snapshot.durationMs) },
-            modifier = Modifier.fillMaxWidth().height(4.dp),
-            color = MaterialTheme.colorScheme.primary,
+        TvSidePlaybackProgressTrack(
+            progressFraction = playbackProgress(snapshot.positionMs, snapshot.durationMs),
+            cacheProgressFraction = snapshot.cacheProgressFraction,
+            cacheState = snapshot.cacheState,
+            progressColor = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.fillMaxWidth().height(4.dp),
         )
         Text(
             text = "${formatTvDuration(snapshot.positionMs)} / ${formatTvDuration(snapshot.durationMs)}",
@@ -1503,6 +1852,60 @@ private fun TvSideNowPlayingExpanded(
             IconButton(onClick = onOpenPlayer) {
                 Icon(Icons.Rounded.Fullscreen, contentDescription = "播放界面")
             }
+        }
+    }
+}
+
+@Composable
+private fun TvSidePlaybackProgressTrack(
+    progressFraction: Float,
+    cacheProgressFraction: Float?,
+    cacheState: PlaybackCacheState,
+    progressColor: Color,
+    trackColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val trackWidth = size.width.coerceAtLeast(0f)
+        val trackHeight = size.height.coerceAtLeast(0f)
+        if (trackWidth <= 0f || trackHeight <= 0f) return@Canvas
+        val radius = CornerRadius(trackHeight / 2f, trackHeight / 2f)
+        drawRoundRect(
+            color = trackColor,
+            size = Size(trackWidth, trackHeight),
+            cornerRadius = radius,
+        )
+        val cacheFraction = when (cacheState) {
+            PlaybackCacheState.CACHING -> cacheProgressFraction?.coerceIn(0f, 1f) ?: 0f
+            PlaybackCacheState.COMPLETE,
+            PlaybackCacheState.LOCAL -> 1f
+            PlaybackCacheState.NONE -> 0f
+        }
+        val cacheWidth = (trackWidth * cacheFraction).coerceIn(0f, trackWidth)
+        if (cacheWidth > 0f) {
+            drawRoundRect(
+                color = when (cacheState) {
+                    PlaybackCacheState.CACHING -> Color(0xFF42A5F5).copy(alpha = 0.78f)
+                    PlaybackCacheState.COMPLETE,
+                    PlaybackCacheState.LOCAL -> Color(0xFF48C774).copy(alpha = 0.42f)
+                    PlaybackCacheState.NONE -> Color.Transparent
+                },
+                size = Size(cacheWidth, trackHeight),
+                cornerRadius = radius,
+            )
+        }
+        val activeWidth = (trackWidth * progressFraction.coerceIn(0f, 1f)).coerceIn(0f, trackWidth)
+        if (activeWidth > 0f) {
+            drawRoundRect(
+                color = when (cacheState) {
+                    PlaybackCacheState.COMPLETE,
+                    PlaybackCacheState.LOCAL -> Color(0xFF48C774).copy(alpha = 0.98f)
+                    PlaybackCacheState.NONE,
+                    PlaybackCacheState.CACHING -> progressColor
+                },
+                size = Size(activeWidth, trackHeight),
+                cornerRadius = radius,
+            )
         }
     }
 }

@@ -1,9 +1,16 @@
 package top.iwesley.lyn.music.tv.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import top.iwesley.lyn.music.core.model.AppThemeTextPalette
+import top.iwesley.lyn.music.core.model.AppThemeId
+import top.iwesley.lyn.music.core.model.AppThemeTextPalettePreferences
+import top.iwesley.lyn.music.core.model.AppThemePalette
 import top.iwesley.lyn.music.core.model.AppThemeTokens
+import top.iwesley.lyn.music.core.model.defaultThemeTextPalettePreferences
+import top.iwesley.lyn.music.core.model.deriveAppThemePalette
+import top.iwesley.lyn.music.core.model.resolveAppThemeTextPalette
+import top.iwesley.lyn.music.core.model.resolveAppThemeTokens
 import top.iwesley.lyn.music.ui.LeonMusicTheme
 
 private val TvMainThemeTokens = AppThemeTokens(
@@ -14,44 +21,60 @@ private val TvMainThemeTokens = AppThemeTokens(
 
 @Composable
 internal fun TvMainTheme(
+    selectedTheme: AppThemeId = AppThemeId.Classic,
+    customThemeTokens: AppThemeTokens = TvMainThemeTokens,
+    textPalettePreferences: AppThemeTextPalettePreferences = defaultThemeTextPalettePreferences(),
     content: @Composable () -> Unit,
 ) {
+    val themeTokens = remember(selectedTheme, customThemeTokens) {
+        resolveAppThemeTokens(selectedTheme, customThemeTokens)
+    }
+    val textPalette = remember(selectedTheme, textPalettePreferences) {
+        resolveAppThemeTextPalette(selectedTheme, textPalettePreferences)
+    }
+    val palette = remember(themeTokens, textPalette) {
+        deriveAppThemePalette(themeTokens, textPalette)
+    }
     LeonMusicTheme(
-        themeTokens = TvMainThemeTokens,
-        textPalette = AppThemeTextPalette.White,
+        themeTokens = themeTokens,
+        textPalette = textPalette,
     ) {
         androidx.tv.material3.MaterialTheme(
-            colorScheme = androidx.tv.material3.darkColorScheme(
-                primary = Color(0xFFE03131),
-                onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFF3A1518),
-                onPrimaryContainer = Color(0xFFFFDADC),
-                secondary = Color(0xFFE03131),
-                onSecondary = Color(0xFFFFFFFF),
-                secondaryContainer = Color(0xFF3A1518),
-                onSecondaryContainer = Color(0xFFFFDADC),
-                tertiary = Color(0xFFFFB4AB),
-                onTertiary = Color(0xFF410002),
-                tertiaryContainer = Color(0xFF5F1318),
-                onTertiaryContainer = Color(0xFFFFDADC),
-                background = Color(0xFF0B0D10),
-                onBackground = Color(0xFFF4F6F8),
-                surface = Color(0xFF151922),
-                onSurface = Color(0xFFF4F6F8),
-                surfaceVariant = Color(0xFF1D222C),
-                onSurfaceVariant = Color(0xFFC4CAD3),
-                surfaceTint = Color(0xFFE03131),
-                inverseSurface = Color(0xFFE4E8EE),
-                inverseOnSurface = Color(0xFF1A1D23),
-                error = Color(0xFFFFB4AB),
-                onError = Color(0xFF690005),
-                errorContainer = Color(0xFF93000A),
-                onErrorContainer = Color(0xFFFFDAD6),
-                border = Color.White,
-                borderVariant = Color(0xFF2B313B),
-                scrim = Color(0x99000000),
-            ),
+            colorScheme = palette.toTvColorScheme(),
             content = content,
         )
     }
+}
+
+private fun AppThemePalette.toTvColorScheme(): androidx.tv.material3.ColorScheme {
+    return androidx.tv.material3.darkColorScheme(
+        primary = Color(primaryArgb),
+        onPrimary = Color(onPrimaryArgb),
+        primaryContainer = Color(selectedContainerArgb),
+        onPrimaryContainer = Color(onBackgroundArgb),
+        secondary = Color(secondaryArgb),
+        onSecondary = Color(onSecondaryArgb),
+        secondaryContainer = Color(selectedContainerArgb),
+        onSecondaryContainer = Color(onBackgroundArgb),
+        tertiary = Color(tertiaryArgb),
+        onTertiary = Color(onTertiaryArgb),
+        tertiaryContainer = Color(cardContainerArgb),
+        onTertiaryContainer = Color(onSurfaceArgb),
+        background = Color(backgroundArgb),
+        onBackground = Color(onBackgroundArgb),
+        surface = Color(surfaceArgb),
+        onSurface = Color(onSurfaceArgb),
+        surfaceVariant = Color(surfaceVariantArgb),
+        onSurfaceVariant = Color(onSurfaceVariantArgb),
+        surfaceTint = Color(primaryArgb),
+        inverseSurface = Color(onSurfaceArgb),
+        inverseOnSurface = Color(surfaceArgb),
+        error = Color(0xFFFFB4AB),
+        onError = Color(0xFF690005),
+        errorContainer = Color(0xFF93000A),
+        onErrorContainer = Color(0xFFFFDAD6),
+        border = Color(outlineArgb),
+        borderVariant = Color(cardBorderArgb),
+        scrim = Color(0x99000000),
+    )
 }

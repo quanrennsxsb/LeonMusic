@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Sync
@@ -115,6 +116,8 @@ import kotlinx.coroutines.launch
 import top.iwesley.lyn.music.BadgedIcon
 import top.iwesley.lyn.music.LeonMusicAppComponent
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
+import top.iwesley.lyn.music.core.model.AppThemeId
+import top.iwesley.lyn.music.core.model.AppThemeTextPalette
 import top.iwesley.lyn.music.core.model.AppStorageCategory
 import top.iwesley.lyn.music.core.model.AppStorageCategoryUsage
 import top.iwesley.lyn.music.core.model.BuildMetadata
@@ -128,7 +131,12 @@ import top.iwesley.lyn.music.core.model.SourceWithStatus
 import top.iwesley.lyn.music.core.model.SubsonicAuthMode
 import top.iwesley.lyn.music.core.model.displayWebDavRootUrl
 import top.iwesley.lyn.music.core.model.effectiveAppDisplayDensity
+import top.iwesley.lyn.music.core.model.formatThemeHexColor
 import top.iwesley.lyn.music.core.model.formatSambaEndpoint
+import top.iwesley.lyn.music.core.model.parseThemeHexColor
+import top.iwesley.lyn.music.core.model.presetThemeTokens
+import top.iwesley.lyn.music.core.model.resolveAppThemeTextPalette
+import top.iwesley.lyn.music.feature.settings.CustomThemeColorRole
 import top.iwesley.lyn.music.feature.importing.ImportIntent
 import top.iwesley.lyn.music.feature.importing.ImportScanOperation
 import top.iwesley.lyn.music.feature.importing.ImportState
@@ -195,7 +203,11 @@ private fun TvSettingsApp(
         component.settingsStore.dispatch(SettingsIntent.CheckAppUpdateSilently)
     }
 
-    TvMainTheme {
+    TvMainTheme(
+        selectedTheme = settingsState.selectedTheme,
+        customThemeTokens = settingsState.customThemeTokens,
+        textPalettePreferences = settingsState.textPalettePreferences,
+    ) {
         TvSettingsScreen(
             platformName = component.platform.name,
             importState = importState,
@@ -221,6 +233,7 @@ private fun TvSettingsScreen(
     BackHandler(onBack = onBack)
     var selectedSection by remember { mutableStateOf(TvSettingsSection.Sources) }
     val sourcesFocusRequester = remember { FocusRequester() }
+    val themeFocusRequester = remember { FocusRequester() }
     val storageFocusRequester = remember { FocusRequester() }
     val aboutDeviceFocusRequester = remember { FocusRequester() }
     val aboutAppFocusRequester = remember { FocusRequester() }
@@ -228,6 +241,7 @@ private fun TvSettingsScreen(
     val focusCoordinator = remember { TvSettingsFocusCoordinator() }
     val selectedSectionFocusRequester = when (selectedSection) {
         TvSettingsSection.Sources -> sourcesFocusRequester
+        TvSettingsSection.Theme -> themeFocusRequester
         TvSettingsSection.Storage -> storageFocusRequester
         TvSettingsSection.AboutDevice -> aboutDeviceFocusRequester
         TvSettingsSection.AboutApp -> aboutAppFocusRequester
@@ -244,6 +258,7 @@ private fun TvSettingsScreen(
             selectedSection = selectedSection,
             showAppUpdateBadge = settingsState.appUpdateHasNewVersion == true,
             sourcesFocusRequester = sourcesFocusRequester,
+            themeFocusRequester = themeFocusRequester,
             storageFocusRequester = storageFocusRequester,
             aboutDeviceFocusRequester = aboutDeviceFocusRequester,
             aboutAppFocusRequester = aboutAppFocusRequester,
@@ -264,6 +279,15 @@ private fun TvSettingsScreen(
                     state = importState,
                     onIntent = onImportIntent,
                     pickLocalFolder = pickLocalFolder,
+                    initialFocusRequester = contentInitialFocusRequester,
+                    leftFocusRequester = selectedSectionFocusRequester,
+                    focusCoordinator = focusCoordinator,
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                TvSettingsSection.Theme -> TvThemeSettingsPane(
+                    state = settingsState,
+                    onIntent = onSettingsIntent,
                     initialFocusRequester = contentInitialFocusRequester,
                     leftFocusRequester = selectedSectionFocusRequester,
                     focusCoordinator = focusCoordinator,
@@ -307,6 +331,7 @@ private fun TvSettingsNavigationPane(
     selectedSection: TvSettingsSection,
     showAppUpdateBadge: Boolean,
     sourcesFocusRequester: FocusRequester,
+    themeFocusRequester: FocusRequester,
     storageFocusRequester: FocusRequester,
     aboutDeviceFocusRequester: FocusRequester,
     aboutAppFocusRequester: FocusRequester,
@@ -335,7 +360,8 @@ private fun TvSettingsNavigationPane(
                 selected = selectedSection == section,
                 showUpdateBadge = showAppUpdateBadge && section == TvSettingsSection.AboutApp,
                 focusRequester = when (section) {
-                    TvSettingsSection.Sources -> sourcesFocusRequester
+                TvSettingsSection.Sources -> sourcesFocusRequester
+                TvSettingsSection.Theme -> themeFocusRequester
                     TvSettingsSection.Storage -> storageFocusRequester
                     TvSettingsSection.AboutDevice -> aboutDeviceFocusRequester
                     TvSettingsSection.AboutApp -> aboutAppFocusRequester
@@ -360,7 +386,7 @@ private fun TvSettingsSectionCard(
 ) {
     var focused by remember { mutableStateOf(false) }
     val selectIfNeeded = { if (!selected) onSelected() }
-    val focusedContentColor = MaterialTheme.colorScheme.background
+    val focusedContentColor = Color(0xFF111111)
     val primaryContentColor = MaterialTheme.colorScheme.onSurface
     val subtitleColor = when {
         focused -> focusedContentColor.copy(alpha = 0.78f)
@@ -745,7 +771,7 @@ private fun TvSettingsActionButton(
     content: @Composable (Color) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val focusedContentColor = MaterialTheme.colorScheme.background
+    val focusedContentColor = Color(0xFF111111)
     val normalContentColor = when (style) {
         TvSettingsActionButtonStyle.Filled,
         TvSettingsActionButtonStyle.Selected -> Color.White
@@ -1639,6 +1665,255 @@ private fun TvRemoteSourceEditorDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TvThemeSettingsPane(
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit,
+    initialFocusRequester: FocusRequester,
+    leftFocusRequester: FocusRequester,
+    focusCoordinator: TvSettingsFocusCoordinator,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+    var editingColorRole by remember { mutableStateOf<CustomThemeColorRole?>(null) }
+    val focusRows = remember(state.selectedTheme) {
+        buildList {
+            tvSelectableThemeIds.chunked(2).forEach { themes ->
+                add(themes.map { "theme:preset:${it.name}" })
+            }
+            add(listOf("theme:text:white", "theme:text:black"))
+            if (state.selectedTheme == AppThemeId.Custom) {
+                add(listOf("theme:color:background", "theme:color:accent", "theme:color:focus"))
+                add(listOf("theme:custom:reset"))
+            }
+        }
+    }
+    val focusChain = rememberTvSettingsFocusChain(
+        focusRows = focusRows,
+        initialFocusRequester = initialFocusRequester,
+        leftFocusRequester = leftFocusRequester,
+        listState = listState,
+        focusCoordinator = focusCoordinator,
+    )
+    editingColorRole?.let { role ->
+        TvThemeColorDialog(
+            title = tvThemeColorRoleTitle(role),
+            initialArgb = tvThemeColorFor(role, state),
+            onDismiss = { editingColorRole = null },
+            onConfirm = { color ->
+                editingColorRole = null
+                onIntent(SettingsIntent.CustomThemeColorUpdated(role, color))
+            },
+        )
+    }
+    LazyColumn(
+        state = listState,
+        modifier = modifier.tvSettingsScrollableFocus(listState, leftFocusRequester),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            TvSettingsPaneHeader(
+                title = "主题",
+                subtitle = "切换预置主题，并为当前主题选择黑字或白字。",
+            )
+        }
+        item {
+            TvSettingsInfoCard(title = "预置主题") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    tvSelectableThemeIds.chunked(2).forEach { themes ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            themes.forEach { themeId ->
+                                val selected = state.selectedTheme == themeId
+                                val tokens = if (themeId == AppThemeId.Custom) {
+                                    state.customThemeTokens
+                                } else {
+                                    presetThemeTokens(themeId)
+                                }
+                                TvSettingsActionButton(
+                                    onClick = { onIntent(SettingsIntent.ThemeSelected(themeId)) },
+                                    modifier = Modifier.weight(1f),
+                                    style = if (selected) TvSettingsActionButtonStyle.Selected else TvSettingsActionButtonStyle.Outlined,
+                                    focusKey = "theme:preset:${themeId.name}",
+                                    focusChain = focusChain,
+                                ) { contentColor ->
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(18.dp)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(Color(tokens.backgroundArgb)),
+                                        )
+                                        Text(tvThemeDisplayName(themeId), color = contentColor)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            val selectedTextPalette = resolveAppThemeTextPalette(
+                state.selectedTheme,
+                state.textPalettePreferences,
+            )
+            TvSettingsInfoCard(title = "文字颜色") {
+                Text(
+                    "为“${tvThemeDisplayName(state.selectedTheme)}”选择界面文字颜色。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AppThemeTextPalette.entries.forEach { palette ->
+                        TvSettingsActionButton(
+                            onClick = {
+                                onIntent(
+                                    SettingsIntent.ThemeTextPaletteSelected(
+                                        state.selectedTheme,
+                                        palette,
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            style = if (selectedTextPalette == palette) {
+                                TvSettingsActionButtonStyle.Selected
+                            } else {
+                                TvSettingsActionButtonStyle.Outlined
+                            },
+                            focusKey = "theme:text:${palette.name.lowercase()}",
+                            focusChain = focusChain,
+                        ) { contentColor ->
+                            Text(if (palette == AppThemeTextPalette.White) "白字" else "黑字", color = contentColor)
+                        }
+                    }
+                }
+            }
+        }
+        if (state.selectedTheme == AppThemeId.Custom) {
+            item {
+                TvSettingsInfoCard(title = "自定义颜色") {
+                    Text(
+                        "输入 #RRGGBB 色值，确认后立即应用。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CustomThemeColorRole.entries.forEach { role ->
+                            TvSettingsActionButton(
+                                onClick = { editingColorRole = role },
+                                modifier = Modifier.weight(1f),
+                                focusKey = "theme:color:${role.name.lowercase()}",
+                                focusChain = focusChain,
+                            ) { contentColor ->
+                                Text(tvThemeColorRoleTitle(role), color = contentColor)
+                            }
+                        }
+                    }
+                    TvSettingsActionButton(
+                        onClick = { onIntent(SettingsIntent.ResetCustomTheme) },
+                        focusKey = "theme:custom:reset",
+                        focusChain = focusChain,
+                    ) { contentColor ->
+                        Text("重置自定义主题", color = contentColor)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvThemeColorDialog(
+    title: String,
+    initialArgb: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    var colorText by remember(initialArgb) { mutableStateOf(formatThemeHexColor(initialArgb)) }
+    var invalidInput by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("请输入 6 位十六进制颜色，例如 #E03131。")
+                OutlinedTextField(
+                    value = colorText,
+                    onValueChange = {
+                        colorText = it
+                        invalidInput = false
+                    },
+                    label = { Text("颜色") },
+                    isError = invalidInput,
+                    singleLine = true,
+                )
+                if (invalidInput) {
+                    Text("颜色格式不正确。", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val color = parseThemeHexColor(colorText)
+                    if (color == null) {
+                        invalidInput = true
+                    } else {
+                        onConfirm(color)
+                    }
+                },
+            ) {
+                Text("应用")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+    )
+}
+
+private val tvSelectableThemeIds = listOf(
+    AppThemeId.Classic,
+    AppThemeId.Ocean,
+    AppThemeId.TigerLily,
+    AppThemeId.TiffanyBlue,
+    AppThemeId.PrussianBlue,
+    AppThemeId.Custom,
+)
+
+private fun tvThemeDisplayName(themeId: AppThemeId): String {
+    return when (themeId) {
+        AppThemeId.Classic -> "经典黑"
+        AppThemeId.Ocean -> "经典白"
+        AppThemeId.TigerLily -> "虎皮百合"
+        AppThemeId.TiffanyBlue -> "蒂芙尼蓝"
+        AppThemeId.PrussianBlue -> "普鲁士蓝"
+        AppThemeId.Custom -> "自定义"
+        AppThemeId.Forest,
+        AppThemeId.Sand -> error("未开放的 TV 主题：$themeId")
+    }
+}
+
+private fun tvThemeColorRoleTitle(role: CustomThemeColorRole): String {
+    return when (role) {
+        CustomThemeColorRole.Background -> "背景色"
+        CustomThemeColorRole.Accent -> "主色"
+        CustomThemeColorRole.Focus -> "焦点色"
+    }
+}
+
+private fun tvThemeColorFor(role: CustomThemeColorRole, state: SettingsState): Int {
+    return when (role) {
+        CustomThemeColorRole.Background -> state.customThemeTokens.backgroundArgb
+        CustomThemeColorRole.Accent -> state.customThemeTokens.accentArgb
+        CustomThemeColorRole.Focus -> state.customThemeTokens.focusArgb
     }
 }
 
@@ -2719,6 +2994,7 @@ private enum class TvSettingsSection(
     val icon: ImageVector,
 ) {
     Sources("来源", "导入和扫描音乐", Icons.Rounded.Folder),
+    Theme("主题", "颜色与文字显示", Icons.Rounded.Palette),
     Storage("空间管理", "缓存和本机文件", Icons.Rounded.Storage),
     AboutDevice("关于本机", "系统和硬件信息", Icons.Rounded.Info),
     AboutApp("关于应用", "版本和项目地址", Icons.Rounded.Settings),

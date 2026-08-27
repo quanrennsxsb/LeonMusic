@@ -163,6 +163,7 @@ private fun TvMediaDetailApp(
 ) {
     val libraryState by component.libraryStore.state.collectAsState()
     val favoritesState by component.favoritesStore.state.collectAsState()
+    val settingsState by component.settingsStore.state.collectAsState()
 
     LaunchedEffect(component, args.source) {
         component.playerStore.startHydration()
@@ -189,7 +190,11 @@ private fun TvMediaDetailApp(
         }
     }
 
-    TvMainTheme {
+    TvMainTheme(
+        selectedTheme = settingsState.selectedTheme,
+        customThemeTokens = settingsState.customThemeTokens,
+        textPalettePreferences = settingsState.textPalettePreferences,
+    ) {
         TvMediaDetailScreen(
             args = args,
             isLoading = isLoading,

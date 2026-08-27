@@ -4,11 +4,7 @@ import com.sun.jna.Callback
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
-import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.outputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -202,7 +198,7 @@ private class JnaMacOsMenuBarLyricsControlsBridge private constructor(
     companion object {
         fun load(): JnaMacOsMenuBarLyricsControlsBridge {
             val nativeLibrary = Native.load(
-                extractMacOsMenuBarBridgeLibrary().toAbsolutePath().toString(),
+                macOsNowPlayingBridgeLibraryPath().toAbsolutePath().toString(),
                 LeonMusicMenuBarNativeLibrary::class.java,
                 mapOf(Library.OPTION_STRING_ENCODING to Charsets.UTF_8.name()),
             )
@@ -248,22 +244,6 @@ private interface LeonMusicMenuBarNativeLibrary : Library {
 
 private fun interface LeonMusicMenuBarCommandCallback : Callback {
     fun invoke(command: Int)
-}
-
-@OptIn(ExperimentalPathApi::class)
-private fun extractMacOsMenuBarBridgeLibrary(): java.nio.file.Path {
-    val resourceName = "/native/macos/libLeonMusicNowPlayingBridge.dylib"
-    val resource = JnaMacOsMenuBarLyricsControlsBridge::class.java.getResourceAsStream(resourceName)
-        ?: error("Missing resource $resourceName")
-    val directory = Files.createTempDirectory("lynmusic-menubar-")
-    val target = directory.resolve("libLeonMusicNowPlayingBridge.dylib")
-    target.deleteIfExists()
-    resource.use { input ->
-        target.outputStream().use { output -> input.copyTo(output) }
-    }
-    directory.toFile().deleteOnExit()
-    target.toFile().deleteOnExit()
-    return target
 }
 
 private fun Boolean.toMenuBarNativeInt(): Int = if (this) 1 else 0

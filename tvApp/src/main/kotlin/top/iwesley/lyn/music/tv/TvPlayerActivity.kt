@@ -101,6 +101,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button as TvButton
 import androidx.tv.material3.IconButton as TvIconButton
+import androidx.tv.material3.IconButtonDefaults as TvIconButtonDefaults
 import androidx.tv.material3.OutlinedButton as TvOutlinedButton
 import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
@@ -115,6 +116,7 @@ import top.iwesley.lyn.music.core.model.ArtworkCacheStore
 import top.iwesley.lyn.music.core.model.LyricsDocument
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
 import top.iwesley.lyn.music.core.model.PlaybackAudioFormat
+import top.iwesley.lyn.music.core.model.PlaybackCacheState
 import top.iwesley.lyn.music.core.model.PlaybackMode
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
 import top.iwesley.lyn.music.core.model.Track
@@ -193,6 +195,7 @@ private fun TvPlayerApp(
 
     val playerState by component.playerStore.state.collectAsState()
     val favoritesState by component.favoritesStore.state.collectAsState()
+    val settingsState by component.settingsStore.state.collectAsState()
     val playbackToastRawMessage = playerState.message?.takeIf { it.isNotBlank() }
     val playbackToastTrackId = playerState.snapshot.currentTrack?.id
     val isPlaybackErrorToast = playbackToastRawMessage == playerState.snapshot.errorMessage
@@ -228,7 +231,11 @@ private fun TvPlayerApp(
         component.favoritesStore.ensureContentStarted()
     }
 
-    TvMainTheme {
+    TvMainTheme(
+        selectedTheme = settingsState.selectedTheme,
+        customThemeTokens = settingsState.customThemeTokens,
+        textPalettePreferences = settingsState.textPalettePreferences,
+    ) {
         TvPlayerScreen(
             state = playerState,
             favoriteTrackIds = favoritesState.favoriteTrackIds,
@@ -435,7 +442,7 @@ private fun TvPlayerInfoPane(
             artworkModel = artworkModel,
             artworkMemoryCacheKey = artworkMemoryCacheKey,
             modifier = Modifier
-                .fillMaxWidth(0.76f)
+                .fillMaxWidth(0.54f)
                 .aspectRatio(1f),
         )
         Column(
@@ -448,8 +455,8 @@ private fun TvPlayerInfoPane(
             Text(
                 text = snapshot.currentDisplayTitle.ifBlank { track.title },
                 color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.ExtraBold,
-                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineMedium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -586,7 +593,7 @@ private fun TvPlayerBottomControls(
                         right = playbackModeFocusRequester
                         up = progressFocusRequester
                     },
-            ) {
+            ) { _ ->
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
@@ -607,7 +614,7 @@ private fun TvPlayerBottomControls(
                             right = previousTrackFocusRequester
                             up = progressFocusRequester
                         },
-                ) {
+                ) { _ ->
                     Icon(
                         imageVector = tvPlaybackModeIcon(snapshot.mode),
                         contentDescription = null,
@@ -624,7 +631,7 @@ private fun TvPlayerBottomControls(
                             right = playPauseFocusRequester
                             up = progressFocusRequester
                         },
-                ) {
+                ) { _ ->
                     Icon(Icons.Rounded.SkipPrevious, contentDescription = null)
                 }
                 TvPlayerControlButton(
@@ -638,7 +645,7 @@ private fun TvPlayerBottomControls(
                             right = nextTrackFocusRequester
                             up = progressFocusRequester
                         },
-                ) {
+                ) { _ ->
                     Icon(
                         imageVector = if (snapshot.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = null,
@@ -655,7 +662,7 @@ private fun TvPlayerBottomControls(
                             right = favoriteFocusRequester
                             up = progressFocusRequester
                         },
-                ) {
+                ) { _ ->
                     Icon(Icons.Rounded.SkipNext, contentDescription = null)
                 }
                 TvPlayerControlButton(
@@ -668,11 +675,15 @@ private fun TvPlayerBottomControls(
                             right = queueButtonFocusRequester
                             up = progressFocusRequester
                         },
-                ) {
+                ) { isFocused ->
                     Icon(
                         imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         contentDescription = null,
-                        tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        tint = when {
+                            isFocused -> MaterialTheme.colorScheme.onPrimary
+                            isFavorite -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
                     )
                 }
                 TvPlayerControlButton(
@@ -684,7 +695,7 @@ private fun TvPlayerBottomControls(
                             left = favoriteFocusRequester
                             up = progressFocusRequester
                         },
-                ) {
+                ) { _ ->
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                         contentDescription = null,
@@ -701,12 +712,14 @@ private fun TvPlayerControlButton(
     onClick: () -> Unit,
     contentDescription: String,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+    content: @Composable (isFocused: Boolean) -> Unit,
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     TvIconButton(
         onClick = onClick,
         modifier = modifier
             .semantics { this.contentDescription = contentDescription }
+            .onFocusChanged { isFocused = it.isFocused }
             .onPreviewKeyEvent { event ->
                 if (!event.key.isTvConfirmKey()) {
                     false
@@ -721,8 +734,18 @@ private fun TvPlayerControlButton(
                     }
                 }
             },
+        colors = TvIconButtonDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            focusedContainerColor = MaterialTheme.colorScheme.primary,
+            focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+            pressedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.82f),
+            pressedContentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f),
+        ),
     ) {
-        content()
+        content(isFocused)
     }
 }
 
@@ -826,6 +849,8 @@ private fun TvPlayerProgressArea(
             val trackHeightPx = with(LocalDensity.current) { 5.dp.toPx() }
             TvRoundedSliderTrack(
                 progressFraction = progressFraction,
+                cacheProgressFraction = snapshot.cacheProgressFraction,
+                cacheState = snapshot.cacheState,
                 progressColor = progressColor,
                 trackColor = trackColor,
                 trackHeightPx = trackHeightPx,
@@ -856,6 +881,8 @@ private fun TvPlayerProgressArea(
 @Composable
 private fun TvRoundedSliderTrack(
     progressFraction: Float,
+    cacheProgressFraction: Float?,
+    cacheState: PlaybackCacheState,
     progressColor: Color,
     trackColor: Color,
     trackHeightPx: Float,
@@ -872,10 +899,36 @@ private fun TvRoundedSliderTrack(
             size = Size(trackWidth, trackHeightPx),
             cornerRadius = radius,
         )
+        val cacheFraction = when (cacheState) {
+            PlaybackCacheState.CACHING -> cacheProgressFraction?.coerceIn(0f, 1f) ?: 0f
+            PlaybackCacheState.COMPLETE,
+            PlaybackCacheState.LOCAL -> 1f
+            PlaybackCacheState.NONE -> 0f
+        }
+        val cacheWidth = (trackWidth * cacheFraction).coerceIn(0f, trackWidth)
+        if (cacheWidth > 0f) {
+            val cacheColor = when (cacheState) {
+                PlaybackCacheState.CACHING -> Color(0xFF42A5F5).copy(alpha = 0.78f)
+                PlaybackCacheState.COMPLETE,
+                PlaybackCacheState.LOCAL -> Color(0xFF48C774).copy(alpha = 0.42f)
+                PlaybackCacheState.NONE -> Color.Transparent
+            }
+            drawRoundRect(
+                color = cacheColor,
+                topLeft = Offset(0f, top),
+                size = Size(cacheWidth, trackHeightPx),
+                cornerRadius = radius,
+            )
+        }
         val activeWidth = (trackWidth * progressFraction.coerceIn(0f, 1f)).coerceIn(0f, trackWidth)
         if (activeWidth > 0f) {
             drawRoundRect(
-                color = progressColor,
+                color = when (cacheState) {
+                    PlaybackCacheState.COMPLETE,
+                    PlaybackCacheState.LOCAL -> Color(0xFF48C774).copy(alpha = 0.98f)
+                    PlaybackCacheState.NONE,
+                    PlaybackCacheState.CACHING -> progressColor
+                },
                 topLeft = Offset(0f, top),
                 size = Size(activeWidth, trackHeightPx),
                 cornerRadius = radius,
@@ -1018,7 +1071,7 @@ private fun TvPlayerQueuePanel(
                 onClick = onClose,
                 contentDescription = "关闭播放列表",
                 modifier = Modifier.focusRequester(closeFocusRequester),
-            ) {
+            ) { _ ->
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = null,

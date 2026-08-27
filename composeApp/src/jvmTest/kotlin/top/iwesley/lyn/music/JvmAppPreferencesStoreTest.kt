@@ -14,11 +14,33 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import top.iwesley.lyn.music.core.model.AppThemeId
+import top.iwesley.lyn.music.core.model.AppThemeTextPalette
 import top.iwesley.lyn.music.core.model.DEFAULT_AUTO_PLAY_ON_STARTUP_DELAY_SECONDS
 import top.iwesley.lyn.music.platform.JvmAppPreferencesStore
 import top.iwesley.lyn.music.platform.JvmSettingsPropertiesFile
 
 class JvmAppPreferencesStoreTest {
+    @Test
+    fun `new theme and text palette preferences survive a file round trip`() = runTest {
+        val temporaryDirectory = Files.createTempDirectory("lynmusic-new-theme-preference")
+        try {
+            val settingsFile = temporaryDirectory.resolve("settings.properties").toFile()
+            val store = JvmAppPreferencesStore(settingsFile)
+
+            store.setSelectedTheme(AppThemeId.TiffanyBlue)
+            store.setTextPalette(AppThemeId.TiffanyBlue, AppThemeTextPalette.Black)
+
+            val reloadedStore = JvmAppPreferencesStore(settingsFile)
+            assertEquals(AppThemeId.TiffanyBlue, reloadedStore.selectedTheme.value)
+            assertEquals(
+                AppThemeTextPalette.Black,
+                reloadedStore.textPalettePreferences.value.tiffanyBlue,
+            )
+        } finally {
+            temporaryDirectory.toFile().deleteRecursively()
+        }
+    }
+
     @Test
     fun `auto open player on startup preference defaults to false and survives a file round trip`() = runTest {
         val temporaryDirectory = Files.createTempDirectory("lynmusic-auto-open-player-preference")

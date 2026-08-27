@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 val sharedVersionConfig = rootProject.readSharedVersionConfig()
 val appVersionName = sharedVersionConfig.getValue("APP_VERSION_NAME")
-val androidArtifactBaseName = "LynMusic-TV-$appVersionName"
+val androidArtifactBaseName = "LeonMusic-TV-$appVersionName"
 
 plugins {
     alias(libs.plugins.androidApplication)

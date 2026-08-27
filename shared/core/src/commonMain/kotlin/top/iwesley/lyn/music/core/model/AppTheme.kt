@@ -8,6 +8,9 @@ enum class AppThemeId {
     Forest,
     Ocean,
     Sand,
+    TigerLily,
+    TiffanyBlue,
+    PrussianBlue,
     Custom,
 }
 
@@ -48,6 +51,9 @@ data class AppThemeTextPalettePreferences(
     val forest: AppThemeTextPalette = AppThemeTextPalette.White,
     val ocean: AppThemeTextPalette = AppThemeTextPalette.White,
     val sand: AppThemeTextPalette = AppThemeTextPalette.White,
+    val tigerLily: AppThemeTextPalette = AppThemeTextPalette.White,
+    val tiffanyBlue: AppThemeTextPalette = AppThemeTextPalette.White,
+    val prussianBlue: AppThemeTextPalette = AppThemeTextPalette.White,
     val custom: AppThemeTextPalette = AppThemeTextPalette.White,
 )
 
@@ -103,6 +109,24 @@ val SAND_APP_THEME_TOKENS = AppThemeTokens(
     focusArgb = 0xFFF2C078.toInt(),
 )
 
+val TIGER_LILY_APP_THEME_TOKENS = AppThemeTokens(
+    backgroundArgb = 0xFF01847E.toInt(),
+    accentArgb = 0xFFE45A40.toInt(),
+    focusArgb = 0xFFE45A40.toInt(),
+)
+
+val TIFFANY_BLUE_APP_THEME_TOKENS = AppThemeTokens(
+    backgroundArgb = 0xFF3C4252.toInt(),
+    accentArgb = 0xFF66D3C0.toInt(),
+    focusArgb = 0xFF66D3C0.toInt(),
+)
+
+val PRUSSIAN_BLUE_APP_THEME_TOKENS = AppThemeTokens(
+    backgroundArgb = 0xFF0B3868.toInt(),
+    accentArgb = 0xFFB89076.toInt(),
+    focusArgb = 0xFFB89076.toInt(),
+)
+
 fun defaultCustomThemeTokens(): AppThemeTokens = CLASSIC_APP_THEME_TOKENS
 
 fun defaultThemeTextPalettePreferences(): AppThemeTextPalettePreferences = AppThemeTextPalettePreferences(
@@ -116,6 +140,9 @@ fun presetThemeTokens(themeId: AppThemeId): AppThemeTokens {
         AppThemeId.Forest -> FOREST_APP_THEME_TOKENS
         AppThemeId.Ocean -> OCEAN_APP_THEME_TOKENS
         AppThemeId.Sand -> SAND_APP_THEME_TOKENS
+        AppThemeId.TigerLily -> TIGER_LILY_APP_THEME_TOKENS
+        AppThemeId.TiffanyBlue -> TIFFANY_BLUE_APP_THEME_TOKENS
+        AppThemeId.PrussianBlue -> PRUSSIAN_BLUE_APP_THEME_TOKENS
         AppThemeId.Custom -> defaultCustomThemeTokens()
     }
 }
@@ -140,6 +167,9 @@ fun AppThemeTextPalettePreferences.paletteFor(themeId: AppThemeId): AppThemeText
         AppThemeId.Forest -> forest
         AppThemeId.Ocean -> ocean
         AppThemeId.Sand -> sand
+        AppThemeId.TigerLily -> tigerLily
+        AppThemeId.TiffanyBlue -> tiffanyBlue
+        AppThemeId.PrussianBlue -> prussianBlue
         AppThemeId.Custom -> custom
     }
 }
@@ -153,6 +183,9 @@ fun AppThemeTextPalettePreferences.withThemePalette(
         AppThemeId.Forest -> copy(forest = palette)
         AppThemeId.Ocean -> copy(ocean = palette)
         AppThemeId.Sand -> copy(sand = palette)
+        AppThemeId.TigerLily -> copy(tigerLily = palette)
+        AppThemeId.TiffanyBlue -> copy(tiffanyBlue = palette)
+        AppThemeId.PrussianBlue -> copy(prussianBlue = palette)
         AppThemeId.Custom -> copy(custom = palette)
     }
 }

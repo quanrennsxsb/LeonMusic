@@ -839,9 +839,9 @@ internal fun PlaylistsTab(
                             onPlaylistsIntent(PlaylistsIntent.BackToList)
                         }
                     },
-                    onPlayAll = { tracks ->
+                    onPlayTracks = { tracks, index ->
                         if (tracks.isNotEmpty()) {
-                            onPlayerIntent(PlayerIntent.PlayTracks(tracks, 0))
+                            onPlayerIntent(PlayerIntent.PlayTracks(tracks, index))
                         }
                     },
                     onPlayTrack = { tracks, index ->
@@ -933,9 +933,9 @@ internal fun PlaylistsTab(
                         onPlaylistsIntent(PlaylistsIntent.BackToList)
                     }
                 },
-                onPlayAll = { tracks ->
+                onPlayTracks = { tracks, index ->
                     if (tracks.isNotEmpty()) {
-                        onPlayerIntent(PlayerIntent.PlayTracks(tracks, 0))
+                        onPlayerIntent(PlayerIntent.PlayTracks(tracks, index))
                     }
                 },
                 onPlayTrack = { tracks, index ->
@@ -1681,7 +1681,7 @@ private fun PlaylistDetailPane(
     requestedPlaylistName: String?,
     hasTracksOutsideFilter: Boolean,
     onBack: () -> Unit,
-    onPlayAll: (List<Track>) -> Unit,
+    onPlayTracks: (List<Track>, Int) -> Unit,
     onPlayTrack: (List<Track>, Int) -> Unit,
     isImportingPlaylist: Boolean,
     onImportPlaylist: () -> Unit,
@@ -1825,14 +1825,10 @@ private fun PlaylistDetailPane(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        OutlinedButton(
-                            onClick = { onPlayAll(detail.tracks.map { it.track }) },
-                            enabled = detail.tracks.isNotEmpty(),
-                        ) {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("播放全部")
-                        }
+                        PlaybackActionButtons(
+                            tracks = detail.tracks.map { it.track },
+                            onPlayTracks = onPlayTracks,
+                        )
                         if (showImportPlaylistAction) {
                             OutlinedButton(
                                 onClick = onImportPlaylist,

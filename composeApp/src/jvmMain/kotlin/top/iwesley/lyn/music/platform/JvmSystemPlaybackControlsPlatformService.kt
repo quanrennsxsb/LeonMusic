@@ -4,11 +4,7 @@ import com.sun.jna.Callback
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
-import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.outputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -244,11 +240,7 @@ private class JnaMacOsNowPlayingBridge private constructor(
 
     companion object {
         fun load(): JnaMacOsNowPlayingBridge {
-            val nativeLibrary = Native.load(
-                extractMacOsNowPlayingBridgeLibrary().toAbsolutePath().toString(),
-                LeonMusicNowPlayingNativeLibrary::class.java,
-                mapOf(Library.OPTION_STRING_ENCODING to Charsets.UTF_8.name()),
-            )
+            val nativeLibrary = MacOsNowPlayingNativeLibraryProvider.nativeLibrary
             val commandHandlerRef = AtomicReference<(MacOsNowPlayingCommand) -> Unit>({})
             val callback = LeonMusicNowPlayingCommandCallback { command, value ->
                 decodeMacOsNowPlayingCommand(command, value)?.let { decoded ->
@@ -298,6 +290,16 @@ private interface LeonMusicNowPlayingNativeLibrary : Library {
     fun lyn_music_widget_reload_timelines(): Int
 }
 
+private object MacOsNowPlayingNativeLibraryProvider {
+    val nativeLibrary: LeonMusicNowPlayingNativeLibrary by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        Native.load(
+            macOsNowPlayingBridgeLibraryPath().toAbsolutePath().toString(),
+            LeonMusicNowPlayingNativeLibrary::class.java,
+            mapOf(Library.OPTION_STRING_ENCODING to Charsets.UTF_8.name()),
+        )
+    }
+}
+
 private fun interface LeonMusicNowPlayingCommandCallback : Callback {
     fun invoke(command: Int, value: Double)
 }
@@ -306,33 +308,12 @@ internal fun reloadJvmMacOsWidgetTimeline(
     logger: DiagnosticLogger = NoopDiagnosticLogger,
 ): Boolean {
     return runCatching {
-        val nativeLibrary = Native.load(
-            extractMacOsNowPlayingBridgeLibrary().toAbsolutePath().toString(),
-            LeonMusicNowPlayingNativeLibrary::class.java,
-            mapOf(Library.OPTION_STRING_ENCODING to Charsets.UTF_8.name()),
-        )
-        nativeLibrary.lyn_music_widget_reload_timelines() == 1
+        MacOsNowPlayingNativeLibraryProvider.nativeLibrary.lyn_music_widget_reload_timelines() == 1
     }.onFailure { throwable ->
         logger.warn(JVM_SYSTEM_PLAYBACK_CONTROLS_TAG) {
             "macOS widget timeline reload unavailable: ${throwable.message.orEmpty()}"
         }
     }.getOrDefault(false)
-}
-
-@OptIn(ExperimentalPathApi::class)
-private fun extractMacOsNowPlayingBridgeLibrary(): java.nio.file.Path {
-    val resourceName = "/native/macos/libLeonMusicNowPlayingBridge.dylib"
-    val resource = JnaMacOsNowPlayingBridge::class.java.getResourceAsStream(resourceName)
-        ?: error("Missing resource $resourceName")
-    val directory = Files.createTempDirectory("lynmusic-nowplaying-")
-    val target = directory.resolve("libLeonMusicNowPlayingBridge.dylib")
-    target.deleteIfExists()
-    resource.use { input ->
-        target.outputStream().use { output -> input.copyTo(output) }
-    }
-    directory.toFile().deleteOnExit()
-    target.toFile().deleteOnExit()
-    return target
 }
 
 private fun Boolean.toNativeInt(): Int = if (this) 1 else 0

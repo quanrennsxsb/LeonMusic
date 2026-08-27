@@ -184,6 +184,9 @@ internal fun SettingsTab(
         listOf(
             AppThemeId.Classic,
             AppThemeId.Ocean,
+            AppThemeId.TigerLily,
+            AppThemeId.TiffanyBlue,
+            AppThemeId.PrussianBlue,
             AppThemeId.Custom,
         )
     }
@@ -3359,6 +3362,9 @@ private fun themeDisplayName(themeId: AppThemeId): String {
         AppThemeId.Forest -> "森林"
         AppThemeId.Ocean -> "经典白"
         AppThemeId.Sand -> "砂岩"
+        AppThemeId.TigerLily -> "虎皮百合"
+        AppThemeId.TiffanyBlue -> "蒂芙尼蓝"
+        AppThemeId.PrussianBlue -> "普鲁士蓝"
         AppThemeId.Custom -> "自定义"
     }
 }

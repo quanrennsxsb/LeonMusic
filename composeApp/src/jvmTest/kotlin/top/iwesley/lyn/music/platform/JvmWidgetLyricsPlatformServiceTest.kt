@@ -38,6 +38,23 @@ class JvmWidgetLyricsPlatformServiceTest {
         assertEquals(0, reloadCount)
     }
 
+    @Test
+    fun `service ignores unchanged widget lyrics on macos`() = runTest {
+        val store = RecordingWidgetLyricsWriter()
+        var reloadCount = 0
+        val service = JvmWidgetLyricsPlatformService(
+            store = store,
+            reloadWidgetTimeline = { reloadCount += 1 },
+            osName = "Mac OS X",
+        )
+
+        service.updateLyrics(" Current line ")
+        service.updateLyrics("Current line")
+
+        assertEquals(listOf<String?>("Current line"), store.updates)
+        assertEquals(1, reloadCount)
+    }
+
     private class RecordingWidgetLyricsWriter : JvmMacOsWidgetLyricsWriter {
         val updates = mutableListOf<String?>()
 

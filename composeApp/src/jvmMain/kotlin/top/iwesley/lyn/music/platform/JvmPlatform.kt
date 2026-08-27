@@ -252,6 +252,7 @@ fun createJvmAppComponent(
         navidromePlaybackCachePreferencesStore = appPreferencesStore,
         logger = logger,
         addressSelector = remoteSourceAddressSelector,
+        ignoreDelayedVlcFinishedAfterPause = isJvmMacOs(osName),
     )
     val playbackGatewayToken = resourceGuard.register { playbackGateway.release() }
     val navidromeHttpClient = JvmLyricsHttpClient()
@@ -993,6 +994,9 @@ internal class JvmAppPreferencesStore(
             forest = readTextPalette(properties, textPaletteKey(AppThemeId.Forest), defaults.forest),
             ocean = readTextPalette(properties, textPaletteKey(AppThemeId.Ocean), defaults.ocean),
             sand = readTextPalette(properties, textPaletteKey(AppThemeId.Sand), defaults.sand),
+            tigerLily = readTextPalette(properties, textPaletteKey(AppThemeId.TigerLily), defaults.tigerLily),
+            tiffanyBlue = readTextPalette(properties, textPaletteKey(AppThemeId.TiffanyBlue), defaults.tiffanyBlue),
+            prussianBlue = readTextPalette(properties, textPaletteKey(AppThemeId.PrussianBlue), defaults.prussianBlue),
             custom = readTextPalette(properties, textPaletteKey(AppThemeId.Custom), defaults.custom),
         )
     }
@@ -1012,6 +1016,9 @@ internal class JvmAppPreferencesStore(
             AppThemeId.Forest -> KEY_THEME_TEXT_PALETTE_FOREST
             AppThemeId.Ocean -> KEY_THEME_TEXT_PALETTE_OCEAN
             AppThemeId.Sand -> KEY_THEME_TEXT_PALETTE_SAND
+            AppThemeId.TigerLily -> KEY_THEME_TEXT_PALETTE_TIGER_LILY
+            AppThemeId.TiffanyBlue -> KEY_THEME_TEXT_PALETTE_TIFFANY_BLUE
+            AppThemeId.PrussianBlue -> KEY_THEME_TEXT_PALETTE_PRUSSIAN_BLUE
             AppThemeId.Custom -> KEY_THEME_TEXT_PALETTE_CUSTOM
         }
     }
@@ -1097,6 +1104,9 @@ private const val KEY_THEME_TEXT_PALETTE_CLASSIC = "theme_text_palette_classic"
 private const val KEY_THEME_TEXT_PALETTE_FOREST = "theme_text_palette_forest"
 private const val KEY_THEME_TEXT_PALETTE_OCEAN = "theme_text_palette_ocean"
 private const val KEY_THEME_TEXT_PALETTE_SAND = "theme_text_palette_sand"
+private const val KEY_THEME_TEXT_PALETTE_TIGER_LILY = "theme_text_palette_tiger_lily"
+private const val KEY_THEME_TEXT_PALETTE_TIFFANY_BLUE = "theme_text_palette_tiffany_blue"
+private const val KEY_THEME_TEXT_PALETTE_PRUSSIAN_BLUE = "theme_text_palette_prussian_blue"
 private const val KEY_THEME_TEXT_PALETTE_CUSTOM = "theme_text_palette_custom"
 private const val KEY_DESKTOP_VLC_MANUAL_PATH = "desktop_vlc_manual_path"
 private const val KEY_LYRICS_SHARE_FONT_KEY = "lyrics_share_font_key"
@@ -1981,6 +1991,7 @@ internal class JvmPlaybackGateway(
     private val navidromePlaybackCachePreferencesStore: NavidromePlaybackCachePreferencesStore,
     private val logger: DiagnosticLogger,
     private val addressSelector: RemoteSourceAddressSelector = RemoteSourceAddressSelector(WifiNetworkConnectionTypeProvider),
+    private val ignoreDelayedVlcFinishedAfterPause: Boolean = false,
     private val runtimeInitializer: suspend () -> JvmVlcRuntimeInitializationResult = {
         createJvmVlcRuntimeInitializationResult(
             desktopVlcPreferencesStore = desktopVlcPreferencesStore,
@@ -1997,6 +2008,8 @@ internal class JvmPlaybackGateway(
     private var runtimeState: JvmVlcRuntimeState = JvmVlcRuntimeState.Initializing
     private var pendingLoad: PendingVlcLoad? = null
     private var pendingInitialSeek: PendingInitialSeek? = null
+    @Volatile
+    private var isExplicitlyPaused: Boolean = false
     private val sambaCacheDir = JvmAppDataDirectory.resolve("cache").apply {
         mkdirs()
     }
@@ -2172,6 +2185,12 @@ internal class JvmPlaybackGateway(
             }
 
             override fun finished(mediaPlayer: MediaPlayer?) {
+                if (ignoreDelayedVlcFinishedAfterPause && isExplicitlyPaused) {
+                    logger.warn(VLC_LOG_TAG) {
+                        "finished-ignored reason=explicit-pause target=${currentPlaybackTarget.orEmpty()}"
+                    }
+                    return
+                }
                 mutableState.update {
                     it.copy(
                         isPlaying = false,
@@ -2582,6 +2601,7 @@ internal class JvmPlaybackGateway(
                     return@withLock true
                 }
                 currentCallbackMedia = null
+                isExplicitlyPaused = !playWhenReady
                 currentPlaybackTarget = null
                 currentSourceReference = null
                 currentRemotePlaybackFallback = null
@@ -2693,6 +2713,7 @@ internal class JvmPlaybackGateway(
     }
 
     override suspend fun play() {
+        isExplicitlyPaused = false
         when (val runtimeState = preparePlay()) {
             is JvmVlcRuntimeState.Ready -> nativePlaybackMutex.withLock {
                 if (isCurrentRuntime(runtimeState.runtime)) {
@@ -2706,6 +2727,9 @@ internal class JvmPlaybackGateway(
     }
 
     override suspend fun pause() {
+        if (ignoreDelayedVlcFinishedAfterPause) {
+            isExplicitlyPaused = true
+        }
         when (val runtimeState = preparePause()) {
             is JvmVlcRuntimeState.Ready -> nativePlaybackMutex.withLock {
                 if (isCurrentRuntime(runtimeState.runtime)) {

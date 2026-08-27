@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import top.iwesley.lyn.music.core.model.formatThemeHexColor
+import top.iwesley.lyn.music.core.model.parseThemeHexColor
 import top.iwesley.lyn.music.ui.mainShellColors
 
 internal data class ThemePickerHsv(
@@ -70,7 +72,13 @@ internal fun ThemeColorPickerDialog(
 ) {
     val shellColors = mainShellColors
     var hsv by remember(initialArgb) { mutableStateOf(argbToThemePickerHsv(initialArgb)) }
+    var hexInput by remember(initialArgb) { mutableStateOf(formatThemeHexColor(initialArgb)) }
     val previewArgb = remember(hsv) { themePickerHsvToArgb(hsv) }
+    val inputArgb = remember(hexInput) { parseThemeHexColor(hexInput) }
+    val inputHasError = hexInput.isNotBlank() && inputArgb == null
+    androidx.compose.runtime.LaunchedEffect(previewArgb) {
+        hexInput = formatThemeHexColor(previewArgb)
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = shellColors.navContainer,
@@ -101,11 +109,25 @@ internal fun ThemeColorPickerDialog(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Text(
-                            text = formatThemeHexColor(previewArgb),
-                            fontFamily = FontFamily.Monospace,
-                            color = mainShellColors.secondaryText,
-                            style = MaterialTheme.typography.bodyMedium,
+                        OutlinedTextField(
+                            value = hexInput,
+                            onValueChange = { value ->
+                                hexInput = value
+                                parseThemeHexColor(value)?.let { argb ->
+                                    hsv = argbToThemePickerHsv(argb)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("颜色代码") },
+                            placeholder = { Text("#RRGGBB") },
+                            singleLine = true,
+                            isError = inputHasError,
+                            supportingText = {
+                                if (inputHasError) {
+                                    Text("请输入 6 位十六进制颜色代码，例如 #237F6D")
+                                }
+                            },
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                         )
                     }
                 }
@@ -133,7 +155,10 @@ internal fun ThemeColorPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(previewArgb) }) {
+            TextButton(
+                onClick = { onConfirm(previewArgb) },
+                enabled = inputArgb != null,
+            ) {
                 Text("确定", color = MaterialTheme.colorScheme.onSurface)
             }
         },

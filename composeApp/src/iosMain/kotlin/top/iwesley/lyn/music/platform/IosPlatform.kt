@@ -701,6 +701,9 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
             forest = readTextPalette(textPaletteKey(AppThemeId.Forest), defaults.forest),
             ocean = readTextPalette(textPaletteKey(AppThemeId.Ocean), defaults.ocean),
             sand = readTextPalette(textPaletteKey(AppThemeId.Sand), defaults.sand),
+            tigerLily = readTextPalette(textPaletteKey(AppThemeId.TigerLily), defaults.tigerLily),
+            tiffanyBlue = readTextPalette(textPaletteKey(AppThemeId.TiffanyBlue), defaults.tiffanyBlue),
+            prussianBlue = readTextPalette(textPaletteKey(AppThemeId.PrussianBlue), defaults.prussianBlue),
             custom = readTextPalette(textPaletteKey(AppThemeId.Custom), defaults.custom),
         )
     }
@@ -720,6 +723,9 @@ private class IosAppPreferencesStore : PlaybackPreferencesStore, SambaCachePrefe
             AppThemeId.Forest -> KEY_THEME_TEXT_PALETTE_FOREST
             AppThemeId.Ocean -> KEY_THEME_TEXT_PALETTE_OCEAN
             AppThemeId.Sand -> KEY_THEME_TEXT_PALETTE_SAND
+            AppThemeId.TigerLily -> KEY_THEME_TEXT_PALETTE_TIGER_LILY
+            AppThemeId.TiffanyBlue -> KEY_THEME_TEXT_PALETTE_TIFFANY_BLUE
+            AppThemeId.PrussianBlue -> KEY_THEME_TEXT_PALETTE_PRUSSIAN_BLUE
             AppThemeId.Custom -> KEY_THEME_TEXT_PALETTE_CUSTOM
         }
     }
@@ -999,4 +1005,7 @@ private const val KEY_THEME_TEXT_PALETTE_CLASSIC = "theme_text_palette_classic"
 private const val KEY_THEME_TEXT_PALETTE_FOREST = "theme_text_palette_forest"
 private const val KEY_THEME_TEXT_PALETTE_OCEAN = "theme_text_palette_ocean"
 private const val KEY_THEME_TEXT_PALETTE_SAND = "theme_text_palette_sand"
+private const val KEY_THEME_TEXT_PALETTE_TIGER_LILY = "theme_text_palette_tiger_lily"
+private const val KEY_THEME_TEXT_PALETTE_TIFFANY_BLUE = "theme_text_palette_tiffany_blue"
+private const val KEY_THEME_TEXT_PALETTE_PRUSSIAN_BLUE = "theme_text_palette_prussian_blue"
 private const val KEY_THEME_TEXT_PALETTE_CUSTOM = "theme_text_palette_custom"
