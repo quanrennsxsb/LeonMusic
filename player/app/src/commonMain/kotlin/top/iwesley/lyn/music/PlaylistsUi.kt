@@ -96,6 +96,7 @@ import top.iwesley.lyn.music.core.model.PlaylistDetail
 import top.iwesley.lyn.music.core.model.PlaylistKind
 import top.iwesley.lyn.music.core.model.PlaylistSummary
 import top.iwesley.lyn.music.core.model.SYSTEM_LIKED_PLAYLIST_ID
+import top.iwesley.lyn.music.core.model.PlaybackMode
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.trackArtworkCacheKey
 import top.iwesley.lyn.music.data.repository.PlaylistImportReport
@@ -839,9 +840,9 @@ internal fun PlaylistsTab(
                             onPlaylistsIntent(PlaylistsIntent.BackToList)
                         }
                     },
-                    onPlayTracks = { tracks, index ->
+                    onPlayTracks = { tracks, index, requestedMode ->
                         if (tracks.isNotEmpty()) {
-                            onPlayerIntent(PlayerIntent.PlayTracks(tracks, index))
+                            onPlayerIntent(PlayerIntent.PlayTracks(tracks, index, requestedMode))
                         }
                     },
                     onPlayTrack = { tracks, index ->
@@ -933,9 +934,9 @@ internal fun PlaylistsTab(
                         onPlaylistsIntent(PlaylistsIntent.BackToList)
                     }
                 },
-                onPlayTracks = { tracks, index ->
+                onPlayTracks = { tracks, index, requestedMode ->
                     if (tracks.isNotEmpty()) {
-                        onPlayerIntent(PlayerIntent.PlayTracks(tracks, index))
+                        onPlayerIntent(PlayerIntent.PlayTracks(tracks, index, requestedMode))
                     }
                 },
                 onPlayTrack = { tracks, index ->
@@ -1681,7 +1682,7 @@ private fun PlaylistDetailPane(
     requestedPlaylistName: String?,
     hasTracksOutsideFilter: Boolean,
     onBack: () -> Unit,
-    onPlayTracks: (List<Track>, Int) -> Unit,
+    onPlayTracks: (List<Track>, Int, PlaybackMode) -> Unit,
     onPlayTrack: (List<Track>, Int) -> Unit,
     isImportingPlaylist: Boolean,
     onImportPlaylist: () -> Unit,

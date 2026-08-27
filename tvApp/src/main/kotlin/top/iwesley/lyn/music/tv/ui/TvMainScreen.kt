@@ -109,6 +109,7 @@ import top.iwesley.lyn.music.core.model.ArtworkCacheStore
 import top.iwesley.lyn.music.core.model.RecentAlbum
 import top.iwesley.lyn.music.core.model.RecentTrack
 import top.iwesley.lyn.music.core.model.PlaybackCacheState
+import top.iwesley.lyn.music.core.model.PlaybackMode
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.normalizedArtworkCacheLocator
 import top.iwesley.lyn.music.core.model.resolveArtworkCacheTarget
@@ -120,7 +121,6 @@ import top.iwesley.lyn.music.feature.library.libraryArtistId
 import top.iwesley.lyn.music.feature.my.MyState
 import top.iwesley.lyn.music.feature.player.PlayerIntent
 import top.iwesley.lyn.music.feature.player.PlayerState
-import top.iwesley.lyn.music.feature.player.shuffledPlaybackQueue
 import top.iwesley.lyn.music.feature.playlists.PlaylistsState
 import top.iwesley.lyn.music.tv.TvMediaDetailActivity
 import top.iwesley.lyn.music.tv.TvMediaDetailSource
@@ -614,7 +614,9 @@ private fun TvPlaylistsScreen(
                                 action = {
                                     TvPlaybackActions(
                                         tracks = detailTracks,
-                                        onPlayTracks = { tracks, index -> onIntent(TvMainIntent.PlayTracks(tracks, index)) },
+                                        onPlayTracks = { tracks, index, requestedMode ->
+                                            onIntent(TvMainIntent.PlayTracks(tracks, index, requestedMode))
+                                        },
                                         orderedFocusRequester = orderedPlaybackFocusRequester,
                                     )
                                 },
@@ -752,7 +754,9 @@ private fun TvLibraryScreen(
                 ),
             )
         },
-        onPlayTracks = { tracks, index -> onIntent(TvMainIntent.PlayTracks(tracks, index)) },
+        onPlayTracks = { tracks, index, requestedMode ->
+            onIntent(TvMainIntent.PlayTracks(tracks, index, requestedMode))
+        },
         onToggleFavorite = { onIntent(TvMainIntent.ToggleFavorite(it)) },
         modifier = modifier,
     )
@@ -799,7 +803,9 @@ private fun TvFavoritesScreen(
                 ),
             )
         },
-        onPlayTracks = { tracks, index -> onIntent(TvMainIntent.PlayTracks(tracks, index)) },
+        onPlayTracks = { tracks, index, requestedMode ->
+            onIntent(TvMainIntent.PlayTracks(tracks, index, requestedMode))
+        },
         onToggleFavorite = { onIntent(TvMainIntent.ToggleFavorite(it)) },
         modifier = modifier,
     )
@@ -825,7 +831,7 @@ private fun TvMediaBrowserScreen(
     onOpenSearch: () -> Unit,
     onClearSearch: () -> Unit,
     onOpenDetail: (TvMediaDetail) -> Unit,
-    onPlayTracks: (List<Track>, Int) -> Unit,
+    onPlayTracks: (List<Track>, Int, PlaybackMode) -> Unit,
     onToggleFavorite: (Track) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -904,7 +910,9 @@ private fun TvMediaBrowserScreen(
                     if (playbackTracks.isNotEmpty()) {
                         TvPlaybackActions(
                             tracks = playbackTracks,
-                            onPlayTracks = onPlayTracks,
+                            onPlayTracks = { tracks, index, requestedMode ->
+                                onPlayTracks(tracks, index, requestedMode)
+                            },
                             orderedFocusRequester = orderedPlaybackFocusRequester,
                             leftFocusRequester = leftNavigationFocusRequester,
                         )
@@ -948,7 +956,9 @@ private fun TvMediaBrowserScreen(
                 artworkCacheStore = artworkCacheStore,
                 emptyTitle = "这里没有歌曲",
                 emptyBody = "当前专辑或艺人没有可显示的歌曲。",
-                onPlayTracks = onPlayTracks,
+                onPlayTracks = { playTracks, index ->
+                    onPlayTracks(playTracks, index, PlaybackMode.ORDER)
+                },
                 onToggleFavorite = onToggleFavorite,
                 onItemFocused = { focusedListIndex = it },
                 onFocusExit = { focusedListIndex = null },
@@ -963,7 +973,9 @@ private fun TvMediaBrowserScreen(
                 artworkCacheStore = artworkCacheStore,
                 emptyTitle = emptyTitle,
                 emptyBody = if (query.isBlank()) emptyBody else "试试调整搜索词。",
-                onPlayTracks = onPlayTracks,
+                onPlayTracks = { playTracks, index ->
+                    onPlayTracks(playTracks, index, PlaybackMode.ORDER)
+                },
                 onToggleFavorite = onToggleFavorite,
                 onItemFocused = { focusedListIndex = it },
                 onFocusExit = { focusedListIndex = null },
@@ -1000,13 +1012,13 @@ private fun TvMediaBrowserScreen(
 @Composable
 private fun TvPlaybackActions(
     tracks: List<Track>,
-    onPlayTracks: (List<Track>, Int) -> Unit,
+    onPlayTracks: (List<Track>, Int, PlaybackMode) -> Unit,
     orderedFocusRequester: FocusRequester? = null,
     leftFocusRequester: FocusRequester? = null,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         androidx.tv.material3.Button(
-            onClick = { onPlayTracks(tracks, 0) },
+            onClick = { onPlayTracks(tracks, 0, PlaybackMode.ORDER) },
             modifier = (orderedFocusRequester?.let(Modifier::focusRequester) ?: Modifier)
                 .then(
                     leftFocusRequester?.let { focusRequester ->
@@ -1018,7 +1030,7 @@ private fun TvPlaybackActions(
             Spacer(Modifier.width(8.dp))
             androidx.tv.material3.Text("顺序播放")
         }
-        androidx.tv.material3.OutlinedButton(onClick = { onPlayTracks(shuffledPlaybackQueue(tracks), 0) }) {
+        androidx.tv.material3.OutlinedButton(onClick = { onPlayTracks(tracks, 0, PlaybackMode.SHUFFLE) }) {
             androidx.tv.material3.Icon(Icons.Rounded.Shuffle, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             androidx.tv.material3.Text("随机播放")

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
+import top.iwesley.lyn.music.core.model.PlaybackMode
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.data.repository.PlaybackHydrationResult
 import top.iwesley.lyn.music.data.repository.PlaybackRepository
@@ -67,12 +68,17 @@ internal class AndroidServiceBackedPlaybackRepository(
     override suspend fun hydratePersistedQueueIfNeeded(): PlaybackHydrationResult =
         repository().hydratePersistedQueueIfNeeded()
 
-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) {
+    override suspend fun playTracks(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode?,
+    ) {
         Log.w(
             ANDROID_SERVICE_REPOSITORY_LOG_TAG,
-            "client-play-tracks size=${tracks.size} startIndex=$startIndex target=${tracks.getOrNull(startIndex)?.id.orEmpty()}",
+            "client-play-tracks size=${tracks.size} startIndex=$startIndex mode=${requestedMode?.name.orEmpty()} " +
+                "target=${tracks.getOrNull(startIndex)?.id.orEmpty()}",
         )
-        repository().playTracks(tracks, startIndex)
+        repository().playTracks(tracks, startIndex, requestedMode)
     }
 
     override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) {
@@ -86,8 +92,9 @@ internal class AndroidServiceBackedPlaybackRepository(
     override suspend fun prepareExternalPlaybackQueue(
         tracks: List<Track>,
         startIndex: Int,
+        requestedMode: PlaybackMode?,
     ): PlaybackSnapshot? {
-        return repository().prepareExternalPlaybackQueue(tracks, startIndex)
+        return repository().prepareExternalPlaybackQueue(tracks, startIndex, requestedMode)
     }
 
     override suspend fun playQueueIndex(index: Int) {

@@ -183,7 +183,11 @@ data class PlayerState(
 }
 
 sealed interface PlayerIntent {
-    data class PlayTracks(val tracks: List<Track>, val startIndex: Int) : PlayerIntent
+    data class PlayTracks(
+        val tracks: List<Track>,
+        val startIndex: Int,
+        val requestedMode: PlaybackMode? = null,
+    ) : PlayerIntent
     data class PlayTransientTracks(val tracks: List<Track>, val startIndex: Int) : PlayerIntent
     data class PlayQueueIndex(val index: Int) : PlayerIntent
     data object ResumeCurrentTrackPlayback : PlayerIntent
@@ -330,7 +334,7 @@ class PlayerStore(
 
     override suspend fun handleIntent(intent: PlayerIntent) {
         when (intent) {
-            is PlayerIntent.PlayTracks -> playTracks(intent.tracks, intent.startIndex)
+            is PlayerIntent.PlayTracks -> playTracks(intent.tracks, intent.startIndex, intent.requestedMode)
             is PlayerIntent.PlayTransientTracks -> playTransientTracks(intent.tracks, intent.startIndex)
             is PlayerIntent.PlayQueueIndex -> playQueueIndex(intent.index)
             PlayerIntent.ResumeCurrentTrackPlayback -> resumeCurrentTrackPlayback()
@@ -401,14 +405,18 @@ class PlayerStore(
         }
     }
 
-    private suspend fun playTracks(tracks: List<Track>, startIndex: Int) {
+    private suspend fun playTracks(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode?,
+    ) {
         logger.warn(PLAYER_LOG_TAG) {
             "store-play-tracks size=${tracks.size} startIndex=$startIndex " +
                 "target=${tracks.getOrNull(startIndex)?.id.orEmpty()} " +
                 "castStatus=${state.value.castState.status} selectedCast=${state.value.castState.selectedDeviceId.orEmpty()}"
         }
         if (!hasRemoteCastRoute()) {
-            playbackRepository.playTracks(tracks, startIndex)
+            playbackRepository.playTracks(tracks, startIndex, requestedMode)
             return
         }
         if (tracks.isEmpty()) return
@@ -417,7 +425,7 @@ class PlayerStore(
                 "castStatus=${state.value.castState.status} selectedCast=${state.value.castState.selectedDeviceId.orEmpty()}"
         }
         playbackRepository.pause()
-        val preparedSnapshot = playbackRepository.prepareExternalPlaybackQueue(tracks, startIndex) ?: return
+        val preparedSnapshot = playbackRepository.prepareExternalPlaybackQueue(tracks, startIndex, requestedMode) ?: return
         applyPlaybackSnapshot(preparedSnapshot)
         castQueueIndex(preparedSnapshot.currentIndex, pauseLocalAfterCast = false)
     }

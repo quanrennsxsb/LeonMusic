@@ -139,7 +139,7 @@ import top.iwesley.lyn.music.feature.online.OnlineFavoritesState
 import top.iwesley.lyn.music.feature.online.OnlineLibraryIntent
 import top.iwesley.lyn.music.feature.online.OnlineLibraryState
 import top.iwesley.lyn.music.feature.player.PlayerIntent
-import top.iwesley.lyn.music.feature.player.shuffledPlaybackQueue
+import top.iwesley.lyn.music.core.model.PlaybackMode
 import top.iwesley.lyn.music.platform.PlatformBackHandler
 import top.iwesley.lyn.music.ui.mainShellColors
 import kotlin.math.roundToInt
@@ -261,6 +261,9 @@ internal fun LibraryTab(
             }
         },
         onPlayTracks = { tracks, index -> onPlayerIntent(PlayerIntent.PlayTracks(tracks, index)) },
+        onPlayTracksWithMode = { tracks, index, shuffle ->
+            onPlayerIntent(PlayerIntent.PlayTracks(tracks, index, if (shuffle) PlaybackMode.SHUFFLE else PlaybackMode.ORDER))
+        },
     )
     LibraryBrowserTab(
         state = browserState,
@@ -375,6 +378,9 @@ internal fun FavoritesTab(
         },
         onLoadMoreTracks = { onOnlineIntent(OnlineFavoritesIntent.LoadMore) },
         onPlayTracks = { tracks, index -> onPlayerIntent(PlayerIntent.PlayTracks(tracks, index)) },
+        onPlayTracksWithMode = { tracks, index, shuffle ->
+            onPlayerIntent(PlayerIntent.PlayTracks(tracks, index, if (shuffle) PlaybackMode.SHUFFLE else PlaybackMode.ORDER))
+        },
     )
     LibraryBrowserTab(
         state = browserState,
@@ -1439,12 +1445,12 @@ private fun LibraryBrowserTab(
                     onSelectRootView = ::selectRootView,
                     onPlayOrderedTracks = {
                         if (visibleTracks.isNotEmpty()) {
-                            actions.onPlayTracks(visibleTracks, 0)
+                            actions.onPlayTracksWithMode(visibleTracks, 0, false)
                         }
                     },
                     onPlayShuffledTracks = {
                         if (visibleTracks.isNotEmpty()) {
-                            actions.onPlayTracks(shuffledPlaybackQueue(visibleTracks), 0)
+                            actions.onPlayTracksWithMode(visibleTracks, 0, true)
                         }
                     },
                 )

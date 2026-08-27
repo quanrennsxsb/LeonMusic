@@ -79,9 +79,17 @@ interface PlaybackRepository {
     val snapshot: StateFlow<PlaybackSnapshot>
 
     suspend fun hydratePersistedQueueIfNeeded(): PlaybackHydrationResult
-    suspend fun playTracks(tracks: List<Track>, startIndex: Int)
+    suspend fun playTracks(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode? = null,
+    )
     suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int)
-    suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot?
+    suspend fun prepareExternalPlaybackQueue(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode? = null,
+    ): PlaybackSnapshot?
     suspend fun playQueueIndex(index: Int)
     suspend fun resumeCurrentTrackPlayback()
     suspend fun togglePlayPause()
@@ -329,7 +337,11 @@ class DefaultPlaybackRepository(
             result
         }
 
-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) {
+    override suspend fun playTracks(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode?,
+    ) {
         var loadRequest: PlaybackLoadRequest? = null
         playbackCommandMutex.withLock {
             if (tracks.isEmpty()) return@withLock
@@ -347,6 +359,7 @@ class DefaultPlaybackRepository(
                 startIndex = startIndex,
                 currentSnapshot = currentSnapshot,
                 isPlaying = true,
+                requestedMode = requestedMode,
             )
             val target = nextSnapshot.currentTrack ?: return@withLock
             mutableSnapshot.value = nextSnapshot
@@ -394,7 +407,11 @@ class DefaultPlaybackRepository(
         }
     }
 
-    override suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot? {
+    override suspend fun prepareExternalPlaybackQueue(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode?,
+    ): PlaybackSnapshot? {
         var preparedSnapshot: PlaybackSnapshot? = null
         playbackCommandMutex.withLock {
             if (tracks.isEmpty()) return@withLock
@@ -408,6 +425,7 @@ class DefaultPlaybackRepository(
                 startIndex = startIndex,
                 currentSnapshot = currentSnapshot,
                 isPlaying = false,
+                requestedMode = requestedMode,
             )
             preparedSnapshot = nextSnapshot
             mutableSnapshot.value = nextSnapshot
@@ -1202,9 +1220,15 @@ class DefaultPlaybackRepository(
         startIndex: Int,
         currentSnapshot: PlaybackSnapshot,
         isPlaying: Boolean,
+        requestedMode: PlaybackMode? = null,
     ): PlaybackSnapshot {
-        val index = startIndex.coerceIn(0, tracks.lastIndex)
-        val (queue, currentIndex) = if (currentSnapshot.mode == PlaybackMode.SHUFFLE) {
+        val mode = requestedMode ?: currentSnapshot.mode
+        val index = if (requestedMode == PlaybackMode.SHUFFLE) {
+            shuffleRandom.nextInt(tracks.size)
+        } else {
+            startIndex.coerceIn(0, tracks.lastIndex)
+        }
+        val (queue, currentIndex) = if (mode == PlaybackMode.SHUFFLE) {
             shuffledQueueForCurrent(tracks, index)
         } else {
             tracks to index
@@ -1214,7 +1238,7 @@ class DefaultPlaybackRepository(
             queue = queue,
             orderedQueue = tracks,
             currentIndex = currentIndex,
-            mode = currentSnapshot.mode,
+            mode = mode,
             isHydratingPlayback = false,
             isPlaying = isPlaying,
             positionMs = 0L,

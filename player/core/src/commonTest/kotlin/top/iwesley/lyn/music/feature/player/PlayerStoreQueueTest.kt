@@ -903,6 +903,28 @@ class PlayerStoreQueueTest {
     }
 
     @Test
+    fun `play tracks forwards requested shuffle mode`() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
+        val playbackRepository = FakeQueuePlaybackRepository(sampleSnapshot())
+        val store = PlayerStore(
+            playbackRepository = playbackRepository,
+            lyricsRepository = NoopQueueLyricsRepository(),
+            storeScope = scope,
+        )
+        val tracks = listOf(
+            sampleTrack("track-4", "Fourth Song"),
+            sampleTrack("track-5", "Fifth Song"),
+        )
+
+        advanceUntilIdle()
+        store.dispatch(PlayerIntent.PlayTracks(tracks, startIndex = 0, requestedMode = PlaybackMode.SHUFFLE))
+        advanceUntilIdle()
+
+        assertEquals(PlaybackMode.SHUFFLE, playbackRepository.lastPlayRequestedMode)
+        scope.cancel()
+    }
+
+    @Test
     fun `play tracks while casting prepares external queue and recasts without local playback`() = runTest {
         val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob())
         val playbackRepository = FakeQueuePlaybackRepository(
@@ -1379,6 +1401,8 @@ private class FakeQueuePlaybackRepository(
         private set
     var lastPlayStartIndex: Int? = null
         private set
+    var lastPlayRequestedMode: PlaybackMode? = null
+        private set
     var lastPlayQueueIndex: Int? = null
         private set
     var prepareExternalPlaybackQueueCallCount: Int = 0
@@ -1408,13 +1432,19 @@ private class FakeQueuePlaybackRepository(
         return hydrationResult
     }
 
-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) {
+    override suspend fun playTracks(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode?,
+    ) {
         lastPlayTracks = tracks
         lastPlayStartIndex = startIndex
+        lastPlayRequestedMode = requestedMode
         val targetIndex = startIndex.coerceIn(0, tracks.lastIndex)
         mutableSnapshot.value = mutableSnapshot.value.copy(
             queue = tracks,
             currentIndex = targetIndex,
+            mode = requestedMode ?: mutableSnapshot.value.mode,
             durationMs = tracks[targetIndex].durationMs,
             metadataTitle = null,
             metadataArtistName = null,
@@ -1424,10 +1454,14 @@ private class FakeQueuePlaybackRepository(
     }
 
     override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) {
-        playTracks(tracks, startIndex)
+        playTracks(tracks, startIndex, requestedMode = null)
     }
 
-    override suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot? {
+    override suspend fun prepareExternalPlaybackQueue(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode?,
+    ): PlaybackSnapshot? {
         prepareExternalPlaybackQueueCallCount += 1
         if (tracks.isEmpty()) return null
         val targetIndex = startIndex.coerceIn(0, tracks.lastIndex)

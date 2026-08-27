@@ -2,6 +2,7 @@ package top.iwesley.lyn.music.tv.ui
 
 import kotlinx.coroutines.CoroutineScope
 import top.iwesley.lyn.music.core.model.Track
+import top.iwesley.lyn.music.core.model.PlaybackMode
 import top.iwesley.lyn.music.core.mvi.BaseStore
 
 internal enum class TvMainDestination {
@@ -56,7 +57,11 @@ internal sealed interface TvMainIntent {
     data object SubmitSearch : TvMainIntent
     data class ClearSearch(val target: TvSearchTarget) : TvMainIntent
     data object DismissSearch : TvMainIntent
-    data class PlayTracks(val tracks: List<Track>, val startIndex: Int) : TvMainIntent
+    data class PlayTracks(
+        val tracks: List<Track>,
+        val startIndex: Int,
+        val requestedMode: PlaybackMode? = null,
+    ) : TvMainIntent
     data class ToggleFavorite(val track: Track) : TvMainIntent
     data object Back : TvMainIntent
 }
@@ -69,7 +74,11 @@ internal sealed interface TvMainEffect {
     data class SelectPlaylist(val playlistId: String) : TvMainEffect
     data class SearchLibrary(val query: String) : TvMainEffect
     data class SearchFavorites(val query: String) : TvMainEffect
-    data class PlayTracks(val tracks: List<Track>, val startIndex: Int) : TvMainEffect
+    data class PlayTracks(
+        val tracks: List<Track>,
+        val startIndex: Int,
+        val requestedMode: PlaybackMode? = null,
+    ) : TvMainEffect
     data class ToggleFavorite(val track: Track) : TvMainEffect
 }
 
@@ -120,7 +129,9 @@ internal class TvMainStore(
             TvMainIntent.SubmitSearch -> submitSearch()
             is TvMainIntent.ClearSearch -> clearSearch(intent.target)
             TvMainIntent.DismissSearch -> updateState { it.copy(searchDialog = null) }
-            is TvMainIntent.PlayTracks -> emitEffect(TvMainEffect.PlayTracks(intent.tracks, intent.startIndex))
+            is TvMainIntent.PlayTracks -> emitEffect(
+                TvMainEffect.PlayTracks(intent.tracks, intent.startIndex, intent.requestedMode),
+            )
             is TvMainIntent.ToggleFavorite -> emitEffect(TvMainEffect.ToggleFavorite(intent.track))
             TvMainIntent.Back -> handleBack()
         }

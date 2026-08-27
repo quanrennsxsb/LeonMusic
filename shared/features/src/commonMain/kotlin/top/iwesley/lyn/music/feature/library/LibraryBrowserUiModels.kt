@@ -125,6 +125,9 @@ data class LibraryBrowserActions(
     val onAlbumClick: (LibraryAlbumUiItem) -> Unit = {},
     val onArtistClick: (LibraryArtistUiItem) -> Unit = {},
     val onPlayTracks: (List<Track>, Int) -> Unit = { _, _ -> },
+    val onPlayTracksWithMode: (List<Track>, Int, Boolean) -> Unit = { tracks, index, _ ->
+        onPlayTracks(tracks, index)
+    },
 )
 
 data class PlaylistBrowserUiState(

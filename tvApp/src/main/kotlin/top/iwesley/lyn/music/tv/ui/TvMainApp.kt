@@ -56,7 +56,9 @@ internal fun TvMainApp(
                 is TvMainEffect.SearchFavorites ->
                     component.favoritesStore.dispatch(FavoritesIntent.SearchChanged(effect.query))
                 is TvMainEffect.PlayTracks -> {
-                    component.playerStore.dispatch(PlayerIntent.PlayTracks(effect.tracks, effect.startIndex))
+                    component.playerStore.dispatch(
+                        PlayerIntent.PlayTracks(effect.tracks, effect.startIndex, effect.requestedMode),
+                    )
                     context.startActivity(TvPlayerActivity.createIntent(context))
                 }
                 is TvMainEffect.ToggleFavorite ->
