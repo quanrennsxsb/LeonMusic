@@ -96,11 +96,14 @@ internal fun TvMainApp(
             playlistsState = playlistsState,
             playerState = playerState,
             showSettingsUpdateBadge = settingsState.appUpdateHasNewVersion == true,
-            isRefreshingLibraries = importState.isWorking,
+            isRefreshingLibraries = importState.isWorking || playlistsState.isRefreshing,
             artworkCacheStore = component.artworkCacheStore,
             onIntent = tvStore::dispatch,
             onPlayerIntent = component.playerStore::dispatch,
-            onRefreshLibraries = { component.importStore.dispatch(ImportIntent.SyncAllSources) },
+            onRefreshLibraries = {
+                component.importStore.dispatch(ImportIntent.SyncAllSources)
+                component.playlistsStore.dispatch(PlaylistsIntent.Refresh)
+            },
         )
     }
 }

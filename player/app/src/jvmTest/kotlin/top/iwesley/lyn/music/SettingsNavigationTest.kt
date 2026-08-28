@@ -48,16 +48,12 @@ class SettingsNavigationTest {
     }
 
     @Test
-    fun `player artwork style setting is shown on phone desktop and automotive`() {
+    fun `player artwork style setting is shown on every platform`() {
         assertTrue(shouldShowPlayerArtworkStyleSetting(mobilePlatform()))
         assertTrue(shouldShowPlayerArtworkStyleSetting(platformNamed(IOS_PLATFORM_NAME)))
         assertTrue(shouldShowPlayerArtworkStyleSetting(desktopPlatform()))
         assertTrue(shouldShowPlayerArtworkStyleSetting(platformNamed(ANDROID_AUTOMOTIVE_PLATFORM_NAME)))
-    }
-
-    @Test
-    fun `player artwork style setting is hidden on tv`() {
-        assertFalse(shouldShowPlayerArtworkStyleSetting(platformNamed(ANDROID_TV_PLATFORM_NAME)))
+        assertTrue(shouldShowPlayerArtworkStyleSetting(platformNamed(ANDROID_TV_PLATFORM_NAME)))
     }
 
     @Test

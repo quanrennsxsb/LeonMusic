@@ -37,6 +37,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -340,10 +342,12 @@ private fun TvSettingsNavigationPane(
     onSectionSelected: (TvSettingsSection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val navigationScrollState = rememberScrollState()
     Column(
         modifier = modifier
             .clip(TvSettingsPanelShape)
             .background(MaterialTheme.colorScheme.surface)
+            .verticalScroll(navigationScrollState)
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -385,6 +389,8 @@ private fun TvSettingsSectionCard(
     onSelected: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
     val selectIfNeeded = { if (!selected) onSelected() }
     val focusedContentColor = Color(0xFF111111)
     val primaryContentColor = MaterialTheme.colorScheme.onSurface
@@ -399,12 +405,16 @@ private fun TvSettingsSectionCard(
             .fillMaxWidth()
             .heightIn(min = 76.dp)
             .focusRequester(focusRequester)
+            .bringIntoViewRequester(bringIntoViewRequester)
             .focusProperties {
                 right = rightFocusRequester
             }
             .onFocusChanged { focusState ->
                 focused = focusState.isFocused
                 if (focusState.isFocused) {
+                    coroutineScope.launch {
+                        bringIntoViewRequester.bringIntoView()
+                    }
                     if (focusCoordinator.restoreContentFocusIfRequested()) {
                         return@onFocusChanged
                     }

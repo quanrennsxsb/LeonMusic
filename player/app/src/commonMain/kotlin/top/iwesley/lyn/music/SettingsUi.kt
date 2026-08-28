@@ -667,7 +667,6 @@ private fun GeneralSettingsPane(
     val showMacOsWindowCloseBehaviorSetting =
         shouldShowMacOsWindowCloseBehaviorSetting(currentPlatformDescriptor)
     val showCompactPlayerLyricsSetting = isMobilePlatform
-    val showPlayerArtworkStyleSetting = shouldShowPlayerArtworkStyleSetting(currentPlatformDescriptor)
     val showAutoOpenPlayerOnStartupSetting =
         shouldShowAutoOpenPlayerOnStartupSetting(currentPlatformDescriptor)
     val showDesktopLyricsSetting = currentPlatformDescriptor.capabilities.supportsDesktopLyrics
@@ -999,127 +998,6 @@ private fun GeneralSettingsPane(
                         colors = SwitchDefaults.colors(),
                     )
                 }
-            }
-        }
-        if (showPlayerArtworkStyleSetting) {
-            MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "播放页封面样式",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "控制播放界面的封面样式。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = shellColors.secondaryText,
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        PlayerArtworkStyle.entries.forEach { style ->
-                            val selected = state.playerArtworkStyle == style
-                            if (selected) {
-                                Button(
-                                    onClick = {
-                                        onSettingsIntent(SettingsIntent.PlayerArtworkStyleChanged(style))
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(
-                                        text = playerArtworkStyleLabel(style),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            } else {
-                                OutlinedButton(
-                                    onClick = {
-                                        onSettingsIntent(SettingsIntent.PlayerArtworkStyleChanged(style))
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(
-                                        text = playerArtworkStyleLabel(style),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "歌词字体大小",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "调整播放页歌词文字大小。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = shellColors.secondaryText,
-                    )
-                }
-                PlayerVisualSizePresetRow(
-                    selected = state.playerLyricsFontSizePreset,
-                    onSelected = { preset ->
-                        onSettingsIntent(SettingsIntent.PlayerLyricsFontSizePresetChanged(preset))
-                    },
-                )
-                PlayerLyricsColorPreferenceRow(
-                    title = "普通歌词颜色",
-                    selected = state.playerLyricsColorPreference,
-                    onSelected = { preference ->
-                        onSettingsIntent(SettingsIntent.PlayerLyricsColorPreferenceChanged(preference))
-                    },
-                )
-                PlayerLyricsColorPreferenceRow(
-                    title = "当前歌词颜色",
-                    selected = state.playerActiveLyricsColorPreference,
-                    onSelected = { preference ->
-                        onSettingsIntent(SettingsIntent.PlayerActiveLyricsColorPreferenceChanged(preference))
-                    },
-                )
-            }
-        }
-        MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "封面大小",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "调整播放页封面显示大小。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = shellColors.secondaryText,
-                    )
-                }
-                PlayerVisualSizePresetRow(
-                    selected = state.playerArtworkSizePreset,
-                    onSelected = { preset ->
-                        onSettingsIntent(SettingsIntent.PlayerArtworkSizePresetChanged(preset))
-                    },
-                )
             }
         }
         if (showNavidromeAudioQualitySetting) {
@@ -1586,6 +1464,7 @@ private fun ThemeSettingsPane(
     modifier: Modifier = Modifier,
 ) {
     val shellColors = mainShellColors
+    val showPlayerArtworkStyleSetting = shouldShowPlayerArtworkStyleSetting(currentPlatformDescriptor)
     var activeColorRole by remember { mutableStateOf<CustomThemeColorRole?>(null) }
     LaunchedEffect(state.selectedTheme) {
         if (state.selectedTheme != AppThemeId.Custom) {
@@ -1613,7 +1492,7 @@ private fun ThemeSettingsPane(
         if (showHeading) {
             SectionTitle(
                 title = "主题",
-                subtitle = "切换预置主题，自定义主界面颜色，并给每个主题单独选择黑字或白字。",
+                subtitle = "切换预置主题，调整播放页视觉样式，并给每个主题单独选择黑字或白字。",
             )
         }
         MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
@@ -1689,6 +1568,127 @@ private fun ThemeSettingsPane(
                         }
                     }
                 }
+            }
+        }
+        if (showPlayerArtworkStyleSetting) {
+            MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "播放页封面样式",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "控制播放界面的封面样式。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = shellColors.secondaryText,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PlayerArtworkStyle.entries.forEach { style ->
+                            val selected = state.playerArtworkStyle == style
+                            if (selected) {
+                                Button(
+                                    onClick = {
+                                        onSettingsIntent(SettingsIntent.PlayerArtworkStyleChanged(style))
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        text = playerArtworkStyleLabel(style),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = {
+                                        onSettingsIntent(SettingsIntent.PlayerArtworkStyleChanged(style))
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        text = playerArtworkStyleLabel(style),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "歌词字体大小",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "调整播放页歌词文字大小。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = shellColors.secondaryText,
+                    )
+                }
+                PlayerVisualSizePresetRow(
+                    selected = state.playerLyricsFontSizePreset,
+                    onSelected = { preset ->
+                        onSettingsIntent(SettingsIntent.PlayerLyricsFontSizePresetChanged(preset))
+                    },
+                )
+                PlayerLyricsColorPreferenceRow(
+                    title = "普通歌词颜色",
+                    selected = state.playerLyricsColorPreference,
+                    onSelected = { preference ->
+                        onSettingsIntent(SettingsIntent.PlayerLyricsColorPreferenceChanged(preference))
+                    },
+                )
+                PlayerLyricsColorPreferenceRow(
+                    title = "当前歌词颜色",
+                    selected = state.playerActiveLyricsColorPreference,
+                    onSelected = { preference ->
+                        onSettingsIntent(SettingsIntent.PlayerActiveLyricsColorPreferenceChanged(preference))
+                    },
+                )
+            }
+        }
+        MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "封面大小",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "调整播放页封面显示大小。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = shellColors.secondaryText,
+                    )
+                }
+                PlayerVisualSizePresetRow(
+                    selected = state.playerArtworkSizePreset,
+                    onSelected = { preset ->
+                        onSettingsIntent(SettingsIntent.PlayerArtworkSizePresetChanged(preset))
+                    },
+                )
             }
         }
     }
@@ -3101,7 +3101,7 @@ private fun navidromePlaybackCacheSizePresetLabel(preset: NavidromePlaybackCache
 }
 
 internal fun shouldShowPlayerArtworkStyleSetting(platform: PlatformDescriptor): Boolean {
-    return platform.isMobilePlatform() || platform.isPCPlatform() || platform.isAndroidAutomotivePlatform()
+    return true
 }
 
 internal fun shouldShowMacOsWindowCloseBehaviorSetting(platform: PlatformDescriptor): Boolean {
