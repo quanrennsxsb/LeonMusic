@@ -10,10 +10,12 @@ import top.iwesley.lyn.music.core.model.AudioTagEditorPlatformService
 import top.iwesley.lyn.music.core.model.GlobalDiagnosticLogger
 import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
 import top.iwesley.lyn.music.core.model.normalizeArtworkLocator
 import top.iwesley.lyn.music.core.model.parseEmbyCoverLocator
 import top.iwesley.lyn.music.core.model.parseSubsonicCompatibleCoverLocator
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimit
 import top.iwesley.lyn.music.domain.readRemotePlaybackUrlCandidateWithFallback
 
 internal class AndroidAudioTagEditorPlatformService(
@@ -68,7 +70,7 @@ internal class AndroidAudioTagEditorPlatformService(
                     if (!file.exists()) {
                         error("封面文件不存在。")
                     }
-                    file.readBytes()
+                    readArtworkFileBytes(file)
                 }
             }
         }
@@ -79,7 +81,12 @@ internal class AndroidAudioTagEditorPlatformService(
     ): ByteArray? {
         val resolved = readRemotePlaybackUrlCandidateWithFallback(
             candidates = targets,
-            read = { target -> URL(target.value).openStream().use { input -> input.readBytes() } },
+            read = { target ->
+                URL(target.value).openStream().use { input ->
+                    readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+                        ?: error("远程封面超过大小限制。")
+                }
+            },
             isValidPayload = ::isCompleteArtworkPayload,
         ) ?: return null
         NavidromeLocatorRuntime.markResolvedUrlSuccess(resolved.first)
@@ -88,7 +95,17 @@ internal class AndroidAudioTagEditorPlatformService(
 
     private fun readBytes(context: Context, uri: Uri): ByteArray {
         return context.contentResolver.openInputStream(uri)?.use { input ->
-            input.readBytes()
+            readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
         } ?: error("无法读取所选封面。")
+    }
+
+    private fun readArtworkFileBytes(file: java.io.File): ByteArray {
+        if (!isArtworkPayloadSizeAllowed(file.length())) {
+            error("封面文件超过大小限制。")
+        }
+        return file.inputStream().use { input ->
+            readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+                ?: error("封面文件超过大小限制。")
+        }
     }
 }

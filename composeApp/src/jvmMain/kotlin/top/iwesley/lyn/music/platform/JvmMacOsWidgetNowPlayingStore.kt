@@ -23,13 +23,13 @@ internal interface JvmMacOsWidgetLyricsWriter {
 internal class JvmMacOsWidgetNowPlayingStore(
     private val groupContainerDirectory: Path? = resolveDefaultGroupContainerDirectory(),
     private val clockEpochSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
+    private val snapshotWriter: (Path, String) -> Unit = ::writeWidgetSnapshot,
 ) : JvmMacOsWidgetNowPlayingWriter, JvmMacOsWidgetLyricsWriter, JvmMacOsWidgetPlaybackCommandReader {
     companion object {
         private const val GROUP_CONTAINER_ID = "group.top.iwesley.lyn.music"
         private const val SNAPSHOT_RELATIVE_PATH = "LeonMusicWidget/now-playing.json"
         private const val COMMAND_RELATIVE_PATH = "LeonMusicWidget/playback-command.json"
         private const val ARTWORK_RELATIVE_PATH = "LeonMusicWidget/current-artwork.image"
-        private const val EMPTY_SNAPSHOT = """{"hasTrack":false,"updatedAtEpochSeconds":0}"""
         private val snapshotLock = Any()
 
         fun default(): JvmMacOsWidgetNowPlayingStore = JvmMacOsWidgetNowPlayingStore()
@@ -52,9 +52,9 @@ internal class JvmMacOsWidgetNowPlayingStore(
             val previousSnapshot = readSnapshot(file)?.takeIf { it.title == payload.title }
             val artworkPath = copyArtworkIntoSharedContainer(payload.artworkPath) ?: previousSnapshot?.artworkPath
             val lyricsText = payload.lyricsText.cleanWidgetLyricsText() ?: previousSnapshot?.lyricsText.cleanWidgetLyricsText()
-            writeSnapshot(
-                file = file,
-                json = buildString {
+            snapshotWriter(
+                file,
+                buildString {
                     append("{")
                     append("\"hasTrack\":true")
                     append(",\"title\":")
@@ -89,10 +89,9 @@ internal class JvmMacOsWidgetNowPlayingStore(
 
     override fun clear() {
         val file = snapshotFile ?: return
-        writeSnapshot(
-            file = file,
-            json = """{"hasTrack":false,"updatedAtEpochSeconds":${clockEpochSeconds()}}""",
-        )
+        synchronized(snapshotLock) {
+            snapshotWriter(file, """{"hasTrack":false,"updatedAtEpochSeconds":${clockEpochSeconds()}}""")
+        }
     }
 
     override fun updateLyrics(text: String?) {
@@ -101,9 +100,9 @@ internal class JvmMacOsWidgetNowPlayingStore(
             runCatching {
                 val json = Files.readString(file)
                 if (!json.contains(""""hasTrack":true""")) return@runCatching
-                writeSnapshot(
-                    file = file,
-                    json = json
+                snapshotWriter(
+                    file,
+                    json
                         .upsertJsonNullableString("lyricsText", text.cleanWidgetLyricsText())
                         .upsertJsonLong("updatedAtEpochSeconds", clockEpochSeconds()),
                 )
@@ -155,28 +154,6 @@ internal class JvmMacOsWidgetNowPlayingStore(
         }.getOrNull()
     }
 
-    @OptIn(ExperimentalPathApi::class)
-    private fun writeSnapshot(file: Path, json: String) {
-        runCatching {
-            file.parent?.createDirectories()
-            val temp = Files.createTempFile(file.parent, "now-playing-", ".tmp")
-            try {
-                temp.outputStream().bufferedWriter(Charsets.UTF_8).use { writer ->
-                    writer.write(json.ifBlank { EMPTY_SNAPSHOT })
-                    writer.write("\n")
-                }
-                Files.move(
-                    temp,
-                    file,
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                    java.nio.file.StandardCopyOption.ATOMIC_MOVE,
-                )
-            } finally {
-                temp.deleteIfExists()
-            }
-        }
-    }
-
     private fun readSnapshot(file: Path): ExistingWidgetSnapshot? {
         return runCatching {
             val json = Files.readString(file)
@@ -188,6 +165,30 @@ internal class JvmMacOsWidgetNowPlayingStore(
         }.getOrNull()
     }
 }
+
+@OptIn(ExperimentalPathApi::class)
+private fun writeWidgetSnapshot(file: Path, json: String) {
+    runCatching {
+        file.parent?.createDirectories()
+        val temp = Files.createTempFile(file.parent, "now-playing-", ".tmp")
+        try {
+            temp.outputStream().bufferedWriter(Charsets.UTF_8).use { writer ->
+                writer.write(json.ifBlank { EMPTY_WIDGET_SNAPSHOT })
+                writer.write("\n")
+            }
+            Files.move(
+                temp,
+                file,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+            )
+        } finally {
+            temp.deleteIfExists()
+        }
+    }
+}
+
+private const val EMPTY_WIDGET_SNAPSHOT = """{"hasTrack":false,"updatedAtEpochSeconds":0}"""
 
 private data class ExistingWidgetSnapshot(
     val title: String,

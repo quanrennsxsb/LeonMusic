@@ -18,7 +18,10 @@ import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
 import top.iwesley.lyn.music.core.model.inferArtworkFileExtension
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
+import top.iwesley.lyn.music.core.model.isArtworkSourceDimensionsAllowed
 import top.iwesley.lyn.music.core.model.normalizedArtworkCacheLocator
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimit
 import top.iwesley.lyn.music.core.model.resolveArtworkDecodeSampleSize
 import top.iwesley.lyn.music.core.model.resolveArtworkCacheTargets
 import top.iwesley.lyn.music.core.model.stableArtworkCacheHash
@@ -104,11 +107,12 @@ internal fun decodeAndroidArtworkBytes(
     payload: ByteArray,
     maxDecodeSizePx: Int,
 ): Bitmap? {
+    if (!isArtworkPayloadSizeAllowed(payload.size.toLong())) return null
     val bounds = BitmapFactory.Options().apply {
         inJustDecodeBounds = true
     }
     BitmapFactory.decodeByteArray(payload, 0, payload.size, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    if (!isArtworkSourceDimensionsAllowed(bounds.outWidth, bounds.outHeight)) return null
     val decoded = BitmapFactory.decodeByteArray(
         payload,
         0,
@@ -129,11 +133,12 @@ private fun decodeAndroidArtworkFile(
     path: String,
     maxDecodeSizePx: Int,
 ): Bitmap? {
+    if (!isArtworkPayloadSizeAllowed(File(path).length())) return null
     val bounds = BitmapFactory.Options().apply {
         inJustDecodeBounds = true
     }
     BitmapFactory.decodeFile(path, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    if (!isArtworkSourceDimensionsAllowed(bounds.outWidth, bounds.outHeight)) return null
     val decoded = BitmapFactory.decodeFile(
         path,
         BitmapFactory.Options().apply {
@@ -172,7 +177,12 @@ private suspend fun readAndroidRemoteArtworkPayload(
     return readRemotePlaybackUrlCandidateWithFallback(
         candidates = targets,
         isRemoteUrl = ::isRemoteArtworkTarget,
-        read = { target -> URL(target.value).openStream().use { it.readBytes() } },
+        read = { target ->
+            URL(target.value).openStream().use { input ->
+                readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+                    ?: error("远程封面超过大小限制。")
+            }
+        },
         isValidPayload = ::isCompleteArtworkPayload,
     )
 }
@@ -187,7 +197,7 @@ private fun findValidAndroidArtworkCacheFile(directory: File, cacheKey: String):
                 file.length() > 0L
         }
         ?.firstOrNull { file ->
-            val valid = runCatching { isCompleteArtworkPayload(file.readBytes()) }.getOrDefault(false)
+            val valid = file.hasValidAndroidArtworkPayload()
             if (!valid) {
                 runCatching { file.delete() }
             }
@@ -203,7 +213,7 @@ private fun writeAndroidArtworkCacheFileAtomically(
     if (!isCompleteArtworkPayload(payload)) return null
     val output = directory.resolve(fileName)
     if (output.exists() && output.length() > 0L) {
-        if (runCatching { isCompleteArtworkPayload(output.readBytes()) }.getOrDefault(false)) {
+        if (output.hasValidAndroidArtworkPayload()) {
             return output
         }
         runCatching { output.delete() }
@@ -214,7 +224,7 @@ private fun writeAndroidArtworkCacheFileAtomically(
         if (temporary.length() != payload.size.toLong()) {
             return@runCatching null
         }
-        if (output.exists() && runCatching { isCompleteArtworkPayload(output.readBytes()) }.getOrDefault(false)) {
+        if (output.exists() && output.hasValidAndroidArtworkPayload()) {
             return@runCatching output
         }
         runCatching { output.delete() }
@@ -225,13 +235,24 @@ private fun writeAndroidArtworkCacheFileAtomically(
         output.takeIf {
             it.exists() &&
                 it.length() > 0L &&
-                runCatching { isCompleteArtworkPayload(it.readBytes()) }.getOrDefault(false)
+                it.hasValidAndroidArtworkPayload()
         }
     }.also {
         if (temporary.exists()) {
             runCatching { temporary.delete() }
         }
     }.getOrNull()
+}
+
+private fun File.hasValidAndroidArtworkPayload(): Boolean {
+    if (!isArtworkPayloadSizeAllowed(length())) return false
+    return runCatching {
+        inputStream().use { input ->
+            readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+                ?.let(::isCompleteArtworkPayload)
+                ?: false
+        }
+    }.getOrDefault(false)
 }
 
 private const val ANDROID_ARTWORK_CACHE_TEMP_MARKER = ".tmp-"

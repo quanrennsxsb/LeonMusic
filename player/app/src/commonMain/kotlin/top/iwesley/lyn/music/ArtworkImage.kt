@@ -22,6 +22,7 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
 import coil3.compose.setSingletonImageLoaderFactory
+import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.maxBitmapSize
@@ -87,9 +88,22 @@ internal val LocalArtworkCacheStore = staticCompositionLocalOf<ArtworkCacheStore
 }
 
 @Composable
-internal fun ConfigureLynArtworkImageLoader() {
+internal fun ConfigureLynArtworkImageLoader(
+    memoryCacheMaxSizeBytes: Long? = null,
+) {
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
+            .apply {
+                memoryCacheMaxSizeBytes
+                    ?.takeIf { maxSizeBytes -> maxSizeBytes > 0L }
+                    ?.let { maxSizeBytes ->
+                        memoryCache {
+                            MemoryCache.Builder()
+                                .maxSizeBytes(maxSizeBytes)
+                                .build()
+                        }
+                    }
+            }
             .diskCache(null)
             .maxBitmapSize(Size(ArtworkDecodeSize.Player, ArtworkDecodeSize.Player))
             .build()

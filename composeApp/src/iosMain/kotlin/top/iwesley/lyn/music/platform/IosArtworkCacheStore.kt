@@ -132,7 +132,7 @@ private class IosArtworkCacheStore : ArtworkCacheStore {
             val cachePrefix = cacheKey.ifBlank { return@withContext false }.stableArtworkCacheHash()
             val path = findIosArtworkCacheFile(directory, cachePrefix) ?: return@withContext false
             rememberIosArtworkTarget(cacheKey, path)
-            val payload = readIosLocalBytes(path) ?: return@withContext false
+            val payload = readIosArtworkLocalBytes(path) ?: return@withContext false
             isReplaceableNavidromePlaceholderArtwork(
                 bytes = payload,
                 differenceHash = decodeSkiaArtworkDifferenceHash(payload),
@@ -174,7 +174,7 @@ private fun relocateLegacyIosArtworkPath(path: String, directory: String): Strin
 }
 
 private fun validIosArtworkPath(path: String): String? {
-    return path.takeIf { readIosLocalBytes(it)?.let(::isCompleteArtworkPayload) == true }
+    return path.takeIf { readIosArtworkLocalBytes(it)?.let(::isCompleteArtworkPayload) == true }
 }
 
 private suspend fun readIosRemoteArtworkPayload(
@@ -189,7 +189,7 @@ private suspend fun readIosRemoteArtworkPayload(
 }
 
 private fun iosArtworkCachedTarget(path: String): ArtworkCachedTarget? {
-    readIosLocalBytes(path)?.takeIf(::isCompleteArtworkPayload) ?: return null
+    readIosArtworkLocalBytes(path)?.takeIf(::isCompleteArtworkPayload) ?: return null
     return ArtworkCachedTarget(
         target = path,
         version = iosArtworkFileVersion(path),
@@ -215,7 +215,7 @@ private fun findIosArtworkCacheFile(directory: String, cachePrefix: String): Str
             if (!name.startsWith(cachePrefix)) continue
             if (name.contains(IOS_ARTWORK_CACHE_TEMP_MARKER)) continue
             val path = "$directory/$name"
-            val valid = readIosLocalBytes(path)?.let { isCompleteArtworkPayload(it) } == true
+            val valid = readIosArtworkLocalBytes(path)?.let { isCompleteArtworkPayload(it) } == true
             if (valid) {
                 return path
             }
@@ -233,7 +233,7 @@ private fun promoteIosLocalArtworkFile(
     locator: String,
     replaceExisting: Boolean,
 ): IosArtworkCacheFileResult? {
-    val payload = readIosLocalBytes(source)?.takeIf(::isCompleteArtworkPayload) ?: return null
+    val payload = readIosArtworkLocalBytes(source)?.takeIf(::isCompleteArtworkPayload) ?: return null
     val fileName = "$cachePrefix${artworkCacheExtension(locator, payload)}"
     return promoteIosArtworkCacheFile(source, cachePrefix, fileName, replaceExisting)
 }
@@ -267,7 +267,7 @@ private fun promoteIosArtworkCacheFile(
     val temporary = "$output$IOS_ARTWORK_CACHE_TEMP_MARKER${platform.Foundation.NSUUID.UUID().UUIDString}"
     return runCatching {
         if (link(source, temporary) != 0) {
-            val payload = readIosLocalBytes(source)?.takeIf(::isCompleteArtworkPayload) ?: return@runCatching null
+            val payload = readIosArtworkLocalBytes(source)?.takeIf(::isCompleteArtworkPayload) ?: return@runCatching null
             if (!writeIosFileBytes(temporary, payload)) return@runCatching null
         }
         if (validIosArtworkPath(temporary) == null) return@runCatching null
@@ -318,7 +318,7 @@ internal fun writeIosArtworkCacheFileAtomically(
 ): IosArtworkCacheFileResult? {
     if (!isCompleteArtworkPayload(payload)) return null
     val output = "$directory/$fileName"
-    if (!replaceExisting && readIosLocalBytes(output)?.let { isCompleteArtworkPayload(it) } == true) {
+    if (!replaceExisting && readIosArtworkLocalBytes(output)?.let { isCompleteArtworkPayload(it) } == true) {
         return IosArtworkCacheFileResult(output, changed = false)
     }
     val temporary = "$output$IOS_ARTWORK_CACHE_TEMP_MARKER${platform.Foundation.NSUUID.UUID().UUIDString}"
@@ -326,11 +326,11 @@ internal fun writeIosArtworkCacheFileAtomically(
         if (!writeIosFileBytes(temporary, payload)) {
             return@runCatching null
         }
-        val written = readIosLocalBytes(temporary) ?: return@runCatching null
+        val written = readIosArtworkLocalBytes(temporary) ?: return@runCatching null
         if (written.size != payload.size || !isCompleteArtworkPayload(written)) {
             return@runCatching null
         }
-        if (!replaceExisting && readIosLocalBytes(output)?.let { isCompleteArtworkPayload(it) } == true) {
+        if (!replaceExisting && readIosArtworkLocalBytes(output)?.let { isCompleteArtworkPayload(it) } == true) {
             return@runCatching IosArtworkCacheFileResult(output, changed = false)
         }
         if (renameFile(temporary, output) != 0) {

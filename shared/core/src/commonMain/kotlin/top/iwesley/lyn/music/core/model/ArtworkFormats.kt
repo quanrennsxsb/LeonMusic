@@ -18,6 +18,7 @@ fun inferArtworkFileExtension(
 }
 
 fun isCompleteArtworkPayload(bytes: ByteArray): Boolean {
+    if (!isArtworkPayloadSizeAllowed(bytes.size.toLong())) return false
     return when {
         hasJpegSignature(bytes) -> hasJpegEndMarker(bytes)
         hasPngSignature(bytes) -> hasPngEndMarker(bytes)

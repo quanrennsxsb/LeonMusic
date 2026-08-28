@@ -19,6 +19,7 @@ import top.iwesley.lyn.music.core.model.LyricsDocument
 import top.iwesley.lyn.music.core.model.LyricsLine
 import top.iwesley.lyn.music.core.model.LyricsSearchApplyMode
 import top.iwesley.lyn.music.core.model.LyricsSearchCandidate
+import top.iwesley.lyn.music.core.model.PlaybackMode
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
 import top.iwesley.lyn.music.core.model.Track
 import top.iwesley.lyn.music.core.model.WorkflowSongCandidate
@@ -587,9 +588,17 @@ private class FakePlaybackRepository(
 
     override suspend fun hydratePersistedQueueIfNeeded() = PlaybackHydrationResult.Empty
 
-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) = Unit
+    override suspend fun playTracks(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode?,
+    ) = Unit
     override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) = Unit
-    override suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot? = null
+    override suspend fun prepareExternalPlaybackQueue(
+        tracks: List<Track>,
+        startIndex: Int,
+        requestedMode: PlaybackMode?,
+    ): PlaybackSnapshot? = null
     override suspend fun playQueueIndex(index: Int) = Unit
     override suspend fun resumeCurrentTrackPlayback() = Unit
     override suspend fun togglePlayPause() = Unit

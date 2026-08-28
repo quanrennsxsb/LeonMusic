@@ -15,8 +15,10 @@ import top.iwesley.lyn.music.core.model.JvmAppDataDirectory
 import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
 import top.iwesley.lyn.music.core.model.inferArtworkFileExtension
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
 import top.iwesley.lyn.music.core.model.isReplaceableNavidromePlaceholderArtwork
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimit
 import top.iwesley.lyn.music.core.model.resolveArtworkCacheTargets
 import top.iwesley.lyn.music.core.model.stableArtworkCacheHash
 import top.iwesley.lyn.music.domain.readRemotePlaybackUrlCandidateWithFallback
@@ -102,7 +104,12 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
         return readRemotePlaybackUrlCandidateWithFallback(
             candidates = targets,
             isRemoteUrl = ::isRemoteArtworkTarget,
-            read = { target -> URL(target.value).openStream().use { it.readBytes() } },
+            read = { target ->
+                URL(target.value).openStream().use { input ->
+                    readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+                        ?: error("远程封面超过大小限制。")
+                }
+            },
             isValidPayload = ::isCompleteArtworkPayload,
         )
     }
@@ -118,7 +125,7 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
         val cachePrefix = cacheKey.ifBlank { return false }.stableArtworkCacheHash()
         val file = findValidArtworkCacheFile(cachePrefix) ?: return false
         rememberArtworkTarget(cacheKey, file)
-        val payload = runCatching { Files.readAllBytes(file.toPath()) }.getOrNull() ?: return false
+        val payload = readJvmArtworkFileBytes(file) ?: return false
         return isReplaceableNavidromePlaceholderArtwork(
             bytes = payload,
             differenceHash = decodeSkiaArtworkDifferenceHash(payload),
@@ -144,7 +151,7 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
                     file.length() > 0L
             }
             ?.firstOrNull { file ->
-                val valid = runCatching { isCompleteArtworkPayload(Files.readAllBytes(file.toPath())) }.getOrDefault(false)
+                val valid = file.hasValidJvmArtworkPayload()
                 if (!valid) {
                     runCatching { Files.deleteIfExists(file.toPath()) }
                 }
@@ -158,8 +165,8 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
         locator: String,
         replaceExisting: Boolean,
     ): ArtworkCacheFileResult? {
-        if (!source.isFile || source.length() <= 0L) return null
-        val payload = runCatching { Files.readAllBytes(source.toPath()) }.getOrNull()
+        if (!source.isFile || !isArtworkPayloadSizeAllowed(source.length())) return null
+        val payload = readJvmArtworkFileBytes(source)
             ?.takeIf(::isCompleteArtworkPayload)
             ?: return null
         val fileName = "$cachePrefix${inferArtworkFileExtension(locator = locator, bytes = payload)}"
@@ -184,7 +191,7 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
         fileName: String,
         replaceExisting: Boolean,
     ): ArtworkCacheFileResult? {
-        if (!source.isFile || source.length() <= 0L) return null
+        if (!source.isFile || !isArtworkPayloadSizeAllowed(source.length())) return null
         val output = File(directory, fileName)
         if (!replaceExisting) {
             findValidArtworkCacheFile(cachePrefix)?.let { return ArtworkCacheFileResult(it, changed = false) }
@@ -204,7 +211,7 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
             output.takeIf {
                 it.exists() &&
                     it.length() > 0L &&
-                    runCatching { isCompleteArtworkPayload(Files.readAllBytes(it.toPath())) }.getOrDefault(false)
+                    it.hasValidJvmArtworkPayload()
             }?.let { ArtworkCacheFileResult(it, changed = true) }
         }.getOrNull()
     }
@@ -218,7 +225,7 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
         if (!isCompleteArtworkPayload(payload)) return null
         val output = File(directory, fileName)
         if (!replaceExisting && output.exists() && output.length() > 0L) {
-            if (runCatching { isCompleteArtworkPayload(Files.readAllBytes(output.toPath())) }.getOrDefault(false)) {
+            if (output.hasValidJvmArtworkPayload()) {
                 return ArtworkCacheFileResult(output, changed = false)
             }
             runCatching { Files.deleteIfExists(output.toPath()) }
@@ -231,7 +238,7 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
             }
             if (!replaceExisting &&
                 output.exists() &&
-                runCatching { isCompleteArtworkPayload(Files.readAllBytes(output.toPath())) }.getOrDefault(false)
+                output.hasValidJvmArtworkPayload()
             ) {
                 return@runCatching ArtworkCacheFileResult(output, changed = false)
             }
@@ -253,7 +260,7 @@ private class JvmArtworkCacheStore : ArtworkCacheStore {
             output.takeIf {
                 it.exists() &&
                     it.length() > 0L &&
-                    runCatching { isCompleteArtworkPayload(Files.readAllBytes(it.toPath())) }.getOrDefault(false)
+                    it.hasValidJvmArtworkPayload()
             }?.let { ArtworkCacheFileResult(it, changed = true) }
         }.also {
             runCatching { Files.deleteIfExists(temporary.toPath()) }
@@ -293,6 +300,21 @@ private data class ArtworkCacheFileResult(
     val file: File,
     val changed: Boolean,
 )
+
+private fun readJvmArtworkFileBytes(file: File): ByteArray? {
+    if (!isArtworkPayloadSizeAllowed(file.length())) return null
+    return runCatching {
+        Files.newInputStream(file.toPath()).use { input ->
+            readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+        }
+    }.getOrNull()
+}
+
+private fun File.hasValidJvmArtworkPayload(): Boolean {
+    return readJvmArtworkFileBytes(this)
+        ?.let(::isCompleteArtworkPayload)
+        ?: false
+}
 
 private fun isRemoteArtworkTarget(target: String): Boolean {
     return target.startsWith("http://", ignoreCase = true) || target.startsWith("https://", ignoreCase = true)

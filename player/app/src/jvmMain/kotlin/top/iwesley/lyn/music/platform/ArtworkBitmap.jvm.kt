@@ -20,8 +20,11 @@ import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.JvmAppDataDirectory
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
 import top.iwesley.lyn.music.core.model.inferArtworkFileExtension
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
+import top.iwesley.lyn.music.core.model.isArtworkSourceDimensionsAllowed
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
 import top.iwesley.lyn.music.core.model.normalizedArtworkCacheLocator
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimit
 import top.iwesley.lyn.music.core.model.resolveArtworkCacheTargets
 import top.iwesley.lyn.music.core.model.stableArtworkCacheHash
 import top.iwesley.lyn.music.domain.readRemotePlaybackUrlCandidateWithFallback
@@ -67,7 +70,12 @@ private suspend fun loadJvmArtworkBitmap(locator: String?, cacheRemote: Boolean,
 }
 
 internal fun decodeJvmArtworkImageBitmap(bytes: ByteArray, maxDecodeSizePx: Int): ImageBitmap? {
+    if (!isArtworkPayloadSizeAllowed(bytes.size.toLong())) return null
     val image = Image.makeFromEncoded(bytes)
+    if (!isArtworkSourceDimensionsAllowed(image.width, image.height)) {
+        image.close()
+        return null
+    }
     val maxSize = maxDecodeSizePx.coerceAtLeast(1)
     val currentMax = maxOf(image.width, image.height)
     if (currentMax <= maxSize) return image.toComposeImageBitmap()
@@ -89,7 +97,9 @@ suspend fun loadJvmArtworkBytes(
     cacheRemote: Boolean = true,
     userHomePath: String? = null,
     remoteBytesLoader: suspend (String) -> ByteArray? = { target ->
-        URI(target).toURL().openStream().use { it.readBytes() }
+        URI(target).toURL().openStream().use { input ->
+            readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+        }
     },
 ): ByteArray? = withContext(Dispatchers.IO) {
     runCatching {
@@ -105,7 +115,7 @@ suspend fun loadJvmArtworkBytes(
                 val cachePrefix = normalizedLocator.stableArtworkCacheHash()
                 val existingCacheFile = findValidJvmArtworkCacheFile(cacheDirectory, cachePrefix)
                 if (existingCacheFile != null) {
-                    Files.readAllBytes(existingCacheFile.toPath())
+                    readJvmArtworkFileBytes(existingCacheFile) ?: return@runCatching null
                 } else {
                     val (remoteTarget, payload) = loadJvmRemoteArtworkPayload(targets, remoteBytesLoader)
                         ?: return@runCatching null
@@ -122,9 +132,9 @@ suspend fun loadJvmArtworkBytes(
             }
 
             target.startsWith("file://", ignoreCase = true) ->
-                Files.readAllBytes(Paths.get(URI(target)))
+                readJvmArtworkFileBytes(Paths.get(URI(target)).toFile()) ?: return@runCatching null
 
-            else -> Files.readAllBytes(Paths.get(target))
+            else -> readJvmArtworkFileBytes(Paths.get(target).toFile()) ?: return@runCatching null
         }
     }.getOrNull() ?: loadBundledDefaultCoverBytes()
 }
@@ -155,7 +165,7 @@ private fun findValidJvmArtworkCacheFile(directory: File, cachePrefix: String): 
                 file.length() > 0L
         }
         ?.firstOrNull { file ->
-            val valid = runCatching { isCompleteArtworkPayload(Files.readAllBytes(file.toPath())) }.getOrDefault(false)
+            val valid = file.hasValidJvmArtworkPayload()
             if (!valid) {
                 runCatching { Files.deleteIfExists(file.toPath()) }
             }
@@ -171,7 +181,7 @@ private fun writeJvmArtworkCacheFileAtomically(
     if (!isCompleteArtworkPayload(payload)) return null
     val output = directory.resolve(fileName)
     if (output.exists() && output.length() > 0L) {
-        if (runCatching { isCompleteArtworkPayload(Files.readAllBytes(output.toPath())) }.getOrDefault(false)) {
+        if (output.hasValidJvmArtworkPayload()) {
             return output
         }
         runCatching { Files.deleteIfExists(output.toPath()) }
@@ -182,7 +192,7 @@ private fun writeJvmArtworkCacheFileAtomically(
         if (Files.size(temporary.toPath()) != payload.size.toLong()) {
             return@runCatching null
         }
-        if (output.exists() && runCatching { isCompleteArtworkPayload(Files.readAllBytes(output.toPath())) }.getOrDefault(false)) {
+        if (output.exists() && output.hasValidJvmArtworkPayload()) {
             return@runCatching output
         }
         runCatching { Files.deleteIfExists(output.toPath()) }
@@ -199,11 +209,26 @@ private fun writeJvmArtworkCacheFileAtomically(
         output.takeIf {
             it.exists() &&
                 it.length() > 0L &&
-                runCatching { isCompleteArtworkPayload(Files.readAllBytes(it.toPath())) }.getOrDefault(false)
+                it.hasValidJvmArtworkPayload()
         }
     }.also {
         runCatching { Files.deleteIfExists(temporary.toPath()) }
     }.getOrNull()
+}
+
+private fun readJvmArtworkFileBytes(file: File): ByteArray? {
+    if (!isArtworkPayloadSizeAllowed(file.length())) return null
+    return runCatching {
+        Files.newInputStream(file.toPath()).use { input ->
+            readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+        }
+    }.getOrNull()
+}
+
+private fun File.hasValidJvmArtworkPayload(): Boolean {
+    return readJvmArtworkFileBytes(this)
+        ?.let(::isCompleteArtworkPayload)
+        ?: false
 }
 
 private const val JVM_ARTWORK_CACHE_TEMP_MARKER = ".tmp-"

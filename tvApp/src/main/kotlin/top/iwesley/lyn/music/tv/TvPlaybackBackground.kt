@@ -27,12 +27,17 @@ import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
 import java.io.File
+import java.io.InputStream
 import java.net.URI
 import java.net.URL
 import kotlin.math.max
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import top.iwesley.lyn.music.core.model.MAX_ARTWORK_PAYLOAD_BYTES
 import top.iwesley.lyn.music.core.model.derivePlaybackArtworkBackgroundPalette
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
+import top.iwesley.lyn.music.core.model.isArtworkSourceDimensionsAllowed
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimit
 import top.iwesley.lyn.music.core.model.resolveArtworkDecodeSampleSize
 
 @Composable
@@ -176,7 +181,13 @@ private fun decodeTvPlaybackBackgroundBitmap(target: String, maxDecodeSizePx: In
     return when {
         target.startsWith("http://", ignoreCase = true) ||
             target.startsWith("https://", ignoreCase = true) -> {
-            val payload = URL(target).openStream().use { it.readBytes() }
+            val connection = URL(target).openConnection().apply {
+                connectTimeout = TV_PLAYBACK_ARTWORK_NETWORK_TIMEOUT_MILLIS
+                readTimeout = TV_PLAYBACK_ARTWORK_NETWORK_TIMEOUT_MILLIS
+            }
+            val payload = connection.getInputStream().use { input ->
+                readTvPlaybackRemoteArtworkPayload(input, connection.contentLength.toLong())
+            } ?: return null
             decodeTvPlaybackArtworkBytes(payload, maxDecodeSizePx)
         }
 
@@ -199,7 +210,7 @@ private fun decodeTvPlaybackArtworkBytes(
         inJustDecodeBounds = true
     }
     BitmapFactory.decodeByteArray(payload, 0, payload.size, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    if (!isArtworkSourceDimensionsAllowed(bounds.outWidth, bounds.outHeight)) return null
     return BitmapFactory.decodeByteArray(
         payload,
         0,
@@ -223,7 +234,7 @@ private fun decodeTvPlaybackArtworkFile(
         inJustDecodeBounds = true
     }
     BitmapFactory.decodeFile(path, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    if (!isArtworkSourceDimensionsAllowed(bounds.outWidth, bounds.outHeight)) return null
     return BitmapFactory.decodeFile(
         path,
         BitmapFactory.Options().apply {
@@ -258,6 +269,15 @@ private fun composeTvPlaybackColorFromArgb(argb: Int): Color {
     )
 }
 
+internal fun readTvPlaybackRemoteArtworkPayload(
+    input: InputStream,
+    contentLength: Long,
+    maxBytes: Int = MAX_ARTWORK_PAYLOAD_BYTES,
+): ByteArray? {
+    if (contentLength >= 0L && !isArtworkPayloadSizeAllowed(contentLength, maxBytes.toLong())) return null
+    return readArtworkPayloadWithLimit(maxBytes) { buffer -> input.read(buffer) }
+}
+
 internal data class TvPlaybackBackgroundColors(
     val baseColor: Color,
     val primaryColor: Color,
@@ -266,3 +286,4 @@ internal data class TvPlaybackBackgroundColors(
 )
 
 private const val TV_PLAYBACK_PALETTE_DECODE_SIZE_PX = 384
+private const val TV_PLAYBACK_ARTWORK_NETWORK_TIMEOUT_MILLIS = 15_000

@@ -17,6 +17,8 @@ import top.iwesley.lyn.music.core.model.LyricsShareCardModel
 import top.iwesley.lyn.music.core.model.LyricsShareFontOption
 import top.iwesley.lyn.music.core.model.LyricsSharePlatformService
 import top.iwesley.lyn.music.core.model.LyricsShareSaveResult
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
+import top.iwesley.lyn.music.core.model.isArtworkSourceDimensionsAllowed
 import top.iwesley.lyn.music.core.model.isIosArtworkCacheBackedLocator
 import top.iwesley.lyn.music.core.model.normalizedArtworkCacheLocator
 import top.iwesley.lyn.music.core.model.parseEmbyCoverLocator
@@ -33,7 +35,11 @@ class IosLyricsSharePlatformService : LyricsSharePlatformService {
     override suspend fun buildPreview(model: LyricsShareCardModel): Result<ByteArray> = withContext(Dispatchers.Default) {
         runCatching {
             val artworkImage = loadArtworkImage(model.artworkLocator, model.artworkCacheKey, artworkCacheStore)
-            SkiaLyricsShareRenderer.render(model, artworkImage = artworkImage)
+            try {
+                SkiaLyricsShareRenderer.render(model, artworkImage = artworkImage)
+            } finally {
+                artworkImage?.close()
+            }
         }
     }
 
@@ -109,8 +115,19 @@ private suspend fun loadArtworkImage(
     val artworkBytes = normalized
         ?.let { resolveIosLyricsShareArtworkTarget(it, artworkCacheKey, artworkCacheStore) }
         ?.let { readIosLyricsShareArtworkTargetBytes(it) }
-    return (artworkBytes ?: loadBundledDefaultCoverBytes())?.let(Image::makeFromEncoded)
+    return (artworkBytes ?: loadBundledDefaultCoverBytes())?.let(::decodeIosLyricsShareArtworkImage)
 }
+
+private fun decodeIosLyricsShareArtworkImage(bytes: ByteArray): Image? = runCatching {
+    if (!isArtworkPayloadSizeAllowed(bytes.size.toLong())) return@runCatching null
+    val image = Image.makeFromEncoded(bytes)
+    if (isArtworkSourceDimensionsAllowed(image.width, image.height)) {
+        image
+    } else {
+        image.close()
+        null
+    }
+}.getOrNull()
 
 internal suspend fun resolveIosLyricsShareArtworkTarget(
     normalizedLocator: String,
@@ -134,9 +151,9 @@ private suspend fun readIosLyricsShareArtworkTargetBytes(target: String): ByteAr
             readIosRemoteBytes(target)
 
         target.startsWith("file://", ignoreCase = true) ->
-            readIosLocalBytes(NSURL.URLWithString(target)?.path ?: target.removePrefix("file://"))
+            readIosArtworkLocalBytes(NSURL.URLWithString(target)?.path ?: target.removePrefix("file://"))
 
-        else -> readIosLocalBytes(target)
+        else -> readIosArtworkLocalBytes(target)
     }
 }
 

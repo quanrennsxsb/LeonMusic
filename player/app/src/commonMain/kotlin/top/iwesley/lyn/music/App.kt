@@ -419,8 +419,11 @@ fun App(
     desktopWindowChrome: DesktopWindowChrome = DesktopWindowChrome(),
     onExitApplicationRequest: () -> Unit = {},
     startupWarning: String? = null,
+    artworkMemoryCacheMaxSizeBytes: Long? = null,
 ) {
-    ConfigureLynArtworkImageLoader()
+    ConfigureLynArtworkImageLoader(
+        memoryCacheMaxSizeBytes = artworkMemoryCacheMaxSizeBytes,
+    )
 
     DisposableEffect(component) {
         onDispose { component.dispose() }

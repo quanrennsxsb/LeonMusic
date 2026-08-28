@@ -17,9 +17,13 @@ import top.iwesley.lyn.music.core.model.ArtworkCacheVersionRegistry
 import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
 import top.iwesley.lyn.music.core.model.inferArtworkFileExtension
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
+import top.iwesley.lyn.music.core.model.isArtworkSourceDimensionsAllowed
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
 import top.iwesley.lyn.music.core.model.isReplaceableNavidromePlaceholderArtwork
 import top.iwesley.lyn.music.core.model.navidromeArtworkDifferenceHash
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimit
+import top.iwesley.lyn.music.core.model.resolveArtworkDecodeSampleSize
 import top.iwesley.lyn.music.core.model.resolveArtworkCacheTargets
 import top.iwesley.lyn.music.core.model.stableArtworkCacheHash
 import top.iwesley.lyn.music.domain.readRemotePlaybackUrlCandidateWithFallback
@@ -126,7 +130,12 @@ private class AndroidArtworkCacheStore(
         return readRemotePlaybackUrlCandidateWithFallback(
             candidates = targets,
             isRemoteUrl = ::isRemoteArtworkTarget,
-            read = { target -> URL(target.value).openStream().use { it.readBytes() } },
+            read = { target ->
+                URL(target.value).openStream().use { input ->
+                    readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+                        ?: error("远程封面超过大小限制。")
+                }
+            },
             isValidPayload = ::isCompleteArtworkPayload,
         )
     }
@@ -142,7 +151,7 @@ private class AndroidArtworkCacheStore(
         val cachePrefix = cacheKey.ifBlank { return false }.stableArtworkCacheHash()
         val file = findValidArtworkCacheFile(cachePrefix) ?: return false
         rememberArtworkTarget(cacheKey, file)
-        val payload = runCatching { file.readBytes() }.getOrNull() ?: return false
+        val payload = readAndroidArtworkFileBytes(file) ?: return false
         return isReplaceableNavidromePlaceholderArtwork(
             bytes = payload,
             differenceHash = decodeAndroidArtworkDifferenceHash(payload),
@@ -168,7 +177,7 @@ private class AndroidArtworkCacheStore(
                     file.length() > 0L
             }
             ?.firstOrNull { file ->
-                val valid = runCatching { isCompleteArtworkPayload(file.readBytes()) }.getOrDefault(false)
+                val valid = file.hasValidAndroidArtworkPayload()
                 if (!valid) {
                     runCatching { file.delete() }
                 }
@@ -182,8 +191,8 @@ private class AndroidArtworkCacheStore(
         locator: String,
         replaceExisting: Boolean,
     ): ArtworkCacheFileResult? {
-        if (!source.isFile || source.length() <= 0L) return null
-        val payload = runCatching { source.readBytes() }.getOrNull()
+        if (!source.isFile || !isArtworkPayloadSizeAllowed(source.length())) return null
+        val payload = readAndroidArtworkFileBytes(source)
             ?.takeIf(::isCompleteArtworkPayload)
             ?: return null
         val fileName = "$cachePrefix${inferArtworkFileExtension(locator = locator, bytes = payload)}"
@@ -208,7 +217,7 @@ private class AndroidArtworkCacheStore(
         fileName: String,
         replaceExisting: Boolean,
     ): ArtworkCacheFileResult? {
-        if (!source.isFile || source.length() <= 0L) return null
+        if (!source.isFile || !isArtworkPayloadSizeAllowed(source.length())) return null
         val output = File(directory, fileName)
         if (!replaceExisting) {
             findValidArtworkCacheFile(cachePrefix)?.let { return ArtworkCacheFileResult(it, changed = false) }
@@ -228,7 +237,7 @@ private class AndroidArtworkCacheStore(
             output.takeIf {
                 it.exists() &&
                     it.length() > 0L &&
-                    runCatching { isCompleteArtworkPayload(it.readBytes()) }.getOrDefault(false)
+                    it.hasValidAndroidArtworkPayload()
             }?.let { ArtworkCacheFileResult(it, changed = true) }
         }.getOrNull()
     }
@@ -242,7 +251,7 @@ private class AndroidArtworkCacheStore(
         if (!isCompleteArtworkPayload(payload)) return null
         val output = File(directory, fileName)
         if (!replaceExisting && output.exists() && output.length() > 0L) {
-            if (runCatching { isCompleteArtworkPayload(output.readBytes()) }.getOrDefault(false)) {
+            if (output.hasValidAndroidArtworkPayload()) {
                 return ArtworkCacheFileResult(output, changed = false)
             }
             runCatching { output.delete() }
@@ -255,7 +264,7 @@ private class AndroidArtworkCacheStore(
             }
             if (!replaceExisting &&
                 output.exists() &&
-                runCatching { isCompleteArtworkPayload(output.readBytes()) }.getOrDefault(false)
+                output.hasValidAndroidArtworkPayload()
             ) {
                 return@runCatching ArtworkCacheFileResult(output, changed = false)
             }
@@ -271,7 +280,7 @@ private class AndroidArtworkCacheStore(
             output.takeIf {
                 it.exists() &&
                     it.length() > 0L &&
-                    runCatching { isCompleteArtworkPayload(it.readBytes()) }.getOrDefault(false)
+                    it.hasValidAndroidArtworkPayload()
             }?.let { ArtworkCacheFileResult(it, changed = true) }
         }.also {
             if (temporary.exists()) {
@@ -314,9 +323,42 @@ private data class ArtworkCacheFileResult(
     val changed: Boolean,
 )
 
+private fun readAndroidArtworkFileBytes(file: File): ByteArray? {
+    if (!isArtworkPayloadSizeAllowed(file.length())) return null
+    return runCatching {
+        file.inputStream().use { input ->
+            readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+        }
+    }.getOrNull()
+}
+
+private fun File.hasValidAndroidArtworkPayload(): Boolean {
+    return readAndroidArtworkFileBytes(this)
+        ?.let(::isCompleteArtworkPayload)
+        ?: false
+}
+
 private fun decodeAndroidArtworkDifferenceHash(bytes: ByteArray): ULong? {
     return runCatching {
-        val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@runCatching null
+        if (!isArtworkPayloadSizeAllowed(bytes.size.toLong())) return@runCatching null
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (!isArtworkSourceDimensionsAllowed(bounds.outWidth, bounds.outHeight)) return@runCatching null
+        val source = BitmapFactory.decodeByteArray(
+            bytes,
+            0,
+            bytes.size,
+            BitmapFactory.Options().apply {
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+                inSampleSize = resolveArtworkDecodeSampleSize(
+                    sourceWidth = bounds.outWidth,
+                    sourceHeight = bounds.outHeight,
+                    targetSize = 32,
+                )
+            },
+        ) ?: return@runCatching null
         val scaled = if (source.width == 9 && source.height == 8) {
             source
         } else {

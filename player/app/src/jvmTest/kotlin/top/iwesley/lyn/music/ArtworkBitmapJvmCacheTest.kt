@@ -1,6 +1,7 @@
 package top.iwesley.lyn.music
 
 import java.io.File
+import java.io.RandomAccessFile
 import java.nio.file.Files
 import kotlin.io.path.absolutePathString
 import kotlin.test.Test
@@ -12,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import top.iwesley.lyn.music.core.model.NavidromeAudioQuality
 import top.iwesley.lyn.music.core.model.NavidromeLocatorResolver
 import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
+import top.iwesley.lyn.music.core.model.MAX_ARTWORK_PAYLOAD_BYTES
 import top.iwesley.lyn.music.core.model.buildNavidromeCoverLocator
 import top.iwesley.lyn.music.core.model.stableArtworkCacheHash
 import top.iwesley.lyn.music.platform.loadBundledDefaultCoverBytes
@@ -211,6 +213,24 @@ class ArtworkBitmapJvmCacheTest {
         val actual = runBlocking {
             loadJvmArtworkBytes("file:///definitely-missing-cover.png") {
                 error("invalid local path should not trigger remote fetch")
+            }
+        }
+
+        assertNotNull(expected)
+        assertContentEquals(expected, actual)
+    }
+
+    @Test
+    fun `oversized local artwork falls back without reading the file into memory`() {
+        val oversizedArtwork = Files.createTempFile("lynmusic-oversized-artwork", ".jpg")
+        RandomAccessFile(oversizedArtwork.toFile(), "rw").use { file ->
+            file.setLength(MAX_ARTWORK_PAYLOAD_BYTES.toLong() + 1L)
+        }
+        val expected = runBlocking { loadBundledDefaultCoverBytes() }
+
+        val actual = runBlocking {
+            loadJvmArtworkBytes(oversizedArtwork.toUri().toString()) {
+                error("local artwork should not trigger remote fetch")
             }
         }
 

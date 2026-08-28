@@ -11,7 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import top.iwesley.lyn.music.core.model.ArtworkCacheStore
 import top.iwesley.lyn.music.core.model.PlaybackSnapshot
-import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
+import top.iwesley.lyn.music.core.model.isArtworkSourceDimensionsAllowed
 import top.iwesley.lyn.music.core.model.resolveArtworkDecodeSampleSize
 import top.iwesley.lyn.music.core.model.resolveArtworkSquareCropRect
 import top.iwesley.lyn.music.core.model.trackArtworkCacheKey
@@ -60,14 +61,14 @@ private fun decodeAndroidNotificationArtworkBitmap(
     targetSizePx: Int = NOTIFICATION_ARTWORK_SIZE_PX,
 ): Bitmap? {
     if (targetSizePx <= 0) return null
-    val path = File(target).absolutePath
-    val payload = runCatching { File(path).readBytes() }.getOrNull() ?: return null
-    if (!isCompleteArtworkPayload(payload)) return null
+    val artworkFile = File(target)
+    if (!isArtworkPayloadSizeAllowed(artworkFile.length())) return null
+    val path = artworkFile.absolutePath
     val bounds = BitmapFactory.Options().apply {
         inJustDecodeBounds = true
     }
     BitmapFactory.decodeFile(path, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    if (!isArtworkSourceDimensionsAllowed(bounds.outWidth, bounds.outHeight)) return null
     val source = BitmapFactory.decodeFile(
         path,
         BitmapFactory.Options().apply {

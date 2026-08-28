@@ -65,7 +65,9 @@ import androidx.tv.material3.Button as TvButton
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.OutlinedButton as TvOutlinedButton
+import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
+import coil3.request.ImageRequest
 import kotlin.math.roundToInt
 import top.iwesley.lyn.music.LeonMusicAppComponent
 import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
@@ -434,7 +436,16 @@ private fun TvMediaDetailArtworkImage(
             else -> resolveArtworkCacheTarget(normalized)
         }
     }
-    val painter = rememberAsyncImagePainter(model = model)
+    val context = LocalPlatformContext.current
+    val imageRequest = remember(context, model) {
+        model?.let { target ->
+            ImageRequest.Builder(context)
+                .data(target)
+                .size(TV_LIST_ARTWORK_MAX_DECODE_SIZE_PX)
+                .build()
+        }
+    }
+    val painter = rememberAsyncImagePainter(model = imageRequest)
     Box(
         modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,

@@ -100,7 +100,9 @@ import androidx.tv.material3.NavigationDrawerItem
 import androidx.tv.material3.NavigationDrawerItemDefaults
 import androidx.tv.material3.NavigationDrawerScope
 import androidx.tv.material3.rememberDrawerState
+import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
+import coil3.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import top.iwesley.lyn.music.BadgedIcon
@@ -125,6 +127,7 @@ import top.iwesley.lyn.music.feature.player.PlayerState
 import top.iwesley.lyn.music.feature.playlists.PlaylistsState
 import top.iwesley.lyn.music.tv.TvMediaDetailActivity
 import top.iwesley.lyn.music.tv.TvMediaDetailSource
+import top.iwesley.lyn.music.tv.TV_LIST_ARTWORK_MAX_DECODE_SIZE_PX
 import top.iwesley.lyn.music.tv.TvPlayerActivity
 import top.iwesley.lyn.music.tv.TvSettingsActivity
 
@@ -1939,7 +1942,16 @@ private fun TvArtworkImage(
             else -> resolveArtworkCacheTarget(normalized)
         }
     }
-    val painter = rememberAsyncImagePainter(model = model)
+    val context = LocalPlatformContext.current
+    val imageRequest = remember(context, model) {
+        model?.let { target ->
+            ImageRequest.Builder(context)
+                .data(target)
+                .size(TV_LIST_ARTWORK_MAX_DECODE_SIZE_PX)
+                .build()
+        }
+    }
+    val painter = rememberAsyncImagePainter(model = imageRequest)
     Box(
         modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,

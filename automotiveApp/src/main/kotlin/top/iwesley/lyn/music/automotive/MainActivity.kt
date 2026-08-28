@@ -110,6 +110,7 @@ class MainActivity : ComponentActivity() {
                     App(
                         component = appComponent,
                         startupAutoOpenGate = startupAutoOpenViewModel.gate,
+                        artworkMemoryCacheMaxSizeBytes = AUTOMOTIVE_ARTWORK_MEMORY_CACHE_MAX_SIZE_BYTES,
                     )
                 }
             } else {
@@ -235,6 +236,8 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 }
+
+private const val AUTOMOTIVE_ARTWORK_MEMORY_CACHE_MAX_SIZE_BYTES = 16L * 1024L * 1024L
 
 internal class StartupAutoOpenViewModel : ViewModel() {
     val gate = StartupAutoOpenGate()

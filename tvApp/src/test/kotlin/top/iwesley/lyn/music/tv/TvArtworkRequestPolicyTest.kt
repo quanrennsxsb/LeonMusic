@@ -25,8 +25,10 @@ class TvArtworkRequestPolicyTest {
 
     @Test
     fun requestSizesAndMissingIdentityAreExplicit() {
+        assertEquals(256, TV_LIST_ARTWORK_MAX_DECODE_SIZE_PX)
         assertEquals(1280, TV_PLAYER_ARTWORK_MAX_DECODE_SIZE_PX)
         assertEquals(512, TV_LYRICS_SEARCH_ARTWORK_MAX_DECODE_SIZE_PX)
+        assertEquals(16L * 1024L * 1024L, TV_IMAGE_MEMORY_CACHE_MAX_SIZE_BYTES)
         assertNull(tvPlayerArtworkMemoryCacheKey("  ", 0L))
         assertNull(tvLyricsSearchArtworkMemoryCacheKey(null))
     }

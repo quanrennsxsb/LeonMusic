@@ -1,7 +1,9 @@
 package top.iwesley.lyn.music.tv
 
+internal const val TV_LIST_ARTWORK_MAX_DECODE_SIZE_PX = 256
 internal const val TV_PLAYER_ARTWORK_MAX_DECODE_SIZE_PX = 1280
 internal const val TV_LYRICS_SEARCH_ARTWORK_MAX_DECODE_SIZE_PX = 512
+internal const val TV_IMAGE_MEMORY_CACHE_MAX_SIZE_BYTES = 16L * 1024L * 1024L
 
 internal data class TvPlayerArtworkRequestToken(
     val cacheKey: String?,

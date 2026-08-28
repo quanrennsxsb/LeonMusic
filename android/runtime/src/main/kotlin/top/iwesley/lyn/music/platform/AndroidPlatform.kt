@@ -28,6 +28,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DecoderReuseEvaluation
@@ -35,6 +36,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.mediacodec.MediaCodecDecoderException
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.room.Room
 import io.ktor.client.HttpClient
@@ -2706,6 +2708,7 @@ internal class AndroidPlaybackGateway(
     private var pendingLoadPlayWhenReady = false
     private var lastPublishedPlaybackLogKey: String? = null
     private var prematureRemoteEndRecoveryCount = 0
+    private var mediaCodecDecoderFailureRecoveryCount = 0
     private val navidromePlaybackCacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val navidromePlaybackCacheDownloads = mutableSetOf<String>()
     @Volatile
@@ -2798,14 +2801,17 @@ internal class AndroidPlaybackGateway(
                 .joinToString(" -> ")
         }
 
-        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-            pendingLoadPlayWhenReady = false
+        override fun onPlayerError(error: PlaybackException) {
             logger.error(PLAYBACK_LOG_TAG, error) {
                 "play-failed locator=${currentRemoteLabel.orEmpty()}"
             }
             if (tryApplyRemoteAddressFallback(error)) {
                 return
             }
+            if (tryRecoverMediaCodecDecoderFailure(error)) {
+                return
+            }
+            pendingLoadPlayWhenReady = false
             val detail = error.messageChain()
             mutableState.update {
                 it.copy(
@@ -2879,6 +2885,45 @@ internal class AndroidPlaybackGateway(
         player.seekTo(retryPositionMs)
         player.playWhenReady = retryPlayWhenReady
         mutableState.update { it.copy(errorMessage = null) }
+        return true
+    }
+
+    private fun tryRecoverMediaCodecDecoderFailure(error: PlaybackException): Boolean {
+        val hasMediaCodecDecoderCause = generateSequence(error as Throwable?) { it.cause }
+            .any { throwable -> throwable is MediaCodecDecoderException }
+        if (
+            !shouldRetryAndroidMediaCodecDecoderFailure(
+                errorCode = error.errorCode,
+                hasMediaCodecDecoderCause = hasMediaCodecDecoderCause,
+                recoveryCount = mediaCodecDecoderFailureRecoveryCount,
+            )
+        ) {
+            return false
+        }
+        val retryPlayWhenReady = player.playWhenReady || pendingLoadPlayWhenReady
+        if (!retryPlayWhenReady || player.currentMediaItem == null) return false
+        val retryPositionMs = maxOf(
+            player.currentPosition.takeIf { it >= 0L } ?: 0L,
+            mutableState.value.positionMs.coerceAtLeast(0L),
+        )
+        mediaCodecDecoderFailureRecoveryCount += 1
+        pendingLoadPlayWhenReady = true
+        logger.warn(PLAYBACK_LOG_TAG) {
+            "media-codec-decoder-recover attempt=$mediaCodecDecoderFailureRecoveryCount " +
+                "positionMs=$retryPositionMs ${playerDebugSummary()}"
+        }
+        player.prepare()
+        player.seekTo(retryPositionMs)
+        player.playWhenReady = true
+        mutableState.update {
+            it.copy(
+                isPlaying = true,
+                positionMs = retryPositionMs,
+                canSeek = player.isCurrentMediaItemSeekable,
+                errorMessage = null,
+            )
+        }
+        ensureProgressTicker()
         return true
     }
 
@@ -3106,6 +3151,7 @@ internal class AndroidPlaybackGateway(
             currentRemotePlaybackFallback = null
             currentNavidromePlaybackCacheKey = null
             prematureRemoteEndRecoveryCount = 0
+            mediaCodecDecoderFailureRecoveryCount = 0
             mutableState.update {
                 it.resetForTrackSwitch(
                     volumeOverride = player.volume,
@@ -3406,12 +3452,19 @@ internal class AndroidPlaybackGateway(
 
     @UnstableApi
     private fun createPlayer(useAndroidExtensionDecoder: Boolean): ExoPlayer {
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setEnableDecoderFallback(true)
+            .setExtensionRendererMode(
+                if (useAndroidExtensionDecoder) {
+                    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+                } else {
+                    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+                },
+            )
         return if (useAndroidExtensionDecoder) {
             ExoPlayer.Builder(
                 context,
-                DefaultRenderersFactory(context).setExtensionRendererMode(
-                    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
-                ),
+                renderersFactory,
             ).setLoadControl(createAndroidPlaybackLoadControl()).build()
             //如果引入LibflacAudioRenderer需要使用下面的方式，因为它会在 extractor 阶段就用 libFLAC 解码，输出的 sampleMimeType 直接是 audio/raw。
             //webdav 和 samba 也要改 ，这里对他们不生效，他们自定义了 media source
@@ -3431,9 +3484,7 @@ internal class AndroidPlaybackGateway(
             //ExoPlayer.Builder(context).build()
             ExoPlayer.Builder(
                 context,
-                DefaultRenderersFactory(context).setExtensionRendererMode(
-                    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
-                ),
+                renderersFactory,
             ).setLoadControl(createAndroidPlaybackLoadControl()).build()
         }
     }
@@ -4039,12 +4090,23 @@ private const val ANDROID_PREMATURE_REMOTE_END_MAX_RECOVERIES = 2
 private const val ANDROID_PREMATURE_REMOTE_END_MIN_DURATION_MILLIS = 60_000L
 private const val ANDROID_PREMATURE_REMOTE_END_MIN_POSITION_MILLIS = 15_000L
 private const val ANDROID_PREMATURE_REMOTE_END_REMAINING_TOLERANCE_MILLIS = 15_000L
+private const val ANDROID_MEDIA_CODEC_DECODER_FAILURE_MAX_RECOVERIES = 1
 private const val ANDROID_KEYSTORE = "AndroidKeyStore"
 private const val CREDENTIAL_KEY_ALIAS = "lynmusic.credentials.master"
 private const val AES_TRANSFORMATION = "AES/GCM/NoPadding"
 private const val ENCRYPTED_VALUE_PREFIX = "enc:v1:"
 private const val GCM_IV_LENGTH_BYTES = 12
 private const val GCM_TAG_LENGTH_BITS = 128
+
+internal fun shouldRetryAndroidMediaCodecDecoderFailure(
+    errorCode: Int,
+    hasMediaCodecDecoderCause: Boolean,
+    recoveryCount: Int,
+): Boolean {
+    return errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED &&
+        hasMediaCodecDecoderCause &&
+        recoveryCount < ANDROID_MEDIA_CODEC_DECODER_FAILURE_MAX_RECOVERIES
+}
 
 private fun scanFailureReason(throwable: Throwable): String {
     return throwable.message?.takeIf { it.isNotBlank() }

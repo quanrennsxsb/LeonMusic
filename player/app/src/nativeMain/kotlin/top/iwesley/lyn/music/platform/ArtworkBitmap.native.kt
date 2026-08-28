@@ -5,20 +5,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import kotlinx.cinterop.BetaInteropApi
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.darwin.Darwin
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.HttpHeaders
+import io.ktor.http.isSuccess
+import io.ktor.utils.io.readAvailable
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.alloc
 import kotlinx.cinterop.convert
-import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
-import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
-import kotlinx.cinterop.value
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Bitmap
@@ -26,13 +28,10 @@ import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import platform.Foundation.NSCachesDirectory
-import platform.Foundation.NSData
-import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.Foundation.NSUUID
 import platform.Foundation.NSUserDomainMask
-import platform.Foundation.create
 import platform.posix.SEEK_END
 import platform.posix.SEEK_SET
 import platform.posix.closedir
@@ -42,7 +41,6 @@ import platform.posix.fread
 import platform.posix.fseek
 import platform.posix.ftell
 import platform.posix.fwrite
-import platform.posix.memcpy
 import platform.posix.opendir
 import platform.posix.readdir
 import platform.posix.remove
@@ -51,7 +49,10 @@ import top.iwesley.lyn.music.core.model.NavidromeLocatorRuntime
 import top.iwesley.lyn.music.core.model.RemotePlaybackUrlCandidate
 import top.iwesley.lyn.music.core.model.inferArtworkFileExtension
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
+import top.iwesley.lyn.music.core.model.isArtworkSourceDimensionsAllowed
 import top.iwesley.lyn.music.core.model.normalizedArtworkCacheLocator
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimitSuspending
 import top.iwesley.lyn.music.core.model.resolveArtworkCacheTargets
 import top.iwesley.lyn.music.core.model.stableArtworkCacheHash
 import top.iwesley.lyn.music.domain.readRemotePlaybackUrlCandidateWithFallback
@@ -97,7 +98,12 @@ private suspend fun loadNativeArtworkBitmap(locator: String?, cacheRemote: Boole
 }
 
 internal fun decodeNativeArtworkImageBitmap(bytes: ByteArray, maxDecodeSizePx: Int): ImageBitmap? {
+    if (!isArtworkPayloadSizeAllowed(bytes.size.toLong())) return null
     val image = Image.makeFromEncoded(bytes)
+    if (!isArtworkSourceDimensionsAllowed(image.width, image.height)) {
+        image.close()
+        return null
+    }
     val maxSize = maxDecodeSizePx.coerceAtLeast(1)
     val currentMax = maxOf(image.width, image.height)
     if (currentMax <= maxSize) return image.toComposeImageBitmap()
@@ -193,21 +199,22 @@ private fun findNativeArtworkCachePath(directory: String, cachePrefix: String): 
     }
 }
 
-@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private suspend fun readRemoteBytes(target: String): ByteArray {
-    val url = NSURL.URLWithString(target) ?: error("远端封面 URL 无效。")
-    return memScoped {
-        val error = alloc<ObjCObjectVar<NSError?>>()
-        NSData.create(contentsOfURL = url, options = 0u, error = error.ptr)?.toByteArray()
-            ?: throw IllegalStateException(nativeRemoteReadErrorMessage(error.value))
-    }
-}
-
-private fun nativeRemoteReadErrorMessage(error: NSError?): String {
-    return if (error == null) {
-        "远端封面读取失败。"
-    } else {
-        "NSError domain=${error.domain} code=${error.code} description=${error.localizedDescription}"
+    return nativeArtworkHttpClient.prepareGet(target).execute { response ->
+        if (!response.status.isSuccess()) {
+            error("远端封面读取失败，HTTP ${response.status.value}。")
+        }
+        response.headers[HttpHeaders.ContentLength]
+            ?.toLongOrNull()
+            ?.let { contentLength ->
+                if (!isArtworkPayloadSizeAllowed(contentLength)) {
+                    error("远端封面大小超出限制。")
+                }
+            }
+        val channel = response.bodyAsChannel()
+        readArtworkPayloadWithLimitSuspending { buffer ->
+            channel.readAvailable(buffer)
+        } ?: error("远端封面大小超出限制。")
     }
 }
 
@@ -216,19 +223,20 @@ private fun readLocalBytes(path: String): ByteArray? {
     val file = fopen(path, "rb") ?: return null
     return try {
         if (fseek(file, 0, SEEK_END) != 0) return null
-        val byteCount = ftell(file).toInt()
-        if (byteCount < 0) return null
+        val byteCount = ftell(file)
+        if (!isArtworkPayloadSizeAllowed(byteCount)) return null
         if (fseek(file, 0, SEEK_SET) != 0) return null
-        val byteArray = ByteArray(byteCount)
+        val byteCountInt = byteCount.toInt()
+        val byteArray = ByteArray(byteCountInt)
         val bytesRead = byteArray.usePinned { pinned ->
             fread(
                 pinned.addressOf(0).reinterpret<ByteVar>(),
                 1.convert(),
-                byteCount.convert(),
+                byteCountInt.convert(),
                 file,
             ).toInt()
         }
-        if (bytesRead != byteCount) return null
+        if (bytesRead != byteCountInt) return null
         byteArray
     } finally {
         fclose(file)
@@ -302,14 +310,12 @@ private fun writeNativeArtworkCacheFileAtomically(
 }
 
 private const val NATIVE_ARTWORK_CACHE_TEMP_MARKER = ".tmp-"
+private const val NATIVE_ARTWORK_NETWORK_TIMEOUT_MILLIS = 15_000L
 
-@OptIn(ExperimentalForeignApi::class)
-private fun NSData.toByteArray(): ByteArray {
-    val byteCount = length.toInt()
-    if (byteCount <= 0) return ByteArray(0)
-    val byteArray = ByteArray(byteCount)
-    byteArray.usePinned { pinned ->
-        memcpy(pinned.addressOf(0), bytes, length)
+private val nativeArtworkHttpClient = HttpClient(Darwin) {
+    install(HttpTimeout) {
+        requestTimeoutMillis = NATIVE_ARTWORK_NETWORK_TIMEOUT_MILLIS
+        connectTimeoutMillis = NATIVE_ARTWORK_NETWORK_TIMEOUT_MILLIS
+        socketTimeoutMillis = NATIVE_ARTWORK_NETWORK_TIMEOUT_MILLIS
     }
-    return byteArray
 }

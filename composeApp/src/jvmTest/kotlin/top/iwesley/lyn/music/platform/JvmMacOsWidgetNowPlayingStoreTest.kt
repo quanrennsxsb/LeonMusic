@@ -1,6 +1,10 @@
 package top.iwesley.lyn.music.platform
 
 import java.nio.file.Files
+import java.nio.file.Path
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -162,5 +166,74 @@ class JvmMacOsWidgetNowPlayingStoreTest {
 
         val snapshot = Files.readString(groupContainer.resolve("LeonMusicWidget/now-playing.json")).trim()
         assertEquals("""{"hasTrack":false,"updatedAtEpochSeconds":789}""", snapshot)
+    }
+
+    @Test
+    fun `clear waits for an in-flight lyrics update and remains the final snapshot`() {
+        val groupContainer = Files.createTempDirectory("leonmusic-widget-group-")
+        val lyricsWriteStarted = CountDownLatch(1)
+        val allowLyricsWrite = CountDownLatch(1)
+        val clearWriteStarted = CountDownLatch(1)
+        val snapshotWriter: (Path, String) -> Unit = { file, json ->
+            when {
+                json.contains(""""lyricsText":"Latest lyric"""") -> {
+                    lyricsWriteStarted.countDown()
+                    check(allowLyricsWrite.await(5, TimeUnit.SECONDS))
+                }
+
+                json.contains(""""hasTrack":false""") -> clearWriteStarted.countDown()
+            }
+            Files.createDirectories(requireNotNull(file.parent))
+            Files.writeString(file, json)
+        }
+        val lyricsStore = JvmMacOsWidgetNowPlayingStore(
+            groupContainerDirectory = groupContainer,
+            clockEpochSeconds = { 1_000L },
+            snapshotWriter = snapshotWriter,
+        )
+        val clearStore = JvmMacOsWidgetNowPlayingStore(
+            groupContainerDirectory = groupContainer,
+            clockEpochSeconds = { 2_000L },
+            snapshotWriter = snapshotWriter,
+        )
+        lyricsStore.update(
+            JvmNowPlayingPayload(
+                title = "Song",
+                artist = null,
+                album = null,
+                artworkPath = null,
+                durationMs = 1_000L,
+                positionMs = 0L,
+                isPlaying = true,
+                canSeek = true,
+                hasNext = false,
+                hasPrevious = false,
+            ),
+        )
+
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val lyricsWrite = executor.submit { lyricsStore.updateLyrics("Latest lyric") }
+            assertTrue(lyricsWriteStarted.await(5, TimeUnit.SECONDS))
+
+            val clearStarted = CountDownLatch(1)
+            val clear = executor.submit {
+                clearStarted.countDown()
+                clearStore.clear()
+            }
+            assertTrue(clearStarted.await(5, TimeUnit.SECONDS))
+            assertFalse(clearWriteStarted.await(250, TimeUnit.MILLISECONDS))
+
+            allowLyricsWrite.countDown()
+            lyricsWrite.get(5, TimeUnit.SECONDS)
+            clear.get(5, TimeUnit.SECONDS)
+        } finally {
+            allowLyricsWrite.countDown()
+            executor.shutdownNow()
+            executor.awaitTermination(5, TimeUnit.SECONDS)
+        }
+
+        val snapshot = Files.readString(groupContainer.resolve("LeonMusicWidget/now-playing.json")).trim()
+        assertEquals("""{"hasTrack":false,"updatedAtEpochSeconds":2000}""", snapshot)
     }
 }

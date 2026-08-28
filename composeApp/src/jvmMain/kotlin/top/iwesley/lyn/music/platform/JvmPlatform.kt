@@ -123,6 +123,7 @@ import top.iwesley.lyn.music.core.model.AutoOpenPlayerOnStartupPreferencesStore
 import top.iwesley.lyn.music.core.model.defaultCustomThemeTokens
 import top.iwesley.lyn.music.core.model.defaultThemeTextPalettePreferences
 import top.iwesley.lyn.music.core.model.inferArtworkFileExtension
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
 import top.iwesley.lyn.music.core.model.normalizeAutoPlayOnStartupDelaySeconds
 import top.iwesley.lyn.music.core.model.normalizePlaybackVolume
@@ -159,6 +160,7 @@ import top.iwesley.lyn.music.core.model.parseEmbySongLocator
 import top.iwesley.lyn.music.core.model.parseSubsonicCompatibleCoverLocator
 import top.iwesley.lyn.music.core.model.parseSubsonicCompatibleSongLocator
 import top.iwesley.lyn.music.core.model.parseWebDavLocator
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimit
 import top.iwesley.lyn.music.core.model.sameNameLyricsRelativePath
 import top.iwesley.lyn.music.core.model.unsupportedAudioImportFailure
 import top.iwesley.lyn.music.core.model.warn
@@ -1207,7 +1209,8 @@ private class JvmAudioTagEditorPlatformService : AudioTagEditorPlatformService {
                     rawExtensions = listOf("jpg", "jpeg", "png", "webp", "bmp", "gif"),
                 ),
             ) ?: return@runCatching null
-            Files.readAllBytes(path)
+            readJvmArtworkEditorFileBytes(path)
+                ?: error("封面文件超过大小限制。")
         }
     }
 
@@ -1235,9 +1238,11 @@ private class JvmAudioTagEditorPlatformService : AudioTagEditorPlatformService {
                         )
 
                     target.startsWith("file://", ignoreCase = true) ->
-                        Files.readAllBytes(Path.of(URI(target)))
+                        readJvmArtworkEditorFileBytes(Path.of(URI(target)))
+                            ?: error("封面文件超过大小限制。")
 
-                    else -> Files.readAllBytes(Path.of(target))
+                    else -> readJvmArtworkEditorFileBytes(Path.of(target))
+                        ?: error("封面文件超过大小限制。")
                 }
             }
         }
@@ -1248,11 +1253,23 @@ private class JvmAudioTagEditorPlatformService : AudioTagEditorPlatformService {
     ): ByteArray? {
         val resolved = readRemotePlaybackUrlCandidateWithFallback(
             candidates = targets,
-            read = { target -> URL(target.value).openStream().use { it.readBytes() } },
+            read = { target ->
+                URL(target.value).openStream().use { input ->
+                    readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+                        ?: error("远程封面超过大小限制。")
+                }
+            },
             isValidPayload = ::isCompleteArtworkPayload,
         ) ?: return null
         NavidromeLocatorRuntime.markResolvedUrlSuccess(resolved.first)
         return resolved.second
+    }
+
+    private fun readJvmArtworkEditorFileBytes(path: Path): ByteArray? {
+        if (!isArtworkPayloadSizeAllowed(Files.size(path))) return null
+        return Files.newInputStream(path).use { input ->
+            readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+        }
     }
 }
 

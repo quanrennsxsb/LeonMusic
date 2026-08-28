@@ -8,6 +8,7 @@ import java.awt.datatransfer.Transferable
 import java.io.ByteArrayInputStream
 import java.net.URI
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import javax.imageio.ImageIO
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,8 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Image
 import top.iwesley.lyn.music.core.model.ArtworkCacheStore
 import top.iwesley.lyn.music.core.model.DEFAULT_LYRICS_SHARE_FONT_PREVIEW_TEXT
+import top.iwesley.lyn.music.core.model.isArtworkPayloadSizeAllowed
+import top.iwesley.lyn.music.core.model.isArtworkSourceDimensionsAllowed
 import top.iwesley.lyn.music.core.model.isCompleteArtworkPayload
 import top.iwesley.lyn.music.core.model.LyricsShareFontLibraryPlatformService
 import top.iwesley.lyn.music.core.model.LyricsShareFontKind
@@ -28,6 +31,7 @@ import top.iwesley.lyn.music.core.model.normalizedArtworkCacheLocator
 import top.iwesley.lyn.music.core.model.parseEmbyCoverLocator
 import top.iwesley.lyn.music.core.model.parseSubsonicCompatibleCoverLocator
 import top.iwesley.lyn.music.core.model.resolveArtworkCacheTarget
+import top.iwesley.lyn.music.core.model.readArtworkPayloadWithLimit
 
 class JvmLyricsSharePlatformService(
     private val fontLibraryPlatformService: LyricsShareFontLibraryPlatformService =
@@ -89,7 +93,7 @@ class JvmLyricsSharePlatformService(
     private suspend fun loadArtworkImage(locator: String?, artworkCacheKey: String?): Image? {
         val artworkBytes = loadLyricsShareArtworkBytes(locator, artworkCacheKey)
             ?: loadBundledDefaultCoverBytes()
-        return artworkBytes?.let(Image::makeFromEncoded)
+        return artworkBytes?.let(::decodeJvmLyricsShareArtworkImage)
     }
 
     private suspend fun loadLyricsShareArtworkBytes(locator: String?, artworkCacheKey: String?): ByteArray? {
@@ -118,12 +122,32 @@ private suspend fun readJvmLyricsShareArtworkTargetBytes(target: String): ByteAr
     return runCatching {
         when {
             target.startsWith("http://", ignoreCase = true) || target.startsWith("https://", ignoreCase = true) ->
-                URI(target).toURL().openStream().use { it.readBytes() }
+                URI(target).toURL().openStream().use { input ->
+                    readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+                }
 
-            target.startsWith("file://", ignoreCase = true) -> Files.readAllBytes(Paths.get(URI(target)))
-            else -> Files.readAllBytes(Paths.get(target))
+            target.startsWith("file://", ignoreCase = true) -> readJvmLyricsShareArtworkFileBytes(Paths.get(URI(target)))
+            else -> readJvmLyricsShareArtworkFileBytes(Paths.get(target))
         }
     }.getOrNull()?.takeIf(::isCompleteArtworkPayload)
+}
+
+private fun readJvmLyricsShareArtworkFileBytes(path: Path): ByteArray? {
+    if (!isArtworkPayloadSizeAllowed(Files.size(path))) return null
+    return Files.newInputStream(path).use { input ->
+        readArtworkPayloadWithLimit { buffer -> input.read(buffer) }
+    }
+}
+
+private fun decodeJvmLyricsShareArtworkImage(bytes: ByteArray): Image? {
+    if (!isArtworkPayloadSizeAllowed(bytes.size.toLong())) return null
+    val image = Image.makeFromEncoded(bytes)
+    return if (isArtworkSourceDimensionsAllowed(image.width, image.height)) {
+        image
+    } else {
+        image.close()
+        null
+    }
 }
 
 private fun shouldCacheLyricsShareArtwork(normalizedLocator: String): Boolean {
