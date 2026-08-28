@@ -61,6 +61,33 @@ class NavidromeEngineTest {
         assertNull(probe.totalTrackCount)
         assertFalse(probe.supportsOnlineLibraryPaging)
     }
+
+    @Test
+    fun `quick scan requests start scan without full scan parameter`() = runTest {
+        val client = RecordingNavidromeHttpClient()
+
+        requestNavidromeQuickScan(
+            draft = navidromeDraft(),
+            httpClient = client,
+        )
+
+        assertTrue(client.lastRequestUrl.contains("/rest/startScan"))
+        assertFalse(client.lastRequestUrl.contains("fullScan"))
+    }
+}
+
+private class RecordingNavidromeHttpClient : LyricsHttpClient {
+    var lastRequestUrl: String = ""
+
+    override suspend fun request(request: LyricsRequest): Result<LyricsHttpResponse> {
+        lastRequestUrl = request.url
+        return Result.success(
+            LyricsHttpResponse(
+                statusCode = 200,
+                body = """{"subsonic-response":{"status":"ok"}}""",
+            ),
+        )
+    }
 }
 
 private class ProbeNavidromeHttpClient(

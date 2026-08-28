@@ -28,13 +28,13 @@ import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
@@ -177,7 +177,7 @@ internal fun mobileLibraryHubTabLabel(tab: AppTab): String {
         AppTab.Library -> "曲库"
         AppTab.Favorites -> "喜欢"
         AppTab.Playlists -> "歌单"
-        AppTab.My -> "我的"
+        AppTab.My -> "发现"
         AppTab.Tags -> "音乐标签"
         AppTab.Sources -> "来源"
         AppTab.Settings -> "设置"
@@ -369,7 +369,7 @@ internal fun MobileShell(
                             icon = {
                                 Icon(
                                     imageVector = when (tab) {
-                                        AppTab.My -> Icons.Rounded.Person
+                                        AppTab.My -> Icons.Rounded.Explore
                                         else -> Icons.Rounded.LibraryMusic
                                     },
                                     contentDescription = label,
@@ -717,7 +717,7 @@ private fun DesktopNav(
     ) {
         desktopNavigationTabs(platform).forEach { tab ->
             val icon = when (tab) {
-                AppTab.My -> Icons.Rounded.Person
+                AppTab.My -> Icons.Rounded.Explore
                 AppTab.Library -> Icons.Rounded.LibraryMusic
                 AppTab.Favorites -> Icons.Rounded.FavoriteBorder
                 AppTab.Playlists -> Icons.AutoMirrored.Rounded.List

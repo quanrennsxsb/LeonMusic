@@ -40,7 +40,7 @@ class EmbyEngineTest {
             assertEquals(RequestMethod.POST, request.method)
             assertEquals("https://emby.example.com/base/Users/AuthenticateByName", request.url)
             assertEquals("application/json", request.headers["Content-Type"])
-            assertTrue(request.headers["X-Emby-Authorization"].orEmpty().contains("Client=\"LynMusic\""))
+            assertTrue(request.headers["X-Emby-Authorization"].orEmpty().contains("Client=\"LeonMusic\""))
             assertTrue(request.headers["X-Emby-Authorization"].orEmpty().contains("DeviceId=\"device-1\""))
             assertEquals("""{"Username":"demo","Pw":"secret"}""", request.body)
             assertEquals(IMPORT_SOURCE_REQUEST_TIMEOUT_MILLIS, request.timeoutMillis)

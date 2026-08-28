@@ -887,6 +887,30 @@ suspend fun testNavidromeConnection(
     )
 }
 
+/** 请求 Navidrome 按服务器默认策略快速扫描媒体库。 */
+suspend fun requestNavidromeQuickScan(
+    draft: NavidromeSourceDraft,
+    httpClient: LyricsHttpClient,
+    logger: DiagnosticLogger = NoopDiagnosticLogger,
+    timeoutMillis: Long? = null,
+) {
+    val source = NavidromeResolvedSource(
+        baseUrl = normalizeNavidromeBaseUrl(draft.baseUrl),
+        username = draft.username,
+        password = draft.password,
+        authMode = SubsonicAuthMode.PASSWORD,
+        sourceType = ImportSourceType.NAVIDROME,
+    )
+    // 不传 fullScan，使用 Navidrome 的默认快速扫描。
+    requestNavidromeJson(
+        httpClient = httpClient,
+        source = source,
+        endpoint = "startScan",
+        logger = logger,
+        timeoutMillis = timeoutMillis,
+    )
+}
+
 suspend fun testSubsonicConnection(
     draft: SubsonicSourceDraft,
     httpClient: LyricsHttpClient,

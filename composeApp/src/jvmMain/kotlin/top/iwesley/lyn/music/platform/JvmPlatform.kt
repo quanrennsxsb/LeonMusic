@@ -184,6 +184,7 @@ import top.iwesley.lyn.music.domain.probeNavidromeLibrary
 import top.iwesley.lyn.music.domain.scanSubsonicLibrary
 import top.iwesley.lyn.music.domain.testEmbyConnection
 import top.iwesley.lyn.music.domain.testNavidromeConnection
+import top.iwesley.lyn.music.domain.requestNavidromeQuickScan
 import top.iwesley.lyn.music.domain.testSubsonicConnection
 import top.iwesley.lyn.music.feature.library.LibrarySourceFilter
 import top.iwesley.lyn.music.feature.library.LibrarySourceFilterPreferencesStore
@@ -1608,6 +1609,15 @@ private class JvmImportSourceGateway(
 
     override suspend fun testNavidrome(draft: NavidromeSourceDraft) {
         testNavidromeConnection(
+            draft = draft,
+            httpClient = navidromeHttpClient,
+            logger = logger,
+            timeoutMillis = IMPORT_SOURCE_REQUEST_TIMEOUT_MILLIS,
+        )
+    }
+
+    override suspend fun requestNavidromeQuickScan(draft: NavidromeSourceDraft) {
+        requestNavidromeQuickScan(
             draft = draft,
             httpClient = navidromeHttpClient,
             logger = logger,

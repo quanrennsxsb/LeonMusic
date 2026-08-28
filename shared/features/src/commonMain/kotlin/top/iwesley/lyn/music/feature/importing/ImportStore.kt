@@ -51,10 +51,17 @@ data class PendingLargeNavidromeImport(
     val remoteTrackCount: Int,
 )
 
+data class NavidromeServerScanFeedback(
+    val sourceId: String,
+    val message: String,
+    val isError: Boolean,
+)
+
 sealed interface ImportScanOperation {
     data object CreateLocalFolder : ImportScanOperation
     data class CreateRemote(val type: ImportSourceType) : ImportScanOperation
     data class RescanSource(val sourceId: String) : ImportScanOperation
+    data class RequestNavidromeQuickScan(val sourceId: String) : ImportScanOperation
     data class ReauthorizeLocalFolder(val sourceId: String) : ImportScanOperation
     data class UpdateRemote(val sourceId: String) : ImportScanOperation
 }
@@ -96,6 +103,7 @@ data class ImportState(
     val scanProgress: ImportScanProgress? = null,
     val latestScanSummariesBySourceId: Map<String, ImportScanSummary> = emptyMap(),
     val pendingLargeNavidromeImport: PendingLargeNavidromeImport? = null,
+    val navidromeServerScanFeedback: NavidromeServerScanFeedback? = null,
     val message: String? = null,
     val testMessage: String? = null,
 )
@@ -125,6 +133,7 @@ sealed interface ImportIntent {
     data object SaveRemoteSource : ImportIntent
     data object SyncAllSources : ImportIntent
     data class RescanSource(val sourceId: String) : ImportIntent
+    data class RequestNavidromeQuickScan(val sourceId: String) : ImportIntent
     data class ReauthorizeLocalFolder(val sourceId: String) : ImportIntent
     data class ToggleSourceEnabled(val sourceId: String, val enabled: Boolean) : ImportIntent
     data class DeleteSource(val sourceId: String) : ImportIntent
@@ -688,6 +697,41 @@ class ImportStore(
             ImportIntent.SyncAllSources -> syncAllSources()
 
             is ImportIntent.RescanSource -> rescanSourceWithLargeNavidromeCheck(intent.sourceId)
+
+            is ImportIntent.RequestNavidromeQuickScan -> {
+                updateState { current ->
+                    current.copy(navidromeServerScanFeedback = null)
+                }
+                runImport(ImportScanOperation.RequestNavidromeQuickScan(intent.sourceId)) {
+                    repository.requestNavidromeQuickScan(intent.sourceId)
+                        .onSuccess {
+                            val message = "Navidrome 已接受快速扫描请求。"
+                            updateState { current ->
+                                current.copy(
+                                    navidromeServerScanFeedback = NavidromeServerScanFeedback(
+                                        sourceId = intent.sourceId,
+                                        message = message,
+                                        isError = false,
+                                    ),
+                                )
+                            }
+                            setMessage(message)
+                        }
+                        .onFailure { throwable ->
+                            val message = "请求 Navidrome 快速扫描失败: ${throwable.message.orEmpty()}"
+                            updateState { current ->
+                                current.copy(
+                                    navidromeServerScanFeedback = NavidromeServerScanFeedback(
+                                        sourceId = intent.sourceId,
+                                        message = message,
+                                        isError = true,
+                                    ),
+                                )
+                            }
+                            setMessage(message)
+                        }
+                }
+            }
 
             is ImportIntent.ReauthorizeLocalFolder -> {
                 runScanningImport(ImportScanOperation.ReauthorizeLocalFolder(intent.sourceId)) { progressSink ->

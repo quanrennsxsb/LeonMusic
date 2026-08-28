@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MusicNote
@@ -439,8 +440,8 @@ private fun NavigationDrawerScope.TvNavigationRail(
         }
         TvDestinationItem(
             destination = TvMainDestination.My,
-            label = "我的",
-            icon = Icons.Rounded.Person,
+            label = "发现",
+            icon = Icons.Rounded.Explore,
             selected = selectedDestination == TvMainDestination.My,
             focusRequester = myFocusRequester,
             onClick = onDestinationSelected,
@@ -660,7 +661,7 @@ private fun TvMyScreen(
     ) {
         item {
             TvSectionHeader(
-                title = "我的",
+                title = "发现",
                 subtitle = "最近播放和每日推荐",
                 action = null,
             )

@@ -323,6 +323,9 @@ interface ImportSourceRepository {
     ): Result<ImportScanSummary> {
         return updateNavidromeSource(sourceId, draft, keepExistingCredentialWhenBlankPassword)
     }
+    suspend fun requestNavidromeQuickScan(sourceId: String): Result<Unit> {
+        return Result.failure(UnsupportedOperationException("Navidrome server scanning is not supported."))
+    }
     suspend fun testSubsonicSource(draft: SubsonicSourceDraft): Result<Unit> {
         return Result.failure(UnsupportedOperationException("Subsonic import is not supported."))
     }
@@ -1437,6 +1440,31 @@ class RoomImportSourceRepository(
 
     override suspend fun rescanSource(sourceId: String): Result<ImportScanSummary?> {
         return rescanSource(sourceId, ImportScanProgressSink.NoOp)
+    }
+
+    override suspend fun requestNavidromeQuickScan(sourceId: String): Result<Unit> {
+        return runCatching {
+            val source = requireRemoteSource(sourceId, ImportSourceType.NAVIDROME)
+            if (!source.enabled) error("来源已禁用，请先启用。")
+            val password = source.credentialKey?.let { secureCredentialStore.get(it) }.orEmpty()
+            if (password.isBlank()) error("Navidrome 来源缺少有效密码。")
+            val draft = NavidromeSourceDraft(
+                label = source.label,
+                baseUrl = source.rootReference,
+                wanBaseUrl = source.wanRootReference.orEmpty(),
+                username = source.username.orEmpty(),
+                password = password,
+            )
+            addressSelector.withAddressFallback(
+                sourceId = source.id,
+                sourceType = ImportSourceType.NAVIDROME,
+                lanBaseUrl = draft.baseUrl,
+                wanBaseUrl = draft.wanBaseUrl,
+                normalizeBaseUrl = ::normalizeNavidromeBaseUrl,
+            ) { candidate ->
+                gateway.requestNavidromeQuickScan(draft.copy(baseUrl = candidate.value))
+            }
+        }
     }
 
     override suspend fun rescanSource(

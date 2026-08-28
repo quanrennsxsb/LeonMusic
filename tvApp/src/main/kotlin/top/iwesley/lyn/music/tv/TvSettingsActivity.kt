@@ -142,6 +142,7 @@ import top.iwesley.lyn.music.feature.settings.CustomThemeColorRole
 import top.iwesley.lyn.music.feature.importing.ImportIntent
 import top.iwesley.lyn.music.feature.importing.ImportScanOperation
 import top.iwesley.lyn.music.feature.importing.ImportState
+import top.iwesley.lyn.music.feature.importing.NavidromeServerScanFeedback
 import top.iwesley.lyn.music.feature.importing.RemoteSourceEditorState
 import top.iwesley.lyn.music.feature.importing.formatImportScanSummary
 import top.iwesley.lyn.music.feature.settings.AppUpdateUiStatus
@@ -485,6 +486,7 @@ private fun TvSourcesSettingsPane(
     modifier: Modifier = Modifier,
 ) {
     var pendingDelete by remember { mutableStateOf<SourceWithStatus?>(null) }
+    var pendingNavidromeQuickScan by remember { mutableStateOf<SourceWithStatus?>(null) }
     val listState = rememberLazyListState()
     val showPageTestMessage = state.testMessage != null &&
         state.creatingSourceType == null &&
@@ -502,19 +504,25 @@ private fun TvSourcesSettingsPane(
             if (showPageTestMessage) {
                 add(listOf("sources:test-message:clear"))
             }
-            addSourceFocusRows(state.capabilities).forEach(::add)
             state.sources.forEach { sourceWithStatus ->
                 val source = sourceWithStatus.source
-                val sourceRow = buildList {
+                val primaryActions = buildList {
                     add("sources:${source.id}:rescan")
+                    if (source.enabled && source.type == ImportSourceType.NAVIDROME) {
+                        add("sources:${source.id}:refresh-server")
+                    }
                     add("sources:${source.id}:toggle")
+                }
+                val secondaryActions = buildList {
                     if (source.type != ImportSourceType.LOCAL_FOLDER) {
                         add("sources:${source.id}:edit")
                     }
                     add("sources:${source.id}:delete")
                 }
-                add(sourceRow)
+                add(primaryActions)
+                add(secondaryActions)
             }
+            addSourceFocusRows(state.capabilities).forEach(::add)
         }
     }
     val sourcesFallbackFocusKey = "sources:fallback"
@@ -551,6 +559,31 @@ private fun TvSourcesSettingsPane(
             },
             dismissButton = {
                 TextButton(onClick = { pendingDelete = null }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+    pendingNavidromeQuickScan?.let { sourceWithStatus ->
+        val source = sourceWithStatus.source
+        AlertDialog(
+            onDismissRequest = { pendingNavidromeQuickScan = null },
+            title = { Text("刷新服务器曲库") },
+            text = {
+                Text(
+                    "确认让“${source.label.ifBlank { "Navidrome" }}”执行快速扫描吗？仅检查新增或变更的音乐文件，且需要服务器管理员账号。",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingNavidromeQuickScan = null
+                        onIntent(ImportIntent.RequestNavidromeQuickScan(source.id))
+                    },
+                ) { Text("开始扫描") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingNavidromeQuickScan = null }) {
                     Text("取消")
                 }
             },
@@ -611,12 +644,11 @@ private fun TvSourcesSettingsPane(
             }
         }
         item {
-            TvAddSourcePanel(
-                capabilities = state.capabilities,
-                state = state,
-                onIntent = onIntent,
-                pickLocalFolder = pickLocalFolder,
-                focusChain = focusChain,
+            Text(
+                text = "已连接来源",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
             )
         }
         if (state.sources.isEmpty()) {
@@ -633,11 +665,24 @@ private fun TvSourcesSettingsPane(
                     latestSummary = state.latestScanSummariesBySourceId[sourceWithStatus.source.id],
                     working = state.isWorking,
                     activeScanOperation = state.activeScanOperation,
+                    navidromeServerScanFeedback = state.navidromeServerScanFeedback?.takeIf {
+                        it.sourceId == sourceWithStatus.source.id
+                    },
                     onIntent = onIntent,
                     onDelete = { pendingDelete = sourceWithStatus },
+                    onRequestNavidromeQuickScan = { pendingNavidromeQuickScan = sourceWithStatus },
                     focusChain = focusChain,
                 )
             }
+        }
+        item {
+            TvAddSourcePanel(
+                capabilities = state.capabilities,
+                state = state,
+                onIntent = onIntent,
+                pickLocalFolder = pickLocalFolder,
+                focusChain = focusChain,
+            )
         }
     }
 }
@@ -1349,12 +1394,16 @@ private fun TvSourceCard(
     latestSummary: top.iwesley.lyn.music.core.model.ImportScanSummary?,
     working: Boolean,
     activeScanOperation: ImportScanOperation?,
+    navidromeServerScanFeedback: NavidromeServerScanFeedback?,
     onIntent: (ImportIntent) -> Unit,
     onDelete: () -> Unit,
+    onRequestNavidromeQuickScan: () -> Unit,
     focusChain: TvSettingsFocusChain,
 ) {
     val source = sourceWithStatus.source
     val busy = activeScanOperation?.sourceIdOrNull() == source.id || (working && activeScanOperation == null)
+    val isRequestingNavidromeServerScan =
+        activeScanOperation == ImportScanOperation.RequestNavidromeQuickScan(source.id)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1402,6 +1451,32 @@ private fun TvSourceCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
+        when {
+            isRequestingNavidromeServerScan -> {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text(
+                        "正在向 Navidrome 请求快速扫描…",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            navidromeServerScanFeedback != null -> {
+                Text(
+                    navidromeServerScanFeedback.message,
+                    color = if (navidromeServerScanFeedback.isError) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1416,6 +1491,18 @@ private fun TvSourceCard(
                 Spacer(Modifier.width(6.dp))
                 Text("重扫", color = contentColor)
             }
+            if (source.enabled && source.type == ImportSourceType.NAVIDROME) {
+                TvSettingsActionButton(
+                    onClick = onRequestNavidromeQuickScan,
+                    enabled = !working,
+                    focusKey = "sources:${source.id}:refresh-server",
+                    focusChain = focusChain,
+                ) { contentColor ->
+                    Icon(Icons.Rounded.Cloud, contentDescription = null, tint = contentColor)
+                    Spacer(Modifier.width(6.dp))
+                    Text("刷新", color = contentColor)
+                }
+            }
             TvSettingsActionButton(
                 onClick = { onIntent(ImportIntent.ToggleSourceEnabled(source.id, !source.enabled)) },
                 enabled = !working,
@@ -1424,6 +1511,11 @@ private fun TvSourceCard(
             ) { contentColor ->
                 Text(if (source.enabled) "停用" else "启用", color = contentColor)
             }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             if (source.type != ImportSourceType.LOCAL_FOLDER) {
                 TvSettingsActionButton(
                     onClick = { onIntent(ImportIntent.OpenRemoteSourceEditor(source.id)) },
@@ -3013,6 +3105,7 @@ private enum class TvSettingsSection(
 private fun ImportScanOperation.sourceIdOrNull(): String? {
     return when (this) {
         is ImportScanOperation.RescanSource -> sourceId
+        is ImportScanOperation.RequestNavidromeQuickScan -> sourceId
         is ImportScanOperation.ReauthorizeLocalFolder -> sourceId
         is ImportScanOperation.UpdateRemote -> sourceId
         ImportScanOperation.CreateLocalFolder,

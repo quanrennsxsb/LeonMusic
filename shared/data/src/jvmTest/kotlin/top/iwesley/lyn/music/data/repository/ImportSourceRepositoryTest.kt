@@ -1113,6 +1113,35 @@ class ImportSourceRepositoryTest {
     }
 
     @Test
+    fun `requesting Navidrome quick scan uses stored credential and does not rescan local index`() = runTest {
+        val database = createImportTestDatabase()
+        database.importSourceDao().upsert(
+            navidromeSourceEntity(
+                id = "nav-1",
+                rootReference = "https://music.example.com",
+                username = "admin",
+                credentialKey = "credential-nav-1",
+            ),
+        )
+        val gateway = RecordingImportSourceGateway()
+        val repository = createRepository(
+            database = database,
+            gateway = gateway,
+            secureCredentialStore = ImportTestSecureCredentialStore(
+                mutableMapOf("credential-nav-1" to "secret"),
+            ),
+        )
+
+        repository.requestNavidromeQuickScan("nav-1").getOrThrow()
+
+        assertEquals(1, gateway.navidromeQuickScanCount)
+        assertEquals("https://music.example.com", gateway.lastNavidromeQuickScanDraft?.baseUrl)
+        assertEquals("admin", gateway.lastNavidromeQuickScanDraft?.username)
+        assertEquals("secret", gateway.lastNavidromeQuickScanDraft?.password)
+        assertEquals(0, gateway.navidromeScanCount)
+    }
+
+    @Test
     fun `rescanning navidrome source returns scan summary with failures`() = runTest {
         val database = createImportTestDatabase()
         val gateway = RecordingImportSourceGateway(
@@ -1639,8 +1668,10 @@ private class RecordingImportSourceGateway(
     var navidromeProgressAwareScanCount: Int = 0
     var navidromeStreamingScanCount: Int = 0
     var navidromeProbeCount: Int = 0
+    var navidromeQuickScanCount: Int = 0
     var lastNavidromeScanDraft: NavidromeSourceDraft? = null
     var lastNavidromeProbeDraft: NavidromeSourceDraft? = null
+    var lastNavidromeQuickScanDraft: NavidromeSourceDraft? = null
     var subsonicTestCount: Int = 0
     var subsonicScanCount: Int = 0
     var lastSubsonicScanDraft: SubsonicSourceDraft? = null
@@ -1683,6 +1714,11 @@ private class RecordingImportSourceGateway(
 
     override suspend fun testNavidrome(draft: NavidromeSourceDraft) {
         navidromeTestCount += 1
+    }
+
+    override suspend fun requestNavidromeQuickScan(draft: NavidromeSourceDraft) {
+        navidromeQuickScanCount += 1
+        lastNavidromeQuickScanDraft = draft
     }
 
     override suspend fun probeNavidrome(draft: NavidromeSourceDraft): NavidromeLibraryProbe {

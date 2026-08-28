@@ -579,6 +579,9 @@ interface ImportSourceGateway {
         return scanWebDav(draft, sourceId)
     }
     suspend fun testNavidrome(draft: NavidromeSourceDraft)
+    suspend fun requestNavidromeQuickScan(draft: NavidromeSourceDraft) {
+        throw UnsupportedOperationException("Navidrome server scanning is not supported on this platform.")
+    }
     suspend fun probeNavidrome(draft: NavidromeSourceDraft): NavidromeLibraryProbe {
         testNavidrome(draft)
         return NavidromeLibraryProbe(totalTrackCount = null)

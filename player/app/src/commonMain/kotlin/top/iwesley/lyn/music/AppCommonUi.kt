@@ -1299,6 +1299,8 @@ internal fun SourceCard(
     onToggleEnabled: () -> Unit,
     onRescan: (() -> Unit)?,
     isRescanning: Boolean,
+    onRequestServerScan: (() -> Unit)? = null,
+    isRequestingServerScan: Boolean = false,
     onDelete: () -> Unit,
     scanSummary: ImportScanSummary? = null,
     scanProgress: ImportScanProgress? = null,
@@ -1362,6 +1364,8 @@ internal fun SourceCard(
                     onToggleEnabled = onToggleEnabled,
                     onRescan = onRescan,
                     isRescanning = isRescanning,
+                    onRequestServerScan = onRequestServerScan,
+                    isRequestingServerScan = isRequestingServerScan,
                     onDelete = onDelete,
                     compact = compact,
                 )
@@ -1495,6 +1499,8 @@ private fun SourceCardActions(
     onToggleEnabled: () -> Unit,
     onRescan: (() -> Unit)?,
     isRescanning: Boolean,
+    onRequestServerScan: (() -> Unit)?,
+    isRequestingServerScan: Boolean,
     onDelete: () -> Unit,
     compact: Boolean,
 ) {
@@ -1507,6 +1513,8 @@ private fun SourceCardActions(
             onToggleEnabled = onToggleEnabled,
             onRescan = onRescan,
             isRescanning = isRescanning,
+            onRequestServerScan = onRequestServerScan,
+            isRequestingServerScan = isRequestingServerScan,
             onDelete = onDelete,
         )
     } else {
@@ -1518,6 +1526,8 @@ private fun SourceCardActions(
             onToggleEnabled = onToggleEnabled,
             onRescan = onRescan,
             isRescanning = isRescanning,
+            onRequestServerScan = onRequestServerScan,
+            isRequestingServerScan = isRequestingServerScan,
             onDelete = onDelete,
         )
     }
@@ -1532,6 +1542,8 @@ private fun SourceCardTextActions(
     onToggleEnabled: () -> Unit,
     onRescan: (() -> Unit)?,
     isRescanning: Boolean,
+    onRequestServerScan: (() -> Unit)?,
+    isRequestingServerScan: Boolean,
     onDelete: () -> Unit,
 ) {
     Column(
@@ -1556,6 +1568,19 @@ private fun SourceCardTextActions(
                         }
                         Spacer(Modifier.width(6.dp))
                         Text(if (isRescanning) "重扫中" else "重扫")
+                    }
+                }
+            }
+            if (sourceEnabled) {
+                onRequestServerScan?.let { requestServerScan ->
+                    OutlinedButton(onClick = requestServerScan, enabled = enabled) {
+                        if (isRequestingServerScan) {
+                            ButtonLoadingIndicator()
+                        } else {
+                            Icon(Icons.Rounded.CloudSync, null)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (isRequestingServerScan) "刷新中" else "刷新")
                     }
                 }
             }
@@ -1588,13 +1613,15 @@ private fun SourceCardCompactActions(
     onToggleEnabled: () -> Unit,
     onRescan: (() -> Unit)?,
     isRescanning: Boolean,
+    onRequestServerScan: (() -> Unit)?,
+    isRequestingServerScan: Boolean,
     onDelete: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        if (onEdit != null || (sourceEnabled && onRescan != null)) {
+        if (onEdit != null || (sourceEnabled && (onRescan != null || onRequestServerScan != null))) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 onEdit?.let { edit ->
                     SourceCardIconActionButton(
@@ -1612,6 +1639,17 @@ private fun SourceCardCompactActions(
                             imageVector = Icons.Rounded.Sync,
                             contentDescription = if (isRescanning) "重扫中" else "重扫来源",
                             loading = isRescanning,
+                        )
+                    }
+                }
+                if (sourceEnabled) {
+                    onRequestServerScan?.let { requestServerScan ->
+                        SourceCardIconActionButton(
+                            onClick = requestServerScan,
+                            enabled = enabled,
+                            imageVector = Icons.Rounded.CloudSync,
+                            contentDescription = if (isRequestingServerScan) "正在请求服务器刷新" else "刷新服务器曲库",
+                            loading = isRequestingServerScan,
                         )
                     }
                 }

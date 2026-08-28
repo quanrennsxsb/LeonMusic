@@ -2851,14 +2851,26 @@ internal fun SourcesTab(
 ) {
     val shellColors = mainShellColors
     var pendingDeleteSourceId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingNavidromeQuickScanSourceId by rememberSaveable { mutableStateOf<String?>(null) }
     var failureDetailSummary by remember { mutableStateOf<ImportScanSummary?>(null) }
     var showLocalFolderPickerModeDialog by rememberSaveable { mutableStateOf(false) }
     val pendingDeleteSource = remember(state.sources, pendingDeleteSourceId) {
         state.sources.firstOrNull { it.source.id == pendingDeleteSourceId }
     }
+    val pendingNavidromeQuickScanSource = remember(state.sources, pendingNavidromeQuickScanSourceId) {
+        state.sources.firstOrNull { source ->
+            source.source.id == pendingNavidromeQuickScanSourceId &&
+                source.source.type == ImportSourceType.NAVIDROME
+        }
+    }
     LaunchedEffect(pendingDeleteSourceId, pendingDeleteSource) {
         if (pendingDeleteSourceId != null && pendingDeleteSource == null) {
             pendingDeleteSourceId = null
+        }
+    }
+    LaunchedEffect(pendingNavidromeQuickScanSourceId, pendingNavidromeQuickScanSource) {
+        if (pendingNavidromeQuickScanSourceId != null && pendingNavidromeQuickScanSource == null) {
+            pendingNavidromeQuickScanSourceId = null
         }
     }
     val importFieldColors = OutlinedTextFieldDefaults.colors(
@@ -2949,6 +2961,34 @@ internal fun SourcesTab(
             },
         )
     }
+    pendingNavidromeQuickScanSource?.let { source ->
+        AlertDialog(
+            onDismissRequest = { pendingNavidromeQuickScanSourceId = null },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = shellColors.cardContainer,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            title = { Text("刷新 Navidrome 服务器曲库") },
+            text = {
+                Text("将请求“${source.source.label}”执行快速扫描，只检查新增或变更的音乐文件。该操作需要 Navidrome 管理员账号。")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingNavidromeQuickScanSourceId = null
+                        onImportIntent(ImportIntent.RequestNavidromeQuickScan(source.source.id))
+                    },
+                    enabled = !state.isWorking,
+                ) { Text("开始扫描") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { pendingNavidromeQuickScanSourceId = null },
+                    enabled = !state.isWorking,
+                ) { Text("取消") }
+            },
+        )
+    }
     failureDetailSummary?.let { summary ->
         AlertDialog(
             onDismissRequest = { failureDetailSummary = null },
@@ -3013,6 +3053,62 @@ internal fun SourcesTab(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            SectionTitle(title = "已连接来源", subtitle = "可编辑连接参数、测试连通性，并按需启用或禁用来源。")
+            if (state.sources.isEmpty()) {
+                EmptyStateCard(
+                    title = "还没有任何来源",
+                    body = "添加来源后，歌曲会在曲库里汇总显示，播放页会根据当前歌曲去匹配歌词。",
+                )
+            } else {
+                state.sources.forEach { source ->
+                    SourceCard(
+                        state = source,
+                        enabled = !state.isWorking,
+                        compact = compact,
+                        onEdit = if (source.source.type == ImportSourceType.LOCAL_FOLDER) {
+                            if (state.capabilities.supportsLocalFolderReauthorization) {
+                                { onImportIntent(ImportIntent.ReauthorizeLocalFolder(source.source.id)) }
+                            } else {
+                                null
+                            }
+                        } else {
+                            { onImportIntent(ImportIntent.OpenRemoteSourceEditor(source.source.id)) }
+                        },
+                        editLabel = if (source.source.type == ImportSourceType.LOCAL_FOLDER) "重新授权" else "编辑",
+                        onToggleEnabled = {
+                            onImportIntent(
+                                ImportIntent.ToggleSourceEnabled(
+                                    sourceId = source.source.id,
+                                    enabled = !source.source.enabled,
+                                ),
+                            )
+                        },
+                        onRescan = if (source.source.enabled) {
+                            { onImportIntent(ImportIntent.RescanSource(source.source.id)) }
+                        } else {
+                            null
+                        },
+                        isRescanning = activeScanOperation == ImportScanOperation.RescanSource(source.source.id),
+                        onRequestServerScan = if (
+                            source.source.enabled && source.source.type == ImportSourceType.NAVIDROME
+                        ) {
+                            { pendingNavidromeQuickScanSourceId = source.source.id }
+                        } else {
+                            null
+                        },
+                        isRequestingServerScan =
+                            activeScanOperation == ImportScanOperation.RequestNavidromeQuickScan(source.source.id),
+                        onDelete = { pendingDeleteSourceId = source.source.id },
+                        scanSummary = state.latestScanSummariesBySourceId[source.source.id],
+                        scanProgress = state.scanProgress?.takeIf {
+                            (activeScanOperation == ImportScanOperation.RescanSource(source.source.id) ||
+                                activeScanOperation == ImportScanOperation.ReauthorizeLocalFolder(source.source.id)) &&
+                                it.sourceId == source.source.id
+                        },
+                        onShowScanFailures = { failureDetailSummary = it },
+                    )
+                }
+            }
             SectionTitle(
                 title = "导入来源",
                 subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
@@ -3487,53 +3583,6 @@ internal fun SourcesTab(
                 }
             }
         }
-            SectionTitle(title = "已连接来源", subtitle = "可编辑连接参数、测试连通性，并按需启用或禁用来源。")
-            if (state.sources.isEmpty()) {
-                EmptyStateCard(
-                    title = "还没有任何来源",
-                    body = "添加来源后，歌曲会在曲库里汇总显示，播放页会根据当前歌曲去匹配歌词。",
-                )
-            } else {
-                state.sources.forEach { source ->
-                    SourceCard(
-                        state = source,
-                        enabled = !state.isWorking,
-                        compact = compact,
-                        onEdit = if (source.source.type == ImportSourceType.LOCAL_FOLDER) {
-                            if (state.capabilities.supportsLocalFolderReauthorization) {
-                                { onImportIntent(ImportIntent.ReauthorizeLocalFolder(source.source.id)) }
-                            } else {
-                                null
-                            }
-                        } else {
-                            { onImportIntent(ImportIntent.OpenRemoteSourceEditor(source.source.id)) }
-                        },
-                        editLabel = if (source.source.type == ImportSourceType.LOCAL_FOLDER) "重新授权" else "编辑",
-                        onToggleEnabled = {
-                            onImportIntent(
-                                ImportIntent.ToggleSourceEnabled(
-                                    sourceId = source.source.id,
-                                    enabled = !source.source.enabled,
-                                ),
-                            )
-                        },
-                        onRescan = if (source.source.enabled) {
-                            { onImportIntent(ImportIntent.RescanSource(source.source.id)) }
-                        } else {
-                            null
-                        },
-                        isRescanning = activeScanOperation == ImportScanOperation.RescanSource(source.source.id),
-                        onDelete = { pendingDeleteSourceId = source.source.id },
-                        scanSummary = state.latestScanSummariesBySourceId[source.source.id],
-                        scanProgress = state.scanProgress?.takeIf {
-                            (activeScanOperation == ImportScanOperation.RescanSource(source.source.id) ||
-                                activeScanOperation == ImportScanOperation.ReauthorizeLocalFolder(source.source.id)) &&
-                                it.sourceId == source.source.id
-                        },
-                        onShowScanFailures = { failureDetailSummary = it },
-                    )
-                }
-            }
         }
         if (state.editingSource == null) {
             state.testMessage?.let { message ->
