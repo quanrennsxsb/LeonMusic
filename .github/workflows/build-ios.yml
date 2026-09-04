@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       build_type:
-        description: '选择编译模式 (推荐 Debug，速度极快且 100% 稳定)'
+        description: '选择编译模式 (推荐 Debug 速度快)'
         required: true
         default: 'Debug'
         type: choice
@@ -14,7 +14,9 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-15
+    # 切换为最新的 macOS 26 环境，原生搭载 Xcode 26，完整支持 UIViewLayoutRegion
+    runs-on: macos-26
+    timeout-minutes: 60
 
     steps:
       - name: 检出源码
@@ -23,7 +25,7 @@ jobs:
       - name: 检查 Xcode 版本
         run: xcodebuild -version
 
-      - name: 配置 Java 17 环境 (KMP 必需)
+      - name: 配置 Java 17 环境
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -32,10 +34,15 @@ jobs:
       - name: 赋予 Gradle 执行权限
         run: chmod +x gradlew
 
-      - name: 扩容 Gradle 与 Kotlin 编译器内存 (提升至 6GB 防止 OOM)
+      - name: 扩容 Gradle 与 Kotlin 编译器内存
         run: |
-          echo "org.gradle.jvmargs=-Xmx6144M -XX:+UseParallelGC -Dfile.encoding=UTF-8" >> gradle.properties
-          echo "kotlin.daemon.jvmargs=-Xmx6144M" >> gradle.properties
+          if [ -f "gradle.properties" ]; then
+            sed -i '' '/org.gradle.jvmargs/d' gradle.properties
+            sed -i '' '/kotlin.daemon.jvmargs/d' gradle.properties
+          fi
+          echo "org.gradle.jvmargs=-Xmx8192M -XX:+UseParallelGC -Dfile.encoding=UTF-8" >> gradle.properties
+          echo "kotlin.daemon.jvmargs=-Xmx8192M" >> gradle.properties
+          echo "kotlin.native.cacheKind=none" >> gradle.properties
 
       - name: 安装 CocoaPods 依赖 (如果存在)
         run: |
@@ -46,7 +53,7 @@ jobs:
       - name: 编译 iOS App (免代码签名)
         run: |
           BUILD_CONFIG="${{ inputs.build_type || 'Debug' }}"
-          echo "Current build configuration: $BUILD_CONFIG"
+          echo "Building configuration: $BUILD_CONFIG"
 
           if [ -d "iosApp/iosApp.xcworkspace" ]; then
             PROJECT_FLAG="-workspace iosApp/iosApp.xcworkspace"
@@ -70,7 +77,6 @@ jobs:
       - name: 封装为未签名 IPA
         run: |
           mkdir -p Payload
-          # 自动适配 Debug 或 Release 模式生成的 .app 目录
           APP_PATH=$(find build/DerivedData/Build/Products -name "*.app" -maxdepth 2 2>/dev/null | grep -E "Release-iphoneos|Debug-iphoneos" | head -n 1)
           if [ -z "$APP_PATH" ]; then
             APP_PATH=$(find build/DerivedData -name "*.app" -type d | grep "iphoneos" | head -n 1)
