@@ -6,7 +6,7 @@ on:
       build_type:
         description: '选择编译模式 (推荐 Debug，速度极快且 100% 稳定)'
         required: true
-        default: 'Release'
+        default: 'Debug'
         type: choice
         options:
           - Debug
